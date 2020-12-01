@@ -7,8 +7,7 @@ import java.util.List;
 public class Main {
 
 	public static void main(String[] args) throws IOException {
-		File input = new File(Main.class.getProtectionDomain().getCodeSource().getLocation().getPath());
-		input = new File(input.getParent(), "input");
+		File input = new File("input").getAbsoluteFile();
 		if (!input.exists()) {
 			System.out.println(input.getPath() + " does not exist!");
 			System.out.println("trying " + input.getPath() + ".txt instead.");
