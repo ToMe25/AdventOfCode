@@ -1,0 +1,10 @@
+# Eclipse
+.metadata/
+.settings/
+bin/
+.classpath
+.project
+.pydevproject
+
+# Input Data
+input
