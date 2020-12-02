@@ -5,7 +5,7 @@ def main():
     input = os.path.join(input, "input")
     if not os.path.exists(input):
         print(input + " does not exist!")
-        print("trying " + input + ".txt instead.")
+        print(f"trying {input}.txt instead.")
         input = os.path.join(os.path.dirname(input), "input.txt")
         if not os.path.exists(input):
             print(input + " does not exist!")

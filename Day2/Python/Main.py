@@ -5,6 +5,7 @@ def main():
     input = os.path.join(input, "input")
     if not os.path.exists(input):
         print(input + " does not exist!")
+        print(f"trying {input}.txt instead.")
         input = os.path.join(os.path.dirname(input), "input.txt")
         if not os.path.exists(input):
             print(input + " does not exist!")
@@ -19,7 +20,7 @@ def main():
         min = int(range[0])
         max = int(range[1])
         occurrences = inputs[2].count(inputs[1][0])
-        if occurrences >= min and occurrences <= max:
+        if min <= occurrences <= max:
             correctPwds1 += 1
 
         if (inputs[2][min - 1] == inputs[1][0]) != (inputs[2][max - 1] == inputs[1][0]):
