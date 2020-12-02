@@ -5,6 +5,3 @@ bin/
 .classpath
 .project
 .pydevproject
-
-# Input Data
-input
