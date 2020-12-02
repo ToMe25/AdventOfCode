@@ -22,19 +22,21 @@ public class Main {
 		List<Integer> inputs = new ArrayList<Integer>();
 		boolean Double = false;
 		boolean Triple = false;
-		for(String line:Files.readAllLines(input.toPath())) {
+		for (String line : Files.readAllLines(input.toPath())) {
 			int nr = Integer.parseInt(line.trim());
 			if (!Double && inputs.contains(2020 - nr)) {
 				System.out.println("Found matching two number pair!");
-				System.out.printf("The numbers are %d and %d, and the result is %d.%n", nr, 2020 - nr, nr * (2020 - nr));
+				System.out.printf("The numbers are %d and %d, and the result is %d.%n", nr, 2020 - nr,
+						nr * (2020 - nr));
 				Double = true;
 			}
 
 			if (!Triple) {
-				for (int i:inputs) {
+				for (int i : inputs) {
 					if (inputs.contains(2020 - nr - i)) {
 						System.out.println("Found matching three number pair!");
-						System.out.printf("The numbers are %d, %d, and %d, and the result is %d.%n", nr, i, 2020 - nr - i, nr * i * (2020 - nr - i));
+						System.out.printf("The numbers are %d, %d, and %d, and the result is %d.%n", nr, i,
+								2020 - nr - i, nr * i * (2020 - nr - i));
 						Triple = true;
 						break;
 					}
@@ -49,5 +51,5 @@ public class Main {
 
 		System.err.println("Could not find a matching number pair!");
 	}
-	
+
 }

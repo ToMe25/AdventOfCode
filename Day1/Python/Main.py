@@ -5,17 +5,17 @@ def main():
     input = os.path.join(input, "input")
     if not os.path.exists(input):
         print(input + " does not exist!")
+        print("trying " + input + ".txt instead.")
         input = os.path.join(os.path.dirname(input), "input.txt")
         if not os.path.exists(input):
             print(input + " does not exist!")
             return;
 
-    inputFile = open(input, "r")
-    lines = inputFile.readlines()
+    inputFile = open(input, 'r')
     inputs = []
     double = False
     triple = False
-    for line in lines:
+    for line in inputFile.readlines():
         nr = int(line)
         if not double and 2020 - nr in inputs:
             print("Found matching two number pair!")
