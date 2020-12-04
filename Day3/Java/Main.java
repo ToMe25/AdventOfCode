@@ -21,7 +21,7 @@ public class Main {
 		boolean[][] map = readInput(input);
 		System.out.println("Part one hit " + checkSlope(map, 3, 1) + " trees.");
 
-		byte[][] slopes = { { 1, 1 }, { 3, 1 }, { 5, 1 }, { 7, 1 }, { 1, 2 } };
+		final byte[][] slopes = { { 1, 1 }, { 3, 1 }, { 5, 1 }, { 7, 1 }, { 1, 2 } };
 		long result = 1;
 		for (byte[] slope : slopes) {
 			int hits = checkSlope(map, slope[0], slope[1]);
