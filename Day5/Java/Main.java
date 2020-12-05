@@ -24,8 +24,7 @@ public class Main {
 		for (String line : Files.readAllLines(input.toPath())) {
 			line = line.replaceAll("[FL]", "0").replaceAll("[RB]", "1");
 
-			found.add(Integer.parseInt(line.substring(0, 7), 2) * 8
-					+ Integer.parseInt(line.substring(line.length() - 3), 2));
+			found.add(Integer.parseInt(line, 2));
 		}
 
 		Collections.sort(found);

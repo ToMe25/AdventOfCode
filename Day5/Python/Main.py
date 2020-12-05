@@ -17,7 +17,7 @@ def main():
     for line in inputFile.readlines():
         line = re.sub("[FL]", "0", re.sub("[BR]", "1", line))
 
-        found.append(int(line[:7], 2) * 8 + int(line[-4:], 2))
+        found.append(int(line, 2))
 
     found.sort()
     print(f"Highest found seat id is {found[-1]}.")
