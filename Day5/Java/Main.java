@@ -20,21 +20,16 @@ public class Main {
 			}
 		}
 
-		int highest = 0;
 		List<Integer> found = new ArrayList<>();
 		for (String line : Files.readAllLines(input.toPath())) {
-			int row = Integer.parseInt(line.substring(0, 7).replaceAll("F", "0").replaceAll("B", "1"), 2);
-			int column = Integer.parseInt(line.substring(line.length() - 3).replaceAll("L", "0").replaceAll("R", "1"),
-					2);
-			int seatId = row * 8 + column;
-			found.add(seatId);
-			if (seatId > highest)
-				highest = seatId;
+			line = line.replaceAll("[FL]", "0").replaceAll("[RB]", "1");
+
+			found.add(Integer.parseInt(line.substring(0, 7), 2) * 8
+					+ Integer.parseInt(line.substring(line.length() - 3), 2));
 		}
 
-		System.out.println("Highest found seat id is " + highest + ".");
-
 		Collections.sort(found);
+		System.out.println("Highest found seat id is " + found.get(found.size() - 1) + ".");
 
 		int last = 0;
 		for (int seat : found) {

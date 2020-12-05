@@ -1,4 +1,5 @@
 import os
+import re
 
 def main():
     input = os.path.dirname(os.getcwd())
@@ -12,19 +13,15 @@ def main():
             return;
 
     inputFile = open(input, 'r')
-    highest = 0
     found = []
     for line in inputFile.readlines():
-        row = int(line[:7].replace("F", "0").replace("B", "1"), 2)
-        column = int(line[-4:].replace("L", "0").replace("R", "1"), 2)
-        seatId = row * 8 + column
-        found.append(seatId)
-        if seatId > highest:
-            highest = seatId
+        line = re.sub("[FL]", "0", re.sub("[BR]", "1", line))
 
-    print(f"Highest found seat id is {highest}.")
+        found.append(int(line[:7], 2) * 8 + int(line[-4:], 2))
 
     found.sort()
+    print(f"Highest found seat id is {found[-1]}.")
+
     last = 0
     for seat in found:
         if seat == last + 2:
