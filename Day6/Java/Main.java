@@ -40,12 +40,7 @@ public class Main {
 						groupFoundEvery.addAll(found);
 						first = false;
 					} else {
-						for (byte a : groupFoundAny) {
-							if (!found.contains(a))
-								if(groupFoundEvery.contains(a))
-									System.out.println((char)a);
-								groupFoundEvery.remove(a);
-						}
+						groupFoundEvery.retainAll(found);
 					}
 					found.clear();
 					newline = true;

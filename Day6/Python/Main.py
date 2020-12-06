@@ -34,9 +34,7 @@ def main():
                     for a in found:
                         if not a in groupFoundAny:
                             groupFoundAny.append(a)
-                    for a in groupFoundAny:
-                        if not a in found and a in groupFoundEvery:
-                            groupFoundEvery.remove(a)
+                    groupFoundEvery = list(set(groupFoundEvery) & set(found))
 
                 found.clear()
                 newline = True
