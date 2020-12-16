@@ -42,7 +42,6 @@ public class Main {
 			}
 		}
 
-
 		System.out.println("The 30000000th number is " + lastNumber + ".");
 	}
 }
