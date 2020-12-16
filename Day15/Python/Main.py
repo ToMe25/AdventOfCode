@@ -13,7 +13,7 @@ def main():
 
     inputFile = open(input, 'r')
     lastNumber = 0;
-    lastNumbers = {}
+    lastNumbers = [0]*30000000
     nr = 0
     for number in inputFile.readlines()[0].split(','):
         lastNumber = int(number);
@@ -24,7 +24,7 @@ def main():
 
     while nr < 30000000:
         num = 0
-        if lastNumber in lastNumbers:
+        if lastNumbers[lastNumber] != 0:
             num = nr - lastNumbers[lastNumber]
 
         lastNumbers[lastNumber] = nr

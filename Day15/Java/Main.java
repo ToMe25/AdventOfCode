@@ -1,8 +1,6 @@
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.HashMap;
-import java.util.Map;
 
 public class Main {
 
@@ -20,20 +18,20 @@ public class Main {
 		}
 
 		int lastNumber = 0;
-		Map<Integer, Integer> lastNumbers = new HashMap<>();
+		int[] lastNumbers = new int[30000000];
 		int nr = 0;
 		for (String number : Files.readAllLines(input.toPath()).get(0).split(",")) {
 			lastNumber = Integer.parseInt(number);
 			nr++;
-			lastNumbers.put(lastNumber, nr);
+			lastNumbers[lastNumber] = nr;
 		}
 
 		while (nr < 30000000) {
 			int num = 0;
-			if (lastNumbers.containsKey(lastNumber))
-				num = nr - lastNumbers.get(lastNumber);
+			if (lastNumbers[lastNumber] != 0)
+				num = nr - lastNumbers[lastNumber];
 
-			lastNumbers.put(lastNumber, nr);
+			lastNumbers[lastNumber] = nr;
 			lastNumber = num;
 			nr++;
 
