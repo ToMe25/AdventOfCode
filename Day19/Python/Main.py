@@ -70,6 +70,5 @@ def main():
     print(f"Found {matches} valid part 1 messages.")
     print(f"Found {matches2} valid part 2 messages.")
 
-
 if __name__ == '__main__':
     main()
