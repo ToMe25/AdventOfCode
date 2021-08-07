@@ -2,7 +2,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -56,6 +58,14 @@ public class Main {
 		}
 
 		System.out.println("The part 1 result is " + black + ".");
+
+		int black2 = 0;
+		for (int i = 0; i < 100; i++) {
+			center.check();
+			black2 = Hexagon.updateAll();
+		}
+
+		System.out.println("The part 2 result is " + black2 + ".");
 	}
 
 	private static class Pos {
@@ -108,6 +118,12 @@ public class Main {
 		}
 
 		public boolean toggle() {
+			getOrCreateEast();
+			getOrCreateSouthEast();
+			getOrCreateSouthWest();
+			getOrCreateWest();
+			getOrCreateNorthWest();
+			getOrCreateNorthEast();
 			return black = !black;
 		}
 
@@ -277,6 +293,49 @@ public class Main {
 			if (!northEast.hasSouthWest()) {
 				northEast.setSouthWest(this);
 			}
+		}
+
+		private boolean check() {
+			int blackNeighbors = 0;
+			if (hasEast())
+				blackNeighbors += east.black ? 1 : 0;
+			if (hasSouthEast())
+				blackNeighbors += southEast.black ? 1 : 0;
+			if (hasSouthWest())
+				blackNeighbors += southWest.black ? 1 : 0;
+			if (hasWest())
+				blackNeighbors += west.black ? 1 : 0;
+			if (hasNorthWest())
+				blackNeighbors += northWest.black ? 1 : 0;
+			if (hasNorthEast())
+				blackNeighbors += northEast.black ? 1 : 0;
+
+			if (black) {
+				return blackNeighbors == 0 || blackNeighbors > 2;
+			} else {
+				return blackNeighbors == 2;
+			}
+		}
+
+		public static int updateAll() {
+			List<Hexagon> marked = new ArrayList<>();
+			for (Hexagon hex : COORD_LOOKUP.values()) {
+				if (hex.check()) {
+					marked.add(hex);
+				}
+			}
+
+			for (Hexagon hex : marked) {
+				hex.toggle();
+			}
+
+			int black = 0;
+			for (Hexagon hex : COORD_LOOKUP.values()) {
+				if (hex.black) {
+					black++;
+				}
+			}
+			return black;
 		}
 	}
 }

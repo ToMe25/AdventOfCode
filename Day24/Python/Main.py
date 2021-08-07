@@ -17,6 +17,12 @@ class Hexagon:
         self.setNorthEast(self.coordLookup.get((x + 0.5, y - 1), None))
 
     def toggle(self):
+        self.getOrCreateEast()
+        self.getOrCreateSouthEast()
+        self.getOrCreateSouthWest()
+        self.getOrCreateWest()
+        self.getOrCreateNorthWest()
+        self.getOrCreateNorthEast()
         self.black = not self.black
         return self.black
 
@@ -146,6 +152,48 @@ class Hexagon:
         if not northEast.hasSouthWest():
             northEast.setSouthWest(self)
 
+    def check(self):
+        blackNeightbors = 0
+        if self.hasEast():
+            if self.east.black:
+                blackNeightbors += 1
+        if self.hasSouthEast():
+            if self.southEast.black:
+                blackNeightbors += 1
+        if self.hasSouthWest():
+            if self.southWest.black:
+                blackNeightbors += 1
+        if self.hasWest():
+            if self.west.black:
+                blackNeightbors += 1
+        if self.hasNorthWest():
+            if self.northWest.black:
+                blackNeightbors += 1
+        if self.hasNorthEast():
+            if self.northEast.black:
+                blackNeightbors += 1
+
+        if self.black:
+            return blackNeightbors == 0 or blackNeightbors > 2
+        else:
+            return blackNeightbors == 2
+
+    def updateAll():
+        marked = []
+        for hex in Hexagon.coordLookup.values():
+            if hex.check():
+                marked.append(hex)
+
+        for hex in marked:
+            hex.toggle()
+
+        black = 0
+        for hex in Hexagon.coordLookup.values():
+            if hex.black:
+                black += 1
+
+        return black
+
 def main():
     input = os.path.dirname(os.getcwd())
     input = os.path.join(input, "input")
@@ -188,6 +236,11 @@ def main():
             black -= 1
 
     print(f"Part 1 result is {black}.")
+
+    for _ in range(100):
+        black2 = Hexagon.updateAll()
+
+    print(f"Part 2 result is {black2}.")
 
 if __name__ == '__main__':
     main()
