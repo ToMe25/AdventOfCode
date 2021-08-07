@@ -1,35 +1,14 @@
-import os
-import sys
+import InputReader
 
 
 def main():
-    inf = os.path.dirname(os.getcwd())
-    inf = os.path.join(inf, "input")
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf += ".txt"
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf = os.path.join(os.path.dirname(inf), "input")
-        inf = os.path.join(inf, "Day14.txt")
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print("None of the expected inputs exist!", file=sys.stderr)
-        return
-    else:
-        print(f"Using input file {inf}.")
-
-    inputFile = open(inf, 'r')
     zeroMask = 0
     oneMask = 0
     memory = {}
     floatingZeroMasks = []
     floatingOneMasks = []
     memory2 = {}
-    for line in inputFile.readlines():
+    for line in InputReader.readInputFileLines(14):
         if line[:4] == "mask":
             zeroMask = int(line[7:].replace('X', '1'), 2)
             oneMask = int(line[7:].replace('X', '0'), 2)
@@ -65,8 +44,6 @@ def main():
                 key &= floatingZeroMasks[i]
                 key |= floatingOneMasks[i]
                 memory2[key] = value
-
-    inputFile.close()
 
     values = 0
     for value in memory.values():

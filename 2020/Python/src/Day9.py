@@ -1,33 +1,11 @@
-import os
-import sys
+import InputReader
 
 
 def main():
-    inf = os.path.dirname(os.getcwd())
-    inf = os.path.join(inf, "input")
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf += ".txt"
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf = os.path.join(os.path.dirname(inf), "input")
-        inf = os.path.join(inf, "Day9.txt")
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print("None of the expected inputs exist!", file=sys.stderr)
-        return
-    else:
-        print(f"Using input file {inf}.")
-
-    inputFile = open(inf, 'r')
     i = 0
-    last = []
+    last = InputReader.readInputFileNumbers(9)
     invalid = 0
-    for line in inputFile.readlines():
-        number = int(line[:-1])
+    for number in last:
         if i > 25:
             found = False;
             for n in range(1, 26):
@@ -40,7 +18,7 @@ def main():
             if not found:
                 print(f"Couldn't find number pair for {number}.")
                 invalid = number
-        last.append(number)
+
         i += 1
 
     for nr in range(len(last)):

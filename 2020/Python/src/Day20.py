@@ -1,6 +1,5 @@
-import os
+import InputReader
 import math
-import sys
 
 
 class Tile:
@@ -101,29 +100,10 @@ def countWaves(image, monster):
 
 
 def main():
-    inf = os.path.dirname(os.getcwd())
-    inf = os.path.join(inf, "input")
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf += ".txt"
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf = os.path.join(os.path.dirname(inf), "input")
-        inf = os.path.join(inf, "Day20.txt")
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print("None of the expected inputs exist!", file=sys.stderr)
-        return
-    else:
-        print(f"Using input file {inf}.")
-
-    lines = open(inf, 'r').readlines()
+    lines = InputReader.readInputFileLines(20)
     tiles = {}
     for i in range(0, len(lines), 12):
-        tile = [[lines[i + j + 1][k] == '#' for k in range(len(lines[i + j + 1]) - 1)] for j in range(10)]
+        tile = [[lines[i + j + 1][k] == '#' for k in range(len(lines[i + j + 1]))] for j in range(10)]
         tiles[int(lines[i][5:9])] = Tile(tile)
 
     grid = [[0 for j in range(math.ceil(math.sqrt(len(tiles))))] for i in range(math.ceil(math.sqrt(len(tiles))))]

@@ -1,34 +1,13 @@
-import os
-import sys
+import InputReader
 
 
 def main():
-    inf = os.path.dirname(os.getcwd())
-    inf = os.path.join(inf, "input")
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf += ".txt"
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf = os.path.join(os.path.dirname(inf), "input")
-        inf = os.path.join(inf, "Day4.txt")
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print("None of the expected inputs exist!", file=sys.stderr)
-        return
-    else:
-        print(f"Using input file {inf}.")
-
-    inputFile = open(inf, 'r')
     requiredFields = ["byr", "iyr", "eyr", "hgt", "hcl", "ecl", "pid"];
     validEyeColors = ["amb", "blu", "brn", "gry", "grn", "hzl", "oth"]
     validPassports1 = 0
     validPassports2 = 0
     fields = {}
-    for line in inputFile.readlines():
+    for line in InputReader.readInputFileLines(4):
         line = line.rstrip()
         if len(line) <= 1:
             invalid1 = False

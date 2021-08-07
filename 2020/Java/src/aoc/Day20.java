@@ -1,40 +1,17 @@
 package aoc;
 
 import java.awt.Point;
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Day20 {
+public abstract class Day20 {
 
 	public static void main(String[] args) throws IOException {
-		File input = new File("input").getAbsoluteFile();
-		if (!input.exists() || input.isDirectory()) {
-			System.out.println(input.getPath() + " does not exist!");
-			input = new File(input.getPath() + ".txt");
-			System.out.println("trying " + input.getPath() + " instead.");
-		}
-
-		if (!input.exists() || input.isDirectory()) {
-			System.out.println(input.getPath() + " does not exist!");
-			input = new File(input.getParentFile().getParent(), "input");
-			input = new File(input, "Day20.txt");
-			System.out.println("trying " + input.getPath() + " instead.");
-		}
-
-		if (!input.exists() || input.isDirectory()) {
-			System.err.println("None of the expected inputs exist!");
-			return;
-		} else {
-			System.out.println("Using input file " + input.getPath() + ".");
-		}
-
-		final List<String> lines = Files.readAllLines(input.toPath());
+		final List<String> lines = InputReader.readInputFileLines(20);
 		Map<Integer, Tile> tiles = new HashMap<>();
 		for (int i = 0; i < lines.size(); i += 12) {
 			boolean[][] tile = new boolean[10][10];

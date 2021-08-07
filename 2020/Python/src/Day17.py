@@ -1,36 +1,16 @@
-import os
-import sys
+import InputReader
 
 
 def main():
-    inf = os.path.dirname(os.getcwd())
-    inf = os.path.join(inf, "input")
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf += ".txt"
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf = os.path.join(os.path.dirname(inf), "input")
-        inf = os.path.join(inf, "Day17.txt")
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print("None of the expected inputs exist!", file=sys.stderr)
-        return
-    else:
-        print(f"Using input file {inf}.")
-
     cycles = 6
-    lines = open(inf, 'r').readlines()
-    dimension1 = [[[False] * (cycles * 2 + len(lines[0]) - 1) for _ in range(cycles * 2 + len(lines))] for _ in range(cycles * 2 + 1)]
-    dimension2 = [[[False] * (cycles * 2 + len(lines[0]) - 1) for _ in range(cycles * 2 + len(lines))] for _ in range(cycles * 2 + 1)]
-    dimension3 = [[[[False] * (cycles * 2 + len(lines[0]) - 1) for _ in range(cycles * 2 + len(lines))] for _ in range(cycles * 2 + 1)] for _ in range(cycles * 2 + 1)]
-    dimension4 = [[[[False] * (cycles * 2 + len(lines[0]) - 1) for _ in range(cycles * 2 + len(lines))] for _ in range(cycles * 2 + 1)] for _ in range(cycles * 2 + 1)]
+    lines = InputReader.readInputFileLines(17)
+    dimension1 = [[[False] * (cycles * 2 + len(lines[0])) for _ in range(cycles * 2 + len(lines))] for _ in range(cycles * 2 + 1)]
+    dimension2 = [[[False] * (cycles * 2 + len(lines[0])) for _ in range(cycles * 2 + len(lines))] for _ in range(cycles * 2 + 1)]
+    dimension3 = [[[[False] * (cycles * 2 + len(lines[0])) for _ in range(cycles * 2 + len(lines))] for _ in range(cycles * 2 + 1)] for _ in range(cycles * 2 + 1)]
+    dimension4 = [[[[False] * (cycles * 2 + len(lines[0])) for _ in range(cycles * 2 + len(lines))] for _ in range(cycles * 2 + 1)] for _ in range(cycles * 2 + 1)]
     for y in range(len(lines)):
         line = lines[y]
-        for x in range(len(lines[y]) - 1):
+        for x in range(len(lines[y])):
             dimension1[cycles][cycles + y][cycles + x] = dimension2[cycles][cycles + y][cycles + x] = line[x] == '#'
             dimension3[cycles][cycles][cycles + y][cycles + x] = dimension4[cycles][cycles][cycles + y][cycles + x] = line[x] == '#'
 

@@ -1,36 +1,14 @@
-import os
-import sys
+import InputReader
 import re
 
 
 def main():
-    inf = os.path.dirname(os.getcwd())
-    inf = os.path.join(inf, "input")
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf += ".txt"
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf = os.path.join(os.path.dirname(inf), "input")
-        inf = os.path.join(inf, "Day16.txt")
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print("None of the expected inputs exist!", file=sys.stderr)
-        return
-    else:
-        print(f"Using input file {inf}.")
-
-    inputFile = open(inf, 'r')
-
     ownTicket = []
     tickets = []
     inputValidators = {}
-    validator = lambda i, range: (i >= range[0] and i <= range[1]) or (i >= range[2] and i <= range[3])
+    validator = lambda i, ran: (i >= ran[0] and i <= ran[1]) or (i >= ran[2] and i <= ran[3])
     your = False
-    for line in inputFile.readlines():
+    for line in InputReader.readInputFileLines(16):
         if len(line) < 3:
             continue
 
@@ -42,15 +20,13 @@ def main():
             continue
 
         if not your and len(ownTicket) == 0:
-            inputRange = [int(val) for val in re.split("-| or ", line[line.index(":") + 2:-1])]
+            inputRange = [int(val) for val in re.split("-| or ", line[line.index(":") + 2:])]
             inputValidators[line[:line.index(":")]] = inputRange
         elif your:
-            ownTicket = [int(field) for field in line[:-1].split(",")]
+            ownTicket = [int(field) for field in line.split(",")]
         else:
-            ticket = [int(field) for field in line[:-1].split(",")]
+            ticket = [int(field) for field in line.split(",")]
             tickets.append(ticket)
-
-    inputFile.close()
 
     invalid = 0
     invalidTickets = []

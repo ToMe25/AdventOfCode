@@ -1,29 +1,9 @@
-import os
-import sys
+import InputReader
 import re
 
 
 def main():
-    inf = os.path.dirname(os.getcwd())
-    inf = os.path.join(inf, "input")
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf += ".txt"
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf = os.path.join(os.path.dirname(inf), "input")
-        inf = os.path.join(inf, "Day19.txt")
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print("None of the expected inputs exist!", file=sys.stderr)
-        return
-    else:
-        print(f"Using input file {inf}.")
-
-    lines = open(inf, 'r').readlines()
+    lines = InputReader.readInputFileLines(19)
     rules = [None] * round(len(lines) / 2)
     ruleReplacements = {8: "( 42 )+", 11: "( 42 ){n}( 31 ){n}"}
     pattern = ""
@@ -32,7 +12,7 @@ def main():
     matches2 = 0
     for line in lines:
         if ":" in line:
-            value = line[line.index(":") + 1:-1] + " "
+            value = line[line.index(":") + 1:] + " "
             if "|" in value:
                 value = f"({value})"
 
@@ -68,14 +48,14 @@ def main():
             pattern = pattern.replace(' ', '')
             pattern2 = pattern2.replace(' ', '')
         else:
-            if line[:-1] == "":
+            if line == "":
                 continue
 
-            if re.fullmatch(pattern, line[:-1]) != None:
+            if re.fullmatch(pattern, line) != None:
                 matches += 1
 
             for i in range(1, 10):
-                if re.fullmatch(pattern2.replace('n', str(i)), line[:-1]) != None:
+                if re.fullmatch(pattern2.replace('n', str(i)), line) != None:
                     matches2 += 1
 
     print(f"Found {matches} valid part 1 messages.")

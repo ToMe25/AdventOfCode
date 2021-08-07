@@ -1,30 +1,9 @@
-import os
-import sys
+import InputReader
 
 
 def main():
-    inf = os.path.dirname(os.getcwd())
-    inf = os.path.join(inf, "input")
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf += ".txt"
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf = os.path.join(os.path.dirname(inf), "input")
-        inf = os.path.join(inf, "Day11.txt")
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print("None of the expected inputs exist!", file=sys.stderr)
-        return
-    else:
-        print(f"Using input file {inf}.")
-
-    inputFile = open(inf, 'r')
-    board = [[c for c in line[:-1]] for line in inputFile.readlines()]
-    inputFile.close()
+    lines = InputReader.readInputFileLines(11)
+    board = [[c for c in line] for line in lines]
 
     lastOccupied = -1
     occupied = 0
@@ -50,9 +29,7 @@ def main():
 
     print(f"Found {occupied} occupied seats for part 1.")
 
-    inputFile = open(inf, 'r')
-    board = [[c for c in line[:-1]] for line in inputFile.readlines()]
-    inputFile.close()
+    board = [[c for c in line] for line in lines]
 
     lastOccupied = -1
     occupied = 0

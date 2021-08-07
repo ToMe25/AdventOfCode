@@ -1,40 +1,15 @@
 package aoc;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.List;
 
-public class Day9 {
+public abstract class Day9 {
 
 	public static void main(String[] args) throws IOException {
-		File input = new File("input").getAbsoluteFile();
-		if (!input.exists() || input.isDirectory()) {
-			System.out.println(input.getPath() + " does not exist!");
-			input = new File(input.getPath() + ".txt");
-			System.out.println("trying " + input.getPath() + " instead.");
-		}
-
-		if (!input.exists() || input.isDirectory()) {
-			System.out.println(input.getPath() + " does not exist!");
-			input = new File(input.getParentFile().getParent(), "input");
-			input = new File(input, "Day9.txt");
-			System.out.println("trying " + input.getPath() + " instead.");
-		}
-
-		if (!input.exists() || input.isDirectory()) {
-			System.err.println("None of the expected inputs exist!");
-			return;
-		} else {
-			System.out.println("Using input file " + input.getPath() + ".");
-		}
-
 		int i = 0;
-		List<Long> last = new ArrayList<>();
+		List<Long> last = InputReader.readInputFileNumbers(9);
 		long invalid = 0;
-		for (String line : Files.readAllLines(input.toPath())) {
-			long number = Long.parseLong(line);
+		for (long number : last) {
 			if (i > 25) {
 				boolean found = false;
 				for (int n = 1; n < 26; n++) {
@@ -47,12 +22,12 @@ public class Day9 {
 						}
 					}
 				}
+
 				if (!found) {
 					System.out.println("Couldn't find number pair for " + number + ".");
 					invalid = number;
 				}
 			}
-			last.add(number);
 			i++;
 		}
 

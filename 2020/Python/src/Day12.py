@@ -1,28 +1,7 @@
-import os
-import sys
+import InputReader
 
 
 def main():
-    inf = os.path.dirname(os.getcwd())
-    inf = os.path.join(inf, "input")
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf += ".txt"
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf = os.path.join(os.path.dirname(inf), "input")
-        inf = os.path.join(inf, "Day12.txt")
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print("None of the expected inputs exist!", file=sys.stderr)
-        return
-    else:
-        print(f"Using input file {inf}.")
-
-    inputFile = open(inf, 'r')
     north = 0
     west = 0
     waypointNorth = 1;
@@ -30,8 +9,8 @@ def main():
     shipNorth = 0;
     shipWest = 0;
     rotation = 1
-    for line in inputFile.readlines():
-        value = int(line[1:-1])
+    for line in InputReader.readInputFileLines(12):
+        value = int(line[1:])
         if line[0] == 'N':
             north += value
             waypointNorth += value
@@ -83,7 +62,6 @@ def main():
             shipNorth += waypointNorth * value
             shipWest += waypointWest * value
 
-    inputFile.close()
     print(f"The Manhattan distance from the ferrys starting position to its part 1 position is {abs(north) + abs(west)}.")
 
     print(f"The Manhattan distance from the ferrys starting position to its part 2 position is {abs(shipNorth) + abs(shipWest)}.")

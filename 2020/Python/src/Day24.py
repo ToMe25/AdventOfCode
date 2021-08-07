@@ -1,5 +1,4 @@
-import os
-import sys
+import InputReader
 
 
 class Hexagon:
@@ -199,28 +198,9 @@ class Hexagon:
 
 
 def main():
-    inf = os.path.dirname(os.getcwd())
-    inf = os.path.join(inf, "input")
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf += ".txt"
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf = os.path.join(os.path.dirname(inf), "input")
-        inf = os.path.join(inf, "Day24.txt")
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print("None of the expected inputs exist!", file=sys.stderr)
-        return
-    else:
-        print(f"Using input file {inf}.")
-
     center = Hexagon(0, 0)
     black = 0
-    for line in open(inf, 'r').readlines():
+    for line in InputReader.readInputFileLines(24):
         current = center
         i = 0
         while i < len(line):

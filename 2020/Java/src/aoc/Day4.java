@@ -1,42 +1,20 @@
 package aoc;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-public class Day4 {
+public abstract class Day4 {
 
 	public static void main(String[] args) throws IOException {
-		File input = new File("input").getAbsoluteFile();
-		if (!input.exists() || input.isDirectory()) {
-			System.out.println(input.getPath() + " does not exist!");
-			input = new File(input.getPath() + ".txt");
-			System.out.println("trying " + input.getPath() + " instead.");
-		}
-
-		if (!input.exists() || input.isDirectory()) {
-			System.out.println(input.getPath() + " does not exist!");
-			input = new File(input.getParentFile().getParent(), "input");
-			input = new File(input, "Day4.txt");
-			System.out.println("trying " + input.getPath() + " instead.");
-		}
-
-		if (!input.exists() || input.isDirectory()) {
-			System.err.println("None of the expected inputs exist!");
-			return;
-		} else {
-			System.out.println("Using input file " + input.getPath() + ".");
-		}
 
 		final String[] requiredFields = new String[] { "byr", "iyr", "eyr", "hgt", "hcl", "ecl", "pid" };
 		final String[] validEyeColors = new String[] { "amb", "blu", "brn", "gry", "grn", "hzl", "oth" };
 		int validPassports1 = 0;
 		int validPassports2 = 0;
 		Map<String, String> fields = new HashMap<>();
-		for (String line : Files.readAllLines(input.toPath())) {
+		for (String line : InputReader.readInputFileLines(4)) {
 			if (line.isEmpty()) {
 				boolean invalid1 = false;
 				boolean invalid2 = false;

@@ -1,36 +1,13 @@
 package aoc;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 
-public class Day2 {
+public abstract class Day2 {
 
 	public static void main(String[] args) throws IOException {
-		File input = new File("input").getAbsoluteFile();
-		if (!input.exists() || input.isDirectory()) {
-			System.out.println(input.getPath() + " does not exist!");
-			input = new File(input.getPath() + ".txt");
-			System.out.println("trying " + input.getPath() + " instead.");
-		}
-
-		if (!input.exists() || input.isDirectory()) {
-			System.out.println(input.getPath() + " does not exist!");
-			input = new File(input.getParentFile().getParent(), "input");
-			input = new File(input, "Day2.txt");
-			System.out.println("trying " + input.getPath() + " instead.");
-		}
-
-		if (!input.exists() || input.isDirectory()) {
-			System.err.println("None of the expected inputs exist!");
-			return;
-		} else {
-			System.out.println("Using input file " + input.getPath() + ".");
-		}
-
 		int correctPwds1 = 0;
 		int correctPwds2 = 0;
-		for (String line : Files.readAllLines(input.toPath())) {
+		for (String line : InputReader.readInputFileLines(2)) {
 			String[] inputs = line.split(" ");
 			String[] range = inputs[0].split("-");
 			int min = Integer.parseInt(range[0]);

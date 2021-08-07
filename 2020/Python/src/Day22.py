@@ -1,5 +1,4 @@
-import os
-import sys
+import InputReader
 
 
 def recuresiveGame(player1cards, player2cards):
@@ -36,42 +35,23 @@ def recuresiveGame(player1cards, player2cards):
 
 
 def main():
-    inf = os.path.dirname(os.getcwd())
-    inf = os.path.join(inf, "input")
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf += ".txt"
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf = os.path.join(os.path.dirname(inf), "input")
-        inf = os.path.join(inf, "Day22.txt")
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print("None of the expected inputs exist!", file=sys.stderr)
-        return
-    else:
-        print(f"Using input file {inf}.")
-
     origPlayer1cards = []
     origPlayer2cards = []
     player2 = False
-    for line in open(inf, 'r').readlines():
-        if (len(line[:-1]) == 0):
+    for line in InputReader.readInputFileLines(22):
+        if (len(line) == 0):
             continue
 
         if line.startswith("Player"):
-            if line[-3] == '2':
+            if line[-2] == '2':
                 player2 = True
 
             continue
 
         if player2:
-            origPlayer2cards.append(int(line[:-1]))
+            origPlayer2cards.append(int(line))
         else:
-            origPlayer1cards.append(int(line[:-1]))
+            origPlayer1cards.append(int(line))
 
     player1cards = origPlayer1cards.copy()
     player2cards = origPlayer2cards.copy()

@@ -1,35 +1,13 @@
 package aoc;
-import java.io.File;
+
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.List;
 
-public class Day17 {
+public abstract class Day17 {
 
 	public static void main(String[] args) throws IOException {
-		File input = new File("input").getAbsoluteFile();
-		if (!input.exists() || input.isDirectory()) {
-			System.out.println(input.getPath() + " does not exist!");
-			input = new File(input.getPath() + ".txt");
-			System.out.println("trying " + input.getPath() + " instead.");
-		}
-
-		if (!input.exists() || input.isDirectory()) {
-			System.out.println(input.getPath() + " does not exist!");
-			input = new File(input.getParentFile().getParent(), "input");
-			input = new File(input, "Day17.txt");
-			System.out.println("trying " + input.getPath() + " instead.");
-		}
-
-		if (!input.exists() || input.isDirectory()) {
-			System.err.println("None of the expected inputs exist!");
-			return;
-		} else {
-			System.out.println("Using input file " + input.getPath() + ".");
-		}
-
 		final int cycles = 6;
-		List<String> lines = Files.readAllLines(input.toPath());
+		List<String> lines = InputReader.readInputFileLines(17);
 		boolean[][][] dimension1 = new boolean[cycles * 2 + 1][cycles * 2 + lines.size()][cycles * 2
 				+ lines.get(0).length()];
 		boolean[][][] dimension2 = new boolean[cycles * 2 + 1][cycles * 2 + lines.size()][cycles * 2
@@ -41,10 +19,10 @@ public class Day17 {
 		for (int y = 0; y < lines.size(); y++) {
 			String line = lines.get(y);
 			for (int x = 0; x < line.length(); x++) {
-				dimension1[cycles][cycles + y][cycles + x] = line.charAt(x) == '#';
-				dimension2[cycles][cycles + y][cycles + x] = line.charAt(x) == '#';
-				dimension3[cycles][cycles][cycles + y][cycles + x] = line.charAt(x) == '#';
-				dimension4[cycles][cycles][cycles + y][cycles + x] = line.charAt(x) == '#';
+				char c = line.charAt(x);
+				dimension1[cycles][cycles + y][cycles + x] = dimension2[cycles][cycles + y][cycles + x] = c == '#';
+				dimension3[cycles][cycles][cycles + y][cycles + x] = c == '#';
+				dimension4[cycles][cycles][cycles + y][cycles + x] = c == '#';
 			}
 		}
 

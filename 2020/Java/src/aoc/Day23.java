@@ -1,34 +1,11 @@
 package aoc;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 
-public class Day23 {
+public abstract class Day23 {
 
 	public static void main(String[] args) throws IOException {
-		File input = new File("input").getAbsoluteFile();
-		if (!input.exists() || input.isDirectory()) {
-			System.out.println(input.getPath() + " does not exist!");
-			input = new File(input.getPath() + ".txt");
-			System.out.println("trying " + input.getPath() + " instead.");
-		}
-
-		if (!input.exists() || input.isDirectory()) {
-			System.out.println(input.getPath() + " does not exist!");
-			input = new File(input.getParentFile().getParent(), "input");
-			input = new File(input, "Day23.txt");
-			System.out.println("trying " + input.getPath() + " instead.");
-		}
-
-		if (!input.exists() || input.isDirectory()) {
-			System.err.println("None of the expected inputs exist!");
-			return;
-		} else {
-			System.out.println("Using input file " + input.getPath() + ".");
-		}
-
-		String line = Files.readAllLines(input.toPath()).get(0);
+		String line = InputReader.readInputFileLines(23).get(0);
 		byte[] cups = new byte[line.length()];
 		byte[] cups_initial = new byte[line.length()];
 		byte min_cup = -1;

@@ -1,40 +1,17 @@
 package aoc;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Day21 {
+public abstract class Day21 {
 
 	public static void main(String[] args) throws IOException {
-		File input = new File("input").getAbsoluteFile();
-		if (!input.exists() || input.isDirectory()) {
-			System.out.println(input.getPath() + " does not exist!");
-			input = new File(input.getPath() + ".txt");
-			System.out.println("trying " + input.getPath() + " instead.");
-		}
-
-		if (!input.exists() || input.isDirectory()) {
-			System.out.println(input.getPath() + " does not exist!");
-			input = new File(input.getParentFile().getParent(), "input");
-			input = new File(input, "Day21.txt");
-			System.out.println("trying " + input.getPath() + " instead.");
-		}
-
-		if (!input.exists() || input.isDirectory()) {
-			System.err.println("None of the expected inputs exist!");
-			return;
-		} else {
-			System.out.println("Using input file " + input.getPath() + ".");
-		}
-
 		Map<String, Integer> ingredients = new HashMap<>();
 		Map<String, List<String>> allergens = new HashMap<>();
-		for (String line : Files.readAllLines(input.toPath())) {
+		for (String line : InputReader.readInputFileLines(21)) {
 			List<String> ingreds = new ArrayList<>();
 			for (String ingredient : line.substring(0, line.indexOf('(') - 1).split(" ")) {
 				ingreds.add(ingredient);

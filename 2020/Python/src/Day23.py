@@ -1,5 +1,4 @@
-import os
-import sys
+import InputReader
 
 
 class Cup:
@@ -9,27 +8,8 @@ class Cup:
 
 
 def main():
-    inf = os.path.dirname(os.getcwd())
-    inf = os.path.join(inf, "input")
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf += ".txt"
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf = os.path.join(os.path.dirname(inf), "input")
-        inf = os.path.join(inf, "Day23.txt")
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print("None of the expected inputs exist!", file=sys.stderr)
-        return
-    else:
-        print(f"Using input file {inf}.")
-
-    line = open(inf, 'r').readline()
-    cups = [None] * (len(line) - 1)
+    line = InputReader.readInputFileLines(23)[0]
+    cups = [None] * (len(line))
     min_cup = -1
     max_cup = -1
     for i in range(len(cups)):

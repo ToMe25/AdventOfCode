@@ -1,32 +1,8 @@
-import os
-import sys
+import InputReader
 
 
 def main():
-    inf = os.path.dirname(os.getcwd())
-    inf = os.path.join(inf, "input")
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf += ".txt"
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print(inf + " does not exist!")
-        inf = os.path.join(os.path.dirname(inf), "input")
-        inf = os.path.join(inf, "Day10.txt")
-        print(f"trying {inf} instead.")
-
-    if not os.path.exists(inf) or os.path.isdir(inf):
-        print("None of the expected inputs exist!", file=sys.stderr)
-        return
-    else:
-        print(f"Using input file {inf}.")
-
-    inputFile = open(inf, 'r')
-    adapters = []
-    for line in inputFile.readlines():
-        adapters.append(int(line[:-1]))
-
+    adapters = InputReader.readInputFileNumbers(10)
     adapters.sort()
 
     one = 0
@@ -36,6 +12,7 @@ def main():
     for _ in range(3):
         futureSolutions.append(0)
     joltage = 0
+
     for adapter in adapters:
         lowest = adapter - joltage;
         if joltage + 2 in adapters and lowest < 2:
