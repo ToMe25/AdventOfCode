@@ -23,6 +23,24 @@ def main():
 
 
 def checkBag(bags, bag, lookingFor):
+    """Checks whether the given bag contains a bag of a given type.
+    
+    This is done by recursively iterating through the bags in the given bag.
+    
+    Parameters
+    ----------
+    bags: dict of str to dict of str to int
+        The map of what bags contain what types of bags.
+    bag: str
+        The bag to check.
+    lookingFor: str
+        The bag to check for.
+    
+    Returns
+    -------
+    bool
+        Whether or not the given bag contains the bag to look for.
+    """
     for check in bags[bag].keys():
         if check == lookingFor:
             return True
@@ -32,6 +50,22 @@ def checkBag(bags, bag, lookingFor):
 
 
 def countBags(bags, bag):
+    """Counts the number of bags in the given bag.
+    
+    Done by recursively iterating through its contents.
+    
+    Parameters
+    ----------
+    bags: dict of str to dict of str to int
+        The map of what bags contain what other bags.
+    bag: str
+        The bag to check.
+    
+    Returns
+    -------
+    int
+        The total bag count. Includes the start bag.
+    """
     count = 1
     for check in bags[bag].keys():
         count += countBags(bags, check) * bags[bag][check]

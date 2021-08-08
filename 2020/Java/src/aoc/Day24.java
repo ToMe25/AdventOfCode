@@ -59,6 +59,12 @@ public abstract class Day24 {
 	private static class Pos {
 		public float x, y;
 
+		/**
+		 * Initializes a new Pos object.
+		 * 
+		 * @param x the x coordinate of the position.
+		 * @param y the y coordinate of the position.
+		 */
 		public Pos(float x, float y) {
 			this.x = x;
 			this.y = y;
@@ -95,6 +101,13 @@ public abstract class Day24 {
 		private float x, y;
 		private boolean black;
 
+		/**
+		 * Initializes a new Hexagon at the given position.<br>
+		 * Also looks up the neighboring Hexagons.
+		 * 
+		 * @param x the x coordinate of the new Hexagon.
+		 * @param y the y coordinate of the new Hexagon.
+		 */
 		public Hexagon(float x, float y) {
 			COORD_LOOKUP.put(new Pos(this.x = x, this.y = y), this);
 			setEast(COORD_LOOKUP.get(new Pos(x + 1, y)));
@@ -105,6 +118,12 @@ public abstract class Day24 {
 			setNorthEast(COORD_LOOKUP.get(new Pos(x + 0.5f, y - 1)));
 		}
 
+		/**
+		 * Toggles whether the Hexagon is black.<br>
+		 * Also creates the neighboring Hexagons if they don't already exist.
+		 * 
+		 * @return true if the Hexagon is black.
+		 */
 		public boolean toggle() {
 			getOrCreateEast();
 			getOrCreateSouthEast();
@@ -115,14 +134,29 @@ public abstract class Day24 {
 			return black = !black;
 		}
 
+		/**
+		 * Checks whether this Hexagon has a neighbor to the east.
+		 * 
+		 * @return true if it has.
+		 */
 		public boolean hasEast() {
 			return east != null;
 		}
 
+		/**
+		 * Gets the Hexagon east of this one.
+		 * 
+		 * @return the Hexagon east of this one.
+		 */
 		public Hexagon getEast() {
 			return east;
 		}
 
+		/**
+		 * Gets the Hexagon east of this one, or creates it if it is missing.
+		 * 
+		 * @return the Hexagon east of this one.
+		 */
 		public Hexagon getOrCreateEast() {
 			if (!hasEast()) {
 				setEast(new Hexagon(x + 1, y));
@@ -131,6 +165,12 @@ public abstract class Day24 {
 			return getEast();
 		}
 
+		/**
+		 * Sets the Hexagon east of this one.<br>
+		 * Also tells that Hexagon that this is the one west of it.
+		 * 
+		 * @param east the Hexagon east of this.
+		 */
 		public void setEast(Hexagon east) {
 			if (east == null) {
 				return;
@@ -143,14 +183,29 @@ public abstract class Day24 {
 			}
 		}
 
+		/**
+		 * Checks whether this Hexagon has a neighbor to the south east.
+		 * 
+		 * @return true if it has.
+		 */
 		public boolean hasSouthEast() {
 			return southEast != null;
 		}
 
+		/**
+		 * Gets the Hexagon south east of this one.
+		 * 
+		 * @return the Hexagon south east of this one.
+		 */
 		public Hexagon getSouthEast() {
 			return southEast;
 		}
 
+		/**
+		 * Gets the Hexagon south east of this one, or creates it if it is missing.
+		 * 
+		 * @return the Hexagon south east of this one.
+		 */
 		public Hexagon getOrCreateSouthEast() {
 			if (!hasSouthEast()) {
 				setSouthEast(new Hexagon(x + 0.5f, y + 1));
@@ -159,6 +214,12 @@ public abstract class Day24 {
 			return getSouthEast();
 		}
 
+		/**
+		 * Sets the Hexagon south east of this one.<br>
+		 * Also tells that Hexagon that this is the one north west of it.
+		 * 
+		 * @param southEast the Hexagon south east of this.
+		 */
 		public void setSouthEast(Hexagon southEast) {
 			if (southEast == null) {
 				return;
@@ -171,14 +232,29 @@ public abstract class Day24 {
 			}
 		}
 
+		/**
+		 * Checks whether this Hexagon has a neighbor to the south west.
+		 * 
+		 * @return true if it has.
+		 */
 		public boolean hasSouthWest() {
 			return southWest != null;
 		}
 
+		/**
+		 * Gets the Hexagon south west of this one.
+		 * 
+		 * @return the Hexagon south west of this one.
+		 */
 		public Hexagon getSouthWest() {
 			return southWest;
 		}
 
+		/**
+		 * Gets the Hexagon south west of this one, or creates it if it is missing.
+		 * 
+		 * @return the Hexagon south west of this one.
+		 */
 		public Hexagon getOrCreateSouthWest() {
 			if (!hasSouthWest()) {
 				setSouthWest(new Hexagon(x - 0.5f, y + 1));
@@ -187,6 +263,12 @@ public abstract class Day24 {
 			return getSouthWest();
 		}
 
+		/**
+		 * Sets the Hexagon south west of this one.<br>
+		 * Also tells that Hexagon that this is the one north east of it.
+		 * 
+		 * @param southWest the Hexagon south west of this.
+		 */
 		public void setSouthWest(Hexagon southWest) {
 			if (southWest == null) {
 				return;
@@ -199,14 +281,29 @@ public abstract class Day24 {
 			}
 		}
 
+		/**
+		 * Checks whether this Hexagon has a neighbor to the west.
+		 * 
+		 * @return true if it has.
+		 */
 		public boolean hasWest() {
 			return west != null;
 		}
 
+		/**
+		 * Gets the Hexagon west of this one.
+		 * 
+		 * @return the Hexagon west of this one.
+		 */
 		public Hexagon getWest() {
 			return west;
 		}
 
+		/**
+		 * Gets the Hexagon west of this one, or creates it if it is missing.
+		 * 
+		 * @return the Hexagon west of this one.
+		 */
 		public Hexagon getOrCreateWest() {
 			if (!hasWest()) {
 				setWest(new Hexagon(x - 1, y));
@@ -215,6 +312,12 @@ public abstract class Day24 {
 			return getWest();
 		}
 
+		/**
+		 * Sets the Hexagon west of this one.<br>
+		 * Also tells that Hexagon that this is the one east of it.
+		 * 
+		 * @param west the Hexagon west of this.
+		 */
 		public void setWest(Hexagon west) {
 			if (west == null) {
 				return;
@@ -227,14 +330,29 @@ public abstract class Day24 {
 			}
 		}
 
+		/**
+		 * Checks whether this Hexagon has a neighbor to the north west.
+		 * 
+		 * @return true if it has.
+		 */
 		public boolean hasNorthWest() {
 			return northWest != null;
 		}
 
+		/**
+		 * Gets the Hexagon north west of this one.
+		 * 
+		 * @return the Hexagon north west of this one.
+		 */
 		public Hexagon getNorthWest() {
 			return northWest;
 		}
 
+		/**
+		 * Gets the Hexagon north west of this one, or creates it if it is missing.
+		 * 
+		 * @return the Hexagon north west of this one.
+		 */
 		public Hexagon getOrCreateNorthWest() {
 			if (!hasNorthWest()) {
 				setNorthWest(new Hexagon(x - 0.5f, y - 1));
@@ -243,6 +361,12 @@ public abstract class Day24 {
 			return getNorthWest();
 		}
 
+		/**
+		 * Sets the Hexagon north west of this one.<br>
+		 * Also tells that Hexagon that this is the one south east of it.
+		 * 
+		 * @param northWest the Hexagon north west of this.
+		 */
 		public void setNorthWest(Hexagon northWest) {
 			if (northWest == null) {
 				return;
@@ -255,14 +379,29 @@ public abstract class Day24 {
 			}
 		}
 
+		/**
+		 * Checks whether this Hexagon has a neighbor to the north east.
+		 * 
+		 * @return true if it has.
+		 */
 		public boolean hasNorthEast() {
 			return northEast != null;
 		}
 
+		/**
+		 * Gets the Hexagon north east of this one.
+		 * 
+		 * @return the Hexagon north east of this one.
+		 */
 		public Hexagon getNorthEast() {
 			return northEast;
 		}
 
+		/**
+		 * Gets the Hexagon north east of this one, or creates it if it is missing.
+		 * 
+		 * @return the Hexagon north east of this one.
+		 */
 		public Hexagon getOrCreateNorthEast() {
 			if (!hasNorthEast()) {
 				setNorthEast(new Hexagon(x + 0.5f, y - 1));
@@ -271,6 +410,12 @@ public abstract class Day24 {
 			return getNorthEast();
 		}
 
+		/**
+		 * Sets the Hexagon north east of this one.<br>
+		 * Also tells that Hexagon that this is the one south west of it.
+		 * 
+		 * @param northEast the Hexagon north east of this.
+		 */
 		public void setNorthEast(Hexagon northEast) {
 			if (northEast == null) {
 				return;
@@ -283,6 +428,17 @@ public abstract class Day24 {
 			}
 		}
 
+		/**
+		 * Checks whether this Hexagon should toggle being black.
+		 * 
+		 * <p>
+		 * If a Hexagon is black it becomes white if either none or more then 2 of its
+		 * neighbors are also black.<br>
+		 * If a Hexagon is white it becomes black if 2 of its neighbors are black.
+		 * </p>
+		 * 
+		 * @return whether this Hexagon should change its color.
+		 */
 		private boolean check() {
 			int blackNeighbors = 0;
 			if (hasEast())
@@ -305,6 +461,11 @@ public abstract class Day24 {
 			}
 		}
 
+		/**
+		 * Makes all Hexagons check if they should change their color, and if yes do so.
+		 * 
+		 * @return the number of black Hexagons after the change.
+		 */
 		public static int updateAll() {
 			List<Hexagon> marked = new ArrayList<>();
 			for (Hexagon hex : COORD_LOOKUP.values()) {

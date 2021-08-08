@@ -30,6 +30,15 @@ public abstract class Day7 {
 		System.out.println("A single \"shiny gold\" bag contains " + (countBags(bags, "shiny gold") - 1) + " bags.");
 	}
 
+	/**
+	 * Checks whether the given bag contains a bag of a given type. This is done by
+	 * recursively iterating through the bags in the given bag.
+	 * 
+	 * @param bags       the map of what bags contain what types of bags.
+	 * @param bag        the bag to check.
+	 * @param lookingFor the bag to check for.
+	 * @return whether or not the given bag contains the bag to look for.
+	 */
 	private static boolean checkBag(Map<String, Map<String, Integer>> bags, String bag, String lookingFor) {
 		for (String check : bags.get(bag).keySet()) {
 			if (check.equals(lookingFor)) {
@@ -41,6 +50,14 @@ public abstract class Day7 {
 		return false;
 	}
 
+	/**
+	 * Counts the number of bags in the given bag. Done by recursively iterating
+	 * through its contents.
+	 * 
+	 * @param bags the map of what bags contain what other bags.
+	 * @param bag  the bag to check.
+	 * @return the total bag count. Includes the start bag.
+	 */
 	private static int countBags(Map<String, Map<String, Integer>> bags, String bag) {
 		int count = 1;
 		for (String check : bags.get(bag).keySet()) {
