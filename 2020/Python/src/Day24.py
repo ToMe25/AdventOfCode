@@ -356,9 +356,10 @@ class Hexagon:
     def check(self):
         """Checks whether this Hexagon should toggle being black.
         
-        If a Hexagon is black it becomes white if either none or more then 2 of its
-        neighbors are also black.
-        If a Hexagon is white it becomes black if 2 of its neighbors are black.
+        If a Hexagon is black it becomes white if either none or more then
+        2 of its neighbors are also black.
+        If a Hexagon is white it becomes black if 2 of its neighbors are
+        black.
         
         Returns
         -------

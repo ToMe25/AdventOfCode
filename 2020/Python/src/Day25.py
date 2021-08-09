@@ -16,7 +16,8 @@ def getKey(subjectNumber, loopSize):
     Then the following actions get executed loop size times:
     
     * multiply the previous value by the subject number
-    * set the encryption key to the remainder from dividing the previous result by 20201227
+    * set the encryption key to the remainder from dividing the previous
+      result by 20201227
     
     Parameters
     ----------
@@ -39,10 +40,10 @@ def getKey(subjectNumber, loopSize):
 def getLoopSize(key, subjectNumber):
     """Reverse engineers the loop size from the given key and subject number.
     
-    This is done by continually dividing the key by the subject number until the
-    result matches 1.
-    If the result has decimal digits 20201227 gets added to the previous key,
-    before it is divided again.
+    This is done by continually dividing the key by the subject number
+    until the result matches 1.
+    If the result has decimal digits 20201227 gets added to the previous
+    key, before it is divided again.
     By counting the divisions the loop size can be determined.
     
     Parameters

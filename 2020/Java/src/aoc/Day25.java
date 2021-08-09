@@ -24,6 +24,7 @@ public abstract class Day25 {
 	 * <li>set the encryption key to the remainder from dividing the previous result
 	 * by 20201227</li>
 	 * </ul>
+	 * </p>
 	 * 
 	 * @param subjectNumber the subject number to use in the calculation.
 	 * @param loopSize      how many times to execute the calculation.
