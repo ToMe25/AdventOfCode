@@ -1,8 +1,4 @@
 # Eclipse
 .metadata/
 .settings/
-bin/
-.classpath
 .project
-.pydevproject
-__pycache__
