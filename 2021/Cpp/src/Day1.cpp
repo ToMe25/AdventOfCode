@@ -23,7 +23,7 @@ int main() {
 	}
 
 	if (!fs::is_directory(input)) {
-		std::cerr << "File " << input.c_str() << " isn't a directory." << std::endl;
+		std::cerr << "File " << input.c_str() << " is not a directory." << std::endl;
 		return 1;
 	}
 
