@@ -5,36 +5,11 @@
  *      Author: ToMe25
  */
 
-#include <filesystem>
-#include <fstream>
+#include "Day1.h"
 #include <iostream>
-#include <string>
 
-namespace fs = std::filesystem;
-
-int main() {
-	fs::path input = "..";
-	input += fs::path::preferred_separator;
-	input += "input";
-	input = fs::canonical(input);
-	if (!fs::exists(input)) {
-		std::cerr << "Directory " << input.c_str() << " doesn't exist." << std::endl;
-		return 1;
-	}
-
-	if (!fs::is_directory(input)) {
-		std::cerr << "File " << input.c_str() << " is not a directory." << std::endl;
-		return 1;
-	}
-
-	input += fs::path::preferred_separator;
-	input += "Day1.txt";
-	if (!fs::exists(input) || !fs::is_regular_file(input)) {
-		std::cerr << "File " << input.c_str() << " doesn't exist or isn't a file." << std::endl;
-		return 1;
-	}
-
-	std::ifstream in_stream(input);
+void Day1Runner::solve() {
+	std::ifstream in_stream = getInputFileStream(1);
 
 	uint increases = 0, sum_increases = 0;
 	uint depth = 0;
