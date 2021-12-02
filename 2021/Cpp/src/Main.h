@@ -20,14 +20,28 @@ std::ifstream getInputFileStream(uint8_t day);
 
 class AoCRunner {
 public:
-	AoCRunner() { }
-	virtual ~AoCRunner() { }
+	virtual ~AoCRunner() { };
 
 	/*
 	 * Solves the task for the given day.
 	 * Runs both part 1 and 2 and prints the result to the system output stream.
 	 */
-	virtual void solve() { exit(3); }
+	virtual void solve() = 0;
+};
+
+template <uint8_t Day>
+class DayRunner: public AoCRunner {
+public:
+	virtual ~DayRunner() { };
+
+	/*
+	 * Returns the day this implementation is the solution for.
+	 */
+	uint8_t getDay() {
+		return Day;
+	}
+
+	void solve() override;
 };
 
 #endif /* MAIN_H_ */

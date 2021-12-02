@@ -10,9 +10,7 @@
 
 #include "Main.h"
 
-class Day2Runner: public AoCRunner {
-public:
-	void solve() override;
-};
+template <>
+void DayRunner<2>::solve();
 
 #endif /* DAY2_H_ */

@@ -16,9 +16,9 @@
 AoCRunner* getRunner(uint8_t day) {
 	switch (day) {
 	case 1:
-		return new Day1Runner();
+		return new DayRunner<1>();
 	case 2:
-		return new Day2Runner();
+		return new DayRunner<2>();
 	default:
 		std::cerr << "Received not yet implemented day " << day << "to run.";
 		exit(2);

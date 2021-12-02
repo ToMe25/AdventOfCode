@@ -8,8 +8,9 @@
 #include "Day2.h"
 #include <iostream>
 
-void Day2Runner::solve() {
-	std::ifstream in_stream = getInputFileStream(2);
+template <>
+void DayRunner<2>::solve() {
+	std::ifstream in_stream = getInputFileStream(getDay());
 
 	uint depth = 0;
 	uint horizontal = 0;
