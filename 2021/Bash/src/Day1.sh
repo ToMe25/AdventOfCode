@@ -9,14 +9,14 @@ function main() {
 	for depth in $(cat $input); do
 		if [ ! -z $last_depth ]; then
 			if [ $depth -gt $last_depth ]; then
-				local increases=$((increases+1))
+				((increases++))
 			fi
 
 			if [ ! -z $last_last_depth ]; then
-				local sum=$((depth+last_depth+last_last_depth))
+				local sum=$((depth + last_depth + last_last_depth))
 				if [ ! -z $last_sum ]; then
 					if [ $sum -gt $last_sum ]; then
-						local sum_increases=$((sum_increases+1))
+						((sum_increases++))
 					fi
 				fi
 				local last_sum=$sum

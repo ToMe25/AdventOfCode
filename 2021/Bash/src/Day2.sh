@@ -6,22 +6,22 @@ source Util.sh
 
 function main() {
 	local input=$(getInputFile 2)
-	
+
 	for line in $(cat $input); do
 		local lines+=($line)
 	done
-	
+
 	local aim=0
-	for i in $(seq 0 $((${#lines[@]}/2-1))); do
-		local command=${lines[$((i*2))]}
-		local value=${lines[$((i*2+1))]}
+	for i in $(seq 0 $((${#lines[@]} / 2 - 1))); do
+		local command=${lines[$((i * 2))]}
+		local value=${lines[$((i * 2 + 1))]}
 		if [ $command == "forward" ]; then
-			local horizontal=$(($horizontal+$value))
-			local depth=$(($depth+$value*$aim))
+			((horizontal += $value))
+			((depth += $value * $aim))
 		elif [ $command == "down" ]; then
-			local aim=$(($aim+$value))
+			((aim += $value))
 		elif [ $command == "up" ]; then
-			local aim=$(($aim-$value))
+			((aim -= $value))
 		fi
 	done
 

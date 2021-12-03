@@ -24,6 +24,6 @@ function getInputFile() {
 		echo "File $INPUT doesn't exist or isn't a file."
 		exit 1
 	fi
-	
+
 	echo $input
 }

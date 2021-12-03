@@ -16,15 +16,10 @@ void DayRunner<3>::solve(std::ifstream input) {
 		lines.push_back(std::stoi(line, 0, 2));
 	}
 
-	int16_t counts[12];
-	for (int i = 0; i < 12; i++) {
-		counts[i] = count_bits(lines, i);
-	}
-
 	uint16_t gamma = 0;
 	uint16_t epsilon = 0;
 	for (uint8_t i = 0; i < 12; i++) {
-		if (counts[i] > 0) {
+		if (count_bits(lines, i) > 0) {
 			gamma |= 1 << (11 - i);
 		} else {
 			epsilon |= 1 << (11 - i);
