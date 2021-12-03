@@ -9,6 +9,7 @@
 #define MAIN_H_
 
 #include <fstream>
+#include <utility>
 
 int main(int argc, char* argv[]);
 
@@ -43,5 +44,8 @@ public:
 
 	void solve() override;
 };
+
+template <uint8_t... Days>
+AoCRunner* getRunner(uint8_t day, std::integer_sequence<uint8_t, Days...>);
 
 #endif /* MAIN_H_ */

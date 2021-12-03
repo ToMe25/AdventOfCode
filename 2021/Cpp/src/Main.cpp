@@ -13,15 +13,14 @@
 #include <regex>
 #include <string>
 
-AoCRunner* getRunner(uint8_t day) {
-	switch (day) {
-	case 1:
-		return new DayRunner<1>();
-	case 2:
-		return new DayRunner<2>();
-	default:
-		std::cerr << "Received not yet implemented day " << day << "to run.";
-		exit(2);
+template <uint8_t... Days>
+AoCRunner* getRunner(uint8_t day, std::integer_sequence<uint8_t, Days...>) {
+	AoCRunner *runners[] = { new DayRunner<Days + 1>()... };
+	if (day <= sizeof(runners)/sizeof(runners[0])) {
+		return runners[day - 1];
+	} else {
+		std::cerr << "Trying to run not yet implemented day " << (int) day << '.' << std::endl;
+		exit(4);
 	}
 }
 
@@ -36,7 +35,7 @@ int main(int argc, char* argv[]) {
 					&& std::regex_match(argv[i + 1], std::regex("\\d{1,2}"))) {
 				day = std::stoi(argv[i + 1]);
 			}
-			AoCRunner *runner = getRunner(day);
+			AoCRunner *runner = getRunner(day, std::make_integer_sequence<uint8_t, 2>());
 			runner->solve();
 			return 0;
 		}
@@ -55,12 +54,12 @@ std::ifstream getInputFileStream(uint8_t day) {
 	input = fs::canonical(input);
 	if (!fs::exists(input)) {
 		std::cerr << "Directory " << input.c_str() << " doesn't exist." << std::endl;
-		exit(1);
+		exit(2);
 	}
 
 	if (!fs::is_directory(input)) {
 		std::cerr << "File " << input.c_str() << " is not a directory." << std::endl;
-		exit(1);
+		exit(2);
 	}
 
 	input += fs::path::preferred_separator;
@@ -69,7 +68,7 @@ std::ifstream getInputFileStream(uint8_t day) {
 	input += ".txt";
 	if (!fs::exists(input) || !fs::is_regular_file(input)) {
 		std::cerr << "File " << input.c_str() << " doesn't exist or isn't a file." << std::endl;
-		exit(1);
+		exit(3);
 	}
 
 	return std::ifstream(input);

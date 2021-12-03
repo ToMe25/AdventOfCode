@@ -13,13 +13,15 @@ function main() {
 	
 	local aim=0
 	for i in $(seq 0 $((${#lines[@]}/2-1))); do
-		if [ ${lines[$((i*2))]} == "forward" ]; then
-			local horizontal=$(($horizontal+${lines[$((i*2+1))]}))
-			local depth=$(($depth+${lines[$((i*2+1))]}*$aim))
-		elif [ ${lines[$((i*2))]} == "down" ]; then
-			local aim=$(($aim+${lines[$((i*2+1))]}))
-		elif [ ${lines[$((i*2))]} == "up" ]; then
-			local aim=$(($aim-${lines[$((i*2+1))]}))
+		local command=${lines[$((i*2))]}
+		local value=${lines[$((i*2+1))]}
+		if [ $command == "forward" ]; then
+			local horizontal=$(($horizontal+$value))
+			local depth=$(($depth+$value*$aim))
+		elif [ $command == "down" ]; then
+			local aim=$(($aim+$value))
+		elif [ $command == "up" ]; then
+			local aim=$(($aim-$value))
 		fi
 	done
 
