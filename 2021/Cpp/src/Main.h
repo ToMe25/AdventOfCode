@@ -42,7 +42,17 @@ public:
 		return Day;
 	}
 
-	void solve() override;
+	void solve() override {
+		solve(getInputFileStream(Day));
+	}
+
+	/*
+	 * Solves the task for the given day.
+	 * Runs both part 1 and 2 and prints the result to the system output stream.
+	 *
+	 * input: an ifstream to the input file for the current day.
+	 */
+	void solve(std::ifstream input);
 };
 
 template <uint8_t... Days>

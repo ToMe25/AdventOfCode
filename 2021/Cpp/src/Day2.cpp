@@ -9,15 +9,13 @@
 #include <iostream>
 
 template <>
-void DayRunner<2>::solve() {
-	std::ifstream in_stream = getInputFileStream(getDay());
-
+void DayRunner<2>::solve(std::ifstream input) {
 	uint depth = 0;
 	uint horizontal = 0;
 	uint aim = 0;
 	std::string command;
 	uint value;
-	while (in_stream >> command >> value) {
+	while (input >> command >> value) {
 		if (command == "forward") {
 			horizontal += value;
 			depth += value * aim;

@@ -9,14 +9,12 @@
 #include <iostream>
 
 template <>
-void DayRunner<1>::solve() {
-	std::ifstream in_stream = getInputFileStream(getDay());
-
+void DayRunner<1>::solve(std::ifstream input) {
 	uint increases = 0, sum_increases = 0;
 	uint depth = 0;
 	uint previous_depths[2] { 0 };
 	uint sum = 0, previous_sum = 0;
-	while (in_stream >> depth) {
+	while (input >> depth) {
 		if (previous_depths[0] != 0) {
 			if (depth > previous_depths[0]) {
 				increases++;

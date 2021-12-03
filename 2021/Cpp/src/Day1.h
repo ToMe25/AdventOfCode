@@ -11,6 +11,6 @@
 #include "Main.h"
 
 template <>
-void DayRunner<1>::solve();
+void DayRunner<1>::solve(std::ifstream input);
 
 #endif /* DAY1_H_ */
