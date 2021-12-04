@@ -1,5 +1,5 @@
 #!/bin/bash
-# Created on: 02.12.2021
+# Created on: 03.12.2021
 #     Author: ToMe25
 
 source Util.sh
@@ -11,8 +11,8 @@ function count_bits() {
 	unset numbers[bit_pos]
 
 	local count=0
-	for line in ${numbers[@]}]; do
-		if [ ${line:$bit:1} == "1" ]; then
+	for line in ${numbers[@]}; do
+		if [ $(($line >> (11 - $bit) & 1)) == 1 ]; then
 			((count++))
 		else
 			((count--))
@@ -30,7 +30,7 @@ function find_number() {
 	local i=0
 	while [[ ${#numbers[@]} -gt 1 && $i -lt 12 ]]; do
 		for nr in ${numbers[@]}; do
-			local one=(${nr:$i:1} == "1")
+			local one=$(($nr >> (11 - $i) & 1 == 1))
 			local count=$(count_bits ${numbers[@]} $i)
 			if [ $count == 0 ]; then
 				if [ $one != $lcb ]; then
@@ -54,7 +54,7 @@ function main() {
 	local input=$(getInputFile 3)
 
 	for line in $(cat $input); do
-		local lines+=($line)
+		local lines+=($((2#$line)))
 	done
 
 	local gamma=0
@@ -69,8 +69,8 @@ function main() {
 
 	echo "The power consumption of the submarine is $(($gamma * $epsilon))."
 
-	local oxygen=$((2#$(find_number ${lines[@]} 0)))
-	local co2=$((2#$(find_number ${lines[@]} 1)))
+	local oxygen=$(find_number ${lines[@]} 0)
+	local co2=$(find_number ${lines[@]} 1)
 
 	echo "The submarine life support rating is $((oxygen * co2))."
 }
