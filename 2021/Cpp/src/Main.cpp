@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
 					&& std::regex_match(argv[i + 1], std::regex("\\d{1,2}"))) {
 				day = std::stoi(argv[i + 1]);
 			}
-			AoCRunner *runner = getRunner(day, std::make_integer_sequence<uint8_t, 3>());
+			AoCRunner *runner = getRunner(day, std::make_integer_sequence<uint8_t, 4>());
 			runner->solve();
 			return 0;
 		}
