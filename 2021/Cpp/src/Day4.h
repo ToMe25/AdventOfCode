@@ -31,6 +31,8 @@ bool check_win(const bool board[5][5]);
  * previous_winners: the boards that already win in the order they won in.
  * returns: the array positions of the boards that won, in the order they won in.
  */
-std::vector<uint16_t> set_number(const uint8_t boards[100][5][5], bool values[100][5][5], const uint8_t number, std::vector<uint16_t> &previous_winners);
+std::vector<uint16_t> set_number(const uint8_t boards[100][5][5],
+		bool values[100][5][5], const uint8_t number,
+		std::vector<uint16_t> &previous_winners);
 
 #endif /* DAY4_H_ */
