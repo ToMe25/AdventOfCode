@@ -14,7 +14,7 @@
 #include <string>
 
 template <uint8_t... Days>
-AoCRunner* getRunner(uint8_t day, std::integer_sequence<uint8_t, Days...>) {
+AoCRunner* getRunner(const uint8_t day, const std::integer_sequence<uint8_t, Days...>) {
 	AoCRunner *runners[] = { new DayRunner<Days + 1>()... };
 	if (day <= sizeof(runners)/sizeof(runners[0])) {
 		return runners[day - 1];
@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
 					&& std::regex_match(argv[i + 1], std::regex("\\d{1,2}"))) {
 				day = std::stoi(argv[i + 1]);
 			}
-			AoCRunner *runner = getRunner(day, std::make_integer_sequence<uint8_t, 4>());
+			AoCRunner *runner = getRunner(day, std::make_integer_sequence<uint8_t, 5>());
 			runner->solve();
 			return 0;
 		}
@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
 	return 1;
 }
 
-std::ifstream getInputFileStream(uint8_t day) {
+std::ifstream getInputFileStream(const uint8_t day) {
 	namespace fs = std::filesystem;
 
 	fs::path input = "..";

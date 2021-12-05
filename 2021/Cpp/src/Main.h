@@ -16,8 +16,11 @@ int main(int argc, char* argv[]);
 /*
  * Gets a file input stream for the input file for the given day.
  * Ends the program if the file can't be found.
+ *
+ * @param day	The day for which to get the input stream.
+ * @return	A ifstream for the input file for the given day.
  */
-std::ifstream getInputFileStream(uint8_t day);
+std::ifstream getInputFileStream(const uint8_t day);
 
 class AoCRunner {
 public:
@@ -50,12 +53,19 @@ public:
 	 * Solves the task for the given day.
 	 * Runs both part 1 and 2 and prints the result to the system output stream.
 	 *
-	 * input: an ifstream to the input file for the current day.
+	 * @param input	An ifstream to the input file for the current day.
 	 */
 	void solve(std::ifstream input);
 };
 
+/*
+ * Gets a pointer to the DayRunner for the given day.
+ *
+ * @tparam Days	An integer_sequence containing all the currently implemented days.
+ * @param day	The day for which to get the runner.
+ * @return	A pointer to the DayRunner for the given day.
+ */
 template <uint8_t... Days>
-AoCRunner* getRunner(uint8_t day, std::integer_sequence<uint8_t, Days...>);
+AoCRunner* getRunner(const uint8_t day, const std::integer_sequence<uint8_t, Days...>);
 
 #endif /* MAIN_H_ */
