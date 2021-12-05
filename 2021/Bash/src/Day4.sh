@@ -38,19 +38,17 @@ function check_win() {
 }
 
 # Marks the given number in all the given boards by making the number positive.
-# Returns the boards and the indecies of the winning boards in the order they won in.
 function set_number() {
-	local inputs=($@)
-	local boards=(${inputs[@]::2500})
-	local number=${inputs[2500]}
-	local winners=(${inputs[@]:2501})
+	local number=$1
+	local _number=$(($number * -1))
 
 	for board in $(seq 0 99); do
 		if [[ ! " ${winners[@]} " =~ " $board " ]]; then
 			for x in $(seq 0 4); do
 				for y in $(seq 0 4); do
-					if [ ${boards[$(($board * 25 + $x * 5 + $y))]} == "-$number" ]; then
-						boards[$(($board * 25 + $x * 5 + $y))]=$number
+					local pos=$(($board * 25 + $x * 5 + $y))
+					if [ ${boards[$pos]} == $_number ]; then
+						boards[$pos]=$number
 					fi
 				done
 			done
@@ -60,8 +58,6 @@ function set_number() {
 			fi
 		fi
 	done
-
-	echo ${boards[@]} ${winners[@]}
 }
 
 function main() {
@@ -71,14 +67,12 @@ function main() {
 		if [ ! -v numbers ]; then
 			local numbers=${line//,/ }
 		else
-			local boards+=("-$line")
+			boards+=("-$line")
 		fi
 	done
 
 	for number in $numbers; do
-		local winners=($(set_number ${boards[@]} $number ${winners[@]}))
-		local boards=(${winners[@]::2500})
-		local winners=(${winners[@]:2500})
+		set_number $number
 		if [[ ${#winners[@]} == 1 && ! -v first_win_number ]]; then
 			local first_win_number=$number
 		elif [ ${#winners[@]} == 100 ]; then
