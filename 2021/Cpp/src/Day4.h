@@ -11,9 +11,6 @@
 #include "Main.h"
 #include <vector>
 
-template <>
-void DayRunner<4>::solve(std::ifstream input);
-
 /*
  * Checks if the board contains any horizontal or vertical row of trues.
  *

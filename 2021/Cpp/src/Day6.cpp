@@ -5,7 +5,7 @@
  *      Author: ToMe25
  */
 
-#include "Day6.h"
+#include "Main.h"
 #include <algorithm>
 #include <iostream>
 #include <sstream>

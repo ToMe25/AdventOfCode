@@ -5,7 +5,7 @@
  *      Author: ToMe25
  */
 
-#include "Day2.h"
+#include "Main.h"
 #include <iostream>
 
 template <>

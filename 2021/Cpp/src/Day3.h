@@ -11,9 +11,6 @@
 #include "Main.h"
 #include <vector>
 
-template <>
-void DayRunner<3>::solve(std::ifstream input);
-
 /**
  * Counts the number of 1 and 0 bits in the given position, and returns the difference.
  * Positive if there are more ones.
