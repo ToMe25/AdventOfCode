@@ -57,20 +57,10 @@ function main() {
 				done
 
 				while [ $solved != 1 ]; do
+					# Remove chars that are no longer possible options from char_to_possible_chars.
 					for t in ${tokens[@]}; do
-						# Remove the number of tokens with only one possibility left from all other tokens.
 						local var="token_to_possible_numbers_$t[@]"
 						local -a var1=(${!var})
-						if [ ${#var1[@]} == 1 ]; then
-							for tok in ${tokens[@]}; do
-								local var2="token_to_possible_numbers_$tok[@]"
-								local -a var3=(${!var2})
-								if [[ $t != $tok && " ${var3[@]} " =~ " ${var1[0]} " ]]; then
-									local var4="token_to_possible_numbers_$tok"
-									eval "local -a $var4=(${!var2/${var1[0]}})"
-								fi
-							done
-						fi
 
 						local -a possible_chars=()
 						for nr in ${var1[@]}; do
@@ -83,7 +73,6 @@ function main() {
 							done
 						done
 
-						# Remove chars that are no longer possible options from char_to_possible_chars.
 						for i in $(seq 0 $((${#t} - 1))); do
 							local c=${t:$i:1}
 							local var2="char_to_possible_chars_$c[@]"

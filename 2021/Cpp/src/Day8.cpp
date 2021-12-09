@@ -83,31 +83,15 @@ void DayRunner<8>::solve(std::ifstream input) {
 				}
 
 				while (!solved) {
+					// Make sure char_to_possible_chars only contains characters that are used
+					// for a possible number for the current token.
 					for (std::pair<std::string, std::vector<uint8_t>> entry : token_to_possible_numbers) {
-						// If a token can only represent one number, remove that number as a possibility for all other tokens.
-						if (entry.second.size() == 1) {
-							uint8_t to_remove = *entry.second.begin();
-							for (std::pair<std::string, std::vector<uint8_t>> entry2 : token_to_possible_numbers) {
-								if (entry != entry2
-										&& std::find(entry2.second.begin(),
-												entry2.second.end(), to_remove)
-												!= entry2.second.end()) {
-									token_to_possible_numbers[entry2.first].erase(
-											std::remove(entry2.second.begin(),
-													entry2.second.end(),
-													to_remove), entry2.second.end());
-								}
-							}
-						}
-
 						std::set<char> possible_chars;
 						for (uint8_t nr : token_to_possible_numbers[entry.first]) {
 							possible_chars.insert(number_to_chars[nr].begin(),
 									number_to_chars[nr].end());
 						}
 
-						// Make sure char_to_possible_chars only contains characters that are used
-						// for a possible number for the current token.
 						for (char c : entry.first) {
 							std::vector<char>::iterator it =
 									std::set_intersection(
