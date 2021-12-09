@@ -121,8 +121,8 @@ void DayRunner<8>::solve(std::ifstream input) {
 						}
 					}
 
-					// If a character can only possibly represent one character, remove that character as a possibility
-					// for all other characters.
+					// If a character can only possibly represent one character, remove numbers that don't contain
+					// this character from all tokens containing the character.
 					for (uint8_t i = 0; i < 7; i++) {
 						if (char_to_possible_chars[i].size() == 1) {
 							uint8_t c = *char_to_possible_chars[i].begin() - 'a';
@@ -130,8 +130,8 @@ void DayRunner<8>::solve(std::ifstream input) {
 								if (entry.first.find('a' + i) != std::string::npos) {
 									std::vector<uint8_t>::iterator it =
 											std::set_intersection(
-													token_to_possible_numbers[entry.first].begin(),
-													token_to_possible_numbers[entry.first].end(),
+													entry.second.begin(),
+													entry.second.end(),
 													char_to_numbers[c].begin(),
 													char_to_numbers[c].end(),
 													token_to_possible_numbers[entry.first].begin());
