@@ -119,6 +119,13 @@ public abstract class Day23 {
 		System.out.println("The part 2 result is " + result2 + ".");
 	}
 
+	/**
+	 * Finds the index of a byte in a byte array.
+	 * 
+	 * @param array  the byte array to search in.
+	 * @param target the byte to search for.
+	 * @return the index of the given byte in the given byte array.
+	 */
 	private static int findInArray(byte[] array, byte target) {
 		for (int i = 0; i < array.length; i++) {
 			if (array[i] == target) {
@@ -128,6 +135,14 @@ public abstract class Day23 {
 		return -1;
 	}
 
+	/**
+	 * Finds the index of a object in an array.
+	 * 
+	 * @param <T> the type of the object and the array.
+	 * @param array  the array to search in.
+	 * @param target the object to search for.
+	 * @return the index of the given object in the given array.
+	 */
 	private static <T> int findInArray(T[] array, T target) {
 		for (int i = 0; i < array.length; i++) {
 			if (array[i] == target) {
@@ -141,6 +156,11 @@ public abstract class Day23 {
 		public int label;
 		public Cup next;
 
+		/**
+		 * Initializes a new Cup with the given lable.
+		 * 
+		 * @param lable the lable for this Cup.
+		 */
 		public Cup(int lable) {
 			this.label = lable;
 		}

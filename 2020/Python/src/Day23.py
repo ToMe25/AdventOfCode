@@ -3,6 +3,13 @@ import InputReader
 
 class Cup:
 
+    """Iniializes a new Cup with the given lable.
+    
+    Parameters
+    ----------
+    lable: int
+        The lable for this Cup.
+    """
     def __init__(self, label):
         self.label = label
 
