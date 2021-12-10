@@ -13,8 +13,8 @@ function main() {
 
 	local aim=0
 	for i in $(seq 0 $((${#lines[@]} / 2 - 1))); do
-		local command=${lines[$((i * 2))]}
-		local value=${lines[$((i * 2 + 1))]}
+		local command=${lines[$i * 2]}
+		local value=${lines[$i * 2 + 1]}
 		if [ $command == "forward" ]; then
 			((horizontal += $value))
 			((depth += $value * $aim))

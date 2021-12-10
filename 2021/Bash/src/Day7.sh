@@ -16,7 +16,7 @@ function main() {
 	IFS=$ORIGINAL_IFS
 
 	local numbers=($(echo ${numbers[@]} | tr ' ' '\n' | sort -n))
-	local median=${numbers[$((${#numbers[@]} / 2))]}
+	local median=${numbers[${#numbers[@]} / 2]}
 
 	for nr in ${numbers[@]}; do
 		local dist=$(($nr - $median))

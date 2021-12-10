@@ -81,8 +81,7 @@ function main() {
 	done
 
 	local -a basins=($(echo ${basins[@]} | tr ' ' '\n' | sort -n))
-	local basins_nr=${#basins[@]}
-	local result=$((${basins[$basins_nr - 1]} * ${basins[$basins_nr - 2]} * ${basins[$basins_nr - 3]}));
+	local result=$((${basins[-1]} * ${basins[-2]} * ${basins[-3]}));
 
 	echo "The product of the top three basin sizes is $result."
 }
