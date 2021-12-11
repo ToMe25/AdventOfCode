@@ -31,7 +31,7 @@ void DayRunner<5>::solve(std::ifstream input) {
 				if (x1 == x2 || y1 == y2) {
 					for (uint16_t x = std::min(x1, x2); x <= std::max(x1, x2); x++) {
 						for (uint16_t y = std::min(y1, y2); y <= std::max(y1, y2); y++) {
-							lines[std::pair<uint16_t, uint16_t>(x, y)]++;
+							lines[{ x, y }]++;
 						}
 					}
 				}
@@ -63,11 +63,11 @@ void DayRunner<5>::solve(std::ifstream input) {
 				if (x1 != x2 && y1 != y2) {
 					if (x1 < x2) {
 						for (uint16_t x = x1, y = y1; x <= x2; x++, y1 > y2 ? y-- : y++) {
-							lines[std::pair<uint16_t, uint16_t>(x, y)]++;
+							lines[{ x, y }]++;
 						}
 					} else {
 						for (uint16_t x = x1, y = y1; x >= x2; x--, y1 > y2 ? y-- : y++) {
-							lines[std::pair<uint16_t, uint16_t>(x, y)]++;
+							lines[{ x, y }]++;
 						}
 					}
 				}
