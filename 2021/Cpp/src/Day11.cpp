@@ -13,15 +13,15 @@
 
 template <>
 void DayRunner<11>::solve(std::ifstream input) {
-	uint8_t map[10][10];
+	const uint8_t MAP_SIZE = 10;
+
+	uint8_t map[MAP_SIZE][MAP_SIZE];
 	std::string line;
-	uint8_t x = 0;
 	uint8_t y = 0;
 	while (input >> line) {
-		for (char c : line) {
-			map[y][x++] = c - '0';
+		for (uint8_t x = 0; x < MAP_SIZE; x++) {
+			map[y][x] = line[x] - '0';
 		}
-		x = 0;
 		y++;
 	}
 
@@ -29,15 +29,15 @@ void DayRunner<11>::solve(std::ifstream input) {
 	uint16_t run = 0;
 	bool finished = false;
 	std::vector<std::pair<uint8_t, uint8_t>> stack;
-	while(!finished) {
-		for (uint8_t y = 0; y < 10; y++) {
-			for (uint8_t x = 0; x < 10; x++) {
+	while (!finished) {
+		for (uint8_t y = 0; y < MAP_SIZE; y++) {
+			for (uint8_t x = 0; x < MAP_SIZE; x++) {
 				map[y][x]++;
 			}
 		}
 
-		for (uint8_t y = 0; y < 10; y++) {
-			for (uint8_t x = 0; x < 10; x++) {
+		for (uint8_t y = 0; y < MAP_SIZE; y++) {
+			for (uint8_t x = 0; x < MAP_SIZE; x++) {
 				if (map[y][x] > 9) {
 					stack.push_back({ x, y });
 					while (stack.size() > 0) {
@@ -50,10 +50,10 @@ void DayRunner<11>::solve(std::ifstream input) {
 						map[current_pos.second][current_pos.first] = 0;
 						for (uint8_t i = std::max(0,
 								(int8_t) current_pos.second - 1);
-								i < std::min(10, current_pos.second + 2); i++) {
+								i < std::min((int) MAP_SIZE, current_pos.second + 2); i++) {
 							for (uint8_t j = std::max(0,
 									(int8_t) current_pos.first - 1);
-									j < std::min(10, current_pos.first + 2);
+									j < std::min((int) MAP_SIZE, current_pos.first + 2);
 									j++) {
 								if (map[i][j] != 0) {
 									map[i][j]++;
@@ -73,8 +73,8 @@ void DayRunner<11>::solve(std::ifstream input) {
 		}
 
 		finished = true;
-		for (uint8_t y = 0; y < 10; y++) {
-			for (uint8_t x = 0; x < 10; x++) {
+		for (uint8_t y = 0; y < MAP_SIZE; y++) {
+			for (uint8_t x = 0; x < MAP_SIZE; x++) {
 				if (map[y][x] != 0) {
 					finished = false;
 					break;
