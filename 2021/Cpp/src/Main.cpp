@@ -14,7 +14,7 @@
 template <uint8_t... Days>
 AoCRunner* getRunner(const uint8_t day, const std::integer_sequence<uint8_t, Days...>) {
 	AoCRunner *runners[] = { new DayRunner<Days + 1>()... };
-	if (day <= sizeof(runners)/sizeof(runners[0])) {
+	if (day > 0 && day <= sizeof(runners)/sizeof(runners[0])) {
 		return runners[day - 1];
 	} else {
 		std::cerr << "Trying to run not yet implemented day " << (int) day << '.' << std::endl;
