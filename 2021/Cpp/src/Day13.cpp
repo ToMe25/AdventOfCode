@@ -60,12 +60,12 @@ void DayRunner<13>::solve(std::ifstream input) {
 							}
 						}
 					}
+
+					std::cout << "After one fold there are " << points << " points." << std::endl;
 				}
 			}
 		}
 	}
-
-	std::cout << "After one fold there are " << points << " points." << std::endl;
 
 	std::cout << "The result after all folds is:" << std::endl;
 	for (size_t y = 0; y < map.size(); y++) {
