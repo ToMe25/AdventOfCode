@@ -8,7 +8,7 @@
 #include "Main.h"
 #include <iostream>
 
-template <>
+template<>
 void DayRunner<2>::solve(std::ifstream input) {
 	uint depth = 0;
 	uint horizontal = 0;
@@ -29,6 +29,8 @@ void DayRunner<2>::solve(std::ifstream input) {
 		}
 	}
 
-	std::cout << "The horizontal multiplied by the aim(part 1 depth) is " << horizontal * aim << '.' << std::endl;
-	std::cout << "The horizontal multiplied by the depth is " << horizontal * depth << '.' << std::endl;
+	std::cout << "The horizontal multiplied by the aim(part 1 depth) is "
+			<< horizontal * aim << '.' << std::endl;
+	std::cout << "The horizontal multiplied by the depth is "
+			<< horizontal * depth << '.' << std::endl;
 }

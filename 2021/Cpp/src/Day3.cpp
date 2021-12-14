@@ -8,7 +8,7 @@
 #include "Day3.h"
 #include <iostream>
 
-template <>
+template<>
 void DayRunner<3>::solve(std::ifstream input) {
 	std::string line;
 	std::vector<uint16_t> lines;
@@ -26,7 +26,8 @@ void DayRunner<3>::solve(std::ifstream input) {
 		}
 	}
 
-	std::cout << "The power consumption of the submarine is " << gamma * epsilon << '.' << std::endl;
+	std::cout << "The power consumption of the submarine is " << gamma * epsilon
+			<< '.' << std::endl;
 
 	uint16_t oxygen = find_number(lines, false);
 	uint16_t co2 = find_number(lines, true);
@@ -36,7 +37,7 @@ void DayRunner<3>::solve(std::ifstream input) {
 
 int16_t count_bits(const std::vector<uint16_t> numbers, const uint8_t bit) {
 	int16_t diff = 0;
-	for (uint16_t number: numbers) {
+	for (uint16_t number : numbers) {
 		if (((number >> (11 - bit)) & 1) == 1) {
 			diff++;
 		} else {
@@ -51,7 +52,7 @@ uint16_t find_number(const std::vector<uint16_t> numbers, const bool lcb) {
 	std::vector<uint16_t> valid_numbers;
 	uint8_t i = 0;
 	while (current_numbers.size() > 1 && i < 12) {
-		for (uint16_t number: current_numbers) {
+		for (uint16_t number : current_numbers) {
 			bool one = ((number >> (11 - i)) & 1) == 1;
 			int16_t count = count_bits(current_numbers, i);
 			if (count == 0) {

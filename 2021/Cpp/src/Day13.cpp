@@ -9,7 +9,7 @@
 #include <iostream>
 #include <vector>
 
-template <>
+template<>
 void DayRunner<13>::solve(std::ifstream input) {
 	std::vector<std::vector<bool>> map(2000);
 	std::vector<std::vector<bool>> new_map;
@@ -61,7 +61,8 @@ void DayRunner<13>::solve(std::ifstream input) {
 						}
 					}
 
-					std::cout << "After one fold there are " << points << " points." << std::endl;
+					std::cout << "After one fold there are " << points
+							<< " points." << std::endl;
 				}
 			}
 		}

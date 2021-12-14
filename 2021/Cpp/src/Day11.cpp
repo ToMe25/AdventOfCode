@@ -9,9 +9,10 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <list>
 #include <vector>
 
-template <>
+template<>
 void DayRunner<11>::solve(std::ifstream input) {
 	const uint8_t MAP_SIZE = 10;
 
@@ -28,7 +29,7 @@ void DayRunner<11>::solve(std::ifstream input) {
 	uint16_t flashes = 0;
 	uint16_t run = 0;
 	bool finished = false;
-	std::vector<std::pair<uint8_t, uint8_t>> stack;
+	std::list<std::pair<uint8_t, uint8_t>> stack;
 	while (!finished) {
 		for (uint8_t y = 0; y < MAP_SIZE; y++) {
 			for (uint8_t x = 0; x < MAP_SIZE; x++) {
@@ -39,10 +40,10 @@ void DayRunner<11>::solve(std::ifstream input) {
 		for (uint8_t y = 0; y < MAP_SIZE; y++) {
 			for (uint8_t x = 0; x < MAP_SIZE; x++) {
 				if (map[y][x] > 9) {
-					stack.push_back({ x, y });
+					stack.push_back( { x, y });
 					while (stack.size() > 0) {
-						std::pair<uint8_t, uint8_t> current_pos = stack.back();
-						stack.pop_back();
+						std::pair<uint8_t, uint8_t> current_pos = stack.front();
+						stack.pop_front();
 						if (run < 100) {
 							flashes++;
 						}
@@ -50,10 +51,12 @@ void DayRunner<11>::solve(std::ifstream input) {
 						map[current_pos.second][current_pos.first] = 0;
 						for (uint8_t i = std::max(0,
 								(int8_t) current_pos.second - 1);
-								i < std::min((int) MAP_SIZE, current_pos.second + 2); i++) {
+								i < std::min((int) MAP_SIZE,
+												current_pos.second + 2); i++) {
 							for (uint8_t j = std::max(0,
 									(int8_t) current_pos.first - 1);
-									j < std::min((int) MAP_SIZE, current_pos.first + 2);
+									j < std::min((int) MAP_SIZE,
+													current_pos.first + 2);
 									j++) {
 								if (map[i][j] != 0) {
 									map[i][j]++;
@@ -89,5 +92,6 @@ void DayRunner<11>::solve(std::ifstream input) {
 	}
 
 	std::cout << "After 100 steps there were " << flashes << " flashes." << std::endl;
-	std::cout << "It took " << run << " steps for all octopuses to flash simultaneously." << std::endl;
+	std::cout << "It took " << run
+			<< " steps for all octopuses to flash simultaneously." << std::endl;
 }

@@ -8,7 +8,7 @@
 #include "Day14.h"
 #include <iostream>
 
-template <>
+template<>
 void DayRunner<14>::solve(std::ifstream input) {
 	std::string line;
 	std::map<std::pair<char, char>, uint64_t> polymer;
@@ -19,7 +19,7 @@ void DayRunner<14>::solve(std::ifstream input) {
 		if (polymer.empty()) {
 			for (char c : line) {
 				if (last != 0) {
-					polymer[{ last, c }]++;
+					polymer[ { last, c }]++;
 				} else {
 					first = c;
 				}
@@ -27,7 +27,7 @@ void DayRunner<14>::solve(std::ifstream input) {
 				last = c;
 			}
 		} else {
-			insertions[{ line[0], line[1] }] = line[6];
+			insertions[ { line[0], line[1] }] = line[6];
 		}
 	}
 
@@ -51,8 +51,10 @@ uint64_t expand_and_count(std::map<std::pair<char, char>, uint64_t> polymer,
 		polymer_cpy = std::map<std::pair<char, char>, uint64_t>();
 		for (std::pair<std::pair<char, char>, uint64_t> entry : polymer) {
 			if (expansions.find(entry.first) != expansions.end()) {
-				polymer_cpy[{ entry.first.first, expansions_cpy[entry.first] }] += entry.second;
-				polymer_cpy[{ expansions_cpy[entry.first], entry.first.second }] += entry.second;
+				polymer_cpy[ { entry.first.first, expansions_cpy[entry.first] }] +=
+						entry.second;
+				polymer_cpy[ { expansions_cpy[entry.first], entry.first.second }] +=
+						entry.second;
 			} else {
 				polymer_cpy[entry.first] += entry.second;
 			}

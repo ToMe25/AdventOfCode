@@ -12,7 +12,7 @@
 #include <sstream>
 #include <vector>
 
-template <>
+template<>
 void DayRunner<7>::solve(std::ifstream input) {
 	std::string input_str;
 	input >> input_str;

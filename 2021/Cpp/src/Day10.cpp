@@ -11,7 +11,7 @@
 #include <stack>
 #include <vector>
 
-template <>
+template<>
 void DayRunner<10>::solve(std::ifstream input) {
 	std::string line;
 	std::stack<char> opened;
@@ -44,7 +44,7 @@ void DayRunner<10>::solve(std::ifstream input) {
 		closing = 0;
 		while (opened.size() > 0) {
 			closing *= 5;
-			switch(opened.top()) {
+			switch (opened.top()) {
 			case '(':
 				closing += 1;
 				break;
@@ -58,7 +58,8 @@ void DayRunner<10>::solve(std::ifstream input) {
 				closing += 4;
 				break;
 			default:
-				std::cerr << "Found invalding opening char " << opened.top() << '.' << std::endl;
+				std::cerr << "Found invalding opening char " << opened.top()
+						<< '.' << std::endl;
 				break;
 			}
 			opened.pop();
@@ -73,5 +74,6 @@ void DayRunner<10>::solve(std::ifstream input) {
 
 	std::sort(closing_strings.begin(), closing_strings.end());
 
-	std::cout << "The middle closing string is " << closing_strings[closing_strings.size() / 2] << '.' << std::endl;
+	std::cout << "The middle closing string is "
+			<< closing_strings[closing_strings.size() / 2] << '.' << std::endl;
 }

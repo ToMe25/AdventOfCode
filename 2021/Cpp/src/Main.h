@@ -11,7 +11,7 @@
 #include <fstream>
 #include <utility>
 
-int main(int argc, char* argv[]);
+int main(int argc, char *argv[]);
 
 /*
  * Gets a file input stream for the input file for the given day.
@@ -24,7 +24,8 @@ std::ifstream getInputFileStream(const uint8_t day);
 
 class AoCRunner {
 public:
-	virtual ~AoCRunner() { };
+	virtual ~AoCRunner() {
+	}
 
 	/*
 	 * Solves the task for the given day.
@@ -33,10 +34,11 @@ public:
 	virtual void solve() = 0;
 };
 
-template <uint8_t Day>
+template<uint8_t Day>
 class DayRunner: public AoCRunner {
 public:
-	virtual ~DayRunner() { };
+	virtual ~DayRunner() {
+	}
 
 	/*
 	 * Returns the day this implementation is the solution for.
@@ -65,7 +67,8 @@ public:
  * @param day	The day for which to get the runner.
  * @return	A pointer to the DayRunner for the given day.
  */
-template <uint8_t... Days>
-AoCRunner* getRunner(const uint8_t day, const std::integer_sequence<uint8_t, Days...>);
+template<uint8_t ... Days>
+AoCRunner* getRunner(const uint8_t day,
+		const std::integer_sequence<uint8_t, Days...>);
 
 #endif /* MAIN_H_ */

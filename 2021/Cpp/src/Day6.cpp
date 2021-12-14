@@ -10,7 +10,7 @@
 #include <iostream>
 #include <sstream>
 
-template <>
+template<>
 void DayRunner<6>::solve(std::ifstream input) {
 	std::string line;
 	input >> line;

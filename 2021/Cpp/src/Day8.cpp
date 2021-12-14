@@ -14,7 +14,7 @@
 #include <set>
 #include <vector>
 
-template <>
+template<>
 void DayRunner<8>::solve(std::ifstream input) {
 
 	std::set<char> number_to_chars[10];
@@ -59,7 +59,7 @@ void DayRunner<8>::solve(std::ifstream input) {
 	bool output = false;
 	std::string out_str;
 	uint64_t out = 0;
-	while(getline(input, line)) {
+	while (getline(input, line)) {
 		std::map<std::string, std::vector<uint8_t>> token_to_possible_numbers;
 		std::vector<char> char_to_possible_chars[7];
 
@@ -79,7 +79,8 @@ void DayRunner<8>::solve(std::ifstream input) {
 						}
 					}
 
-					char_to_possible_chars[i] = occurrences_to_possible_chars[occurrences];
+					char_to_possible_chars[i] =
+							occurrences_to_possible_chars[occurrences];
 				}
 
 				while (!solved) {
@@ -109,9 +110,11 @@ void DayRunner<8>::solve(std::ifstream input) {
 					// this character from all tokens containing the character.
 					for (uint8_t i = 0; i < 7; i++) {
 						if (char_to_possible_chars[i].size() == 1) {
-							uint8_t c = *char_to_possible_chars[i].begin() - 'a';
+							uint8_t c = *char_to_possible_chars[i].begin()
+									- 'a';
 							for (std::pair<std::string, std::vector<uint8_t>> entry : token_to_possible_numbers) {
-								if (entry.first.find('a' + i) != std::string::npos) {
+								if (entry.first.find('a' + i)
+										!= std::string::npos) {
 									std::vector<uint8_t>::iterator it =
 											std::set_intersection(
 													entry.second.begin(),
@@ -170,6 +173,7 @@ void DayRunner<8>::solve(std::ifstream input) {
 		output = false;
 	}
 
-	std::cout << "The part 1 result is " << (ones + fours + sevens + eights) << '.' << std::endl;
+	std::cout << "The part 1 result is " << (ones + fours + sevens + eights)
+			<< '.' << std::endl;
 	std::cout << "The part 2 result is " << out << '.' << std::endl;
 }

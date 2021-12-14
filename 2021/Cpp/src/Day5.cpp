@@ -11,7 +11,7 @@
 #include <map>
 #include <sstream>
 
-template <>
+template<>
 void DayRunner<5>::solve(std::ifstream input) {
 	std::string line;
 	uint16_t x1 = 0, y1 = 0, x2 = 0, y2 = 0;
@@ -29,9 +29,11 @@ void DayRunner<5>::solve(std::ifstream input) {
 			} else {
 				converter >> x2 >> y2;
 				if (x1 == x2 || y1 == y2) {
-					for (uint16_t x = std::min(x1, x2); x <= std::max(x1, x2); x++) {
-						for (uint16_t y = std::min(y1, y2); y <= std::max(y1, y2); y++) {
-							lines[{ x, y }]++;
+					for (uint16_t x = std::min(x1, x2); x <= std::max(x1, x2);
+							x++) {
+						for (uint16_t y = std::min(y1, y2);
+								y <= std::max(y1, y2); y++) {
+							lines[ { x, y }]++;
 						}
 					}
 				}
@@ -62,12 +64,14 @@ void DayRunner<5>::solve(std::ifstream input) {
 				converter >> x2 >> y2;
 				if (x1 != x2 && y1 != y2) {
 					if (x1 < x2) {
-						for (uint16_t x = x1, y = y1; x <= x2; x++, y1 > y2 ? y-- : y++) {
-							lines[{ x, y }]++;
+						for (uint16_t x = x1, y = y1; x <= x2;
+								x++, y1 > y2 ? y-- : y++) {
+							lines[ { x, y }]++;
 						}
 					} else {
-						for (uint16_t x = x1, y = y1; x >= x2; x--, y1 > y2 ? y-- : y++) {
-							lines[{ x, y }]++;
+						for (uint16_t x = x1, y = y1; x >= x2;
+								x--, y1 > y2 ? y-- : y++) {
+							lines[ { x, y }]++;
 						}
 					}
 				}

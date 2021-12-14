@@ -8,9 +8,10 @@
 #include "Day9.h"
 #include <algorithm>
 #include <iostream>
+#include <list>
 #include <vector>
 
-template <>
+template<>
 void DayRunner<9>::solve(std::ifstream input) {
 	uint8_t map[100][100];
 
@@ -57,8 +58,9 @@ void DayRunner<9>::solve(std::ifstream input) {
 	std::vector<uint8_t> basin_sizes;
 	for (uint8_t y = 0; y < 100; y++) {
 		for (uint8_t x = 0; x < 100; x++) {
-			if (map[y][x] != 9 && checked.find({x, y}) == checked.end()) {
-				const std::set<std::pair<uint8_t, uint8_t>> basin = recursive_check(x, y, checked, map);
+			if (map[y][x] != 9 && checked.find( { x, y }) == checked.end()) {
+				const std::set<std::pair<uint8_t, uint8_t>> basin =
+						recursive_check(x, y, checked, map);
 				if (basin.size() > 0) {
 					checked.insert(basin.begin(), basin.end());
 					basin_sizes.push_back(basin.size());
@@ -72,7 +74,8 @@ void DayRunner<9>::solve(std::ifstream input) {
 			* basin_sizes[basin_sizes.size() - 2]
 			* basin_sizes[basin_sizes.size() - 3];
 
-	std::cout << "The product of the top three basin sizes is " << result << '.' << std::endl;
+	std::cout << "The product of the top three basin sizes is " << result << '.'
+			<< std::endl;
 }
 
 const std::set<std::pair<uint8_t, uint8_t>> recursive_check(const uint8_t x_pos,
@@ -80,7 +83,7 @@ const std::set<std::pair<uint8_t, uint8_t>> recursive_check(const uint8_t x_pos,
 		const std::set<std::pair<uint8_t, uint8_t>> checked,
 		const uint8_t map[100][100]) {
 	std::set<std::pair<uint8_t, uint8_t>> found;
-	if (checked.find({x_pos, y_pos}) != checked.end()) {
+	if (checked.find( { x_pos, y_pos }) != checked.end()) {
 		return found;
 	}
 
@@ -89,31 +92,51 @@ const std::set<std::pair<uint8_t, uint8_t>> recursive_check(const uint8_t x_pos,
 	}
 
 	std::set<std::pair<uint8_t, uint8_t>> checked_cpy(checked);
-	found.insert({x_pos, y_pos});
-	checked_cpy.insert({x_pos, y_pos});
+	std::list<std::pair<uint8_t, uint8_t>> to_check;
+	found.insert( { x_pos, y_pos });
+	checked_cpy.insert( { x_pos, y_pos });
+	to_check.push_back( { x_pos, y_pos });
 
-	if (x_pos > 0 && map[y_pos][x_pos - 1] != 9 && checked.find({x_pos - 1, y_pos}) == checked.end()) {
-		std::set<std::pair<uint8_t, uint8_t>> neighbor = recursive_check(x_pos - 1, y_pos, checked_cpy, map);
-		found.insert(neighbor.begin(), neighbor.end());
-		checked_cpy.insert(neighbor.begin(), neighbor.end());
-	}
+	while (to_check.size() > 0) {
+		uint8_t x = to_check.front().first;
+		uint8_t y = to_check.front().second;
 
-	if (x_pos < 99 && map[y_pos][x_pos + 1] != 9 && checked.find({x_pos + 1, y_pos}) == checked.end()) {
-		std::set<std::pair<uint8_t, uint8_t>> neighbor = recursive_check(x_pos + 1, y_pos, checked_cpy, map);
-		found.insert(neighbor.begin(), neighbor.end());
-		checked_cpy.insert(neighbor.begin(), neighbor.end());
-	}
+		found.insert( { x, y });
+		checked_cpy.insert( { x, y });
 
-	if (y_pos > 0 && map[y_pos - 1][x_pos] != 9 && checked.find({x_pos, y_pos - 1}) == checked.end()) {
-		std::set<std::pair<uint8_t, uint8_t>> neighbor = recursive_check(x_pos, y_pos - 1, checked_cpy, map);
-		found.insert(neighbor.begin(), neighbor.end());
-		checked_cpy.insert(neighbor.begin(), neighbor.end());
-	}
+		if (x > 0 && map[y][x - 1] != 9
+				&& checked_cpy.find( { x - 1, y }) == checked_cpy.end()
+				&& std::find(to_check.begin(), to_check.end(),
+						std::pair<uint8_t, uint8_t>( { x - 1, y }))
+						== to_check.end()) {
+			to_check.push_back( { x - 1, y });
+		}
 
-	if (y_pos < 99 && map[y_pos + 1][x_pos] != 9 && checked.find({x_pos, y_pos + 1}) == checked.end()) {
-		std::set<std::pair<uint8_t, uint8_t>> neighbor = recursive_check(x_pos, y_pos + 1, checked_cpy, map);
-		found.insert(neighbor.begin(), neighbor.end());
-		checked_cpy.insert(neighbor.begin(), neighbor.end());
+		if (x < 99 && map[y][x + 1] != 9
+				&& checked_cpy.find( { x + 1, y }) == checked_cpy.end()
+				&& std::find(to_check.begin(), to_check.end(),
+						std::pair<uint8_t, uint8_t>( { x + 1, y }))
+						== to_check.end()) {
+			to_check.push_back( { x + 1, y });
+		}
+
+		if (y > 0 && map[y - 1][x] != 9
+				&& checked_cpy.find( { x, y - 1 }) == checked_cpy.end()
+				&& std::find(to_check.begin(), to_check.end(),
+						std::pair<uint8_t, uint8_t>( { x, y - 1 }))
+						== to_check.end()) {
+			to_check.push_back( { x, y - 1 });
+		}
+
+		if (y < 99 && map[y + 1][x] != 9
+				&& checked_cpy.find( { x, y + 1 }) == checked_cpy.end()
+				&& std::find(to_check.begin(), to_check.end(),
+						std::pair<uint8_t, uint8_t>( { x, y + 1 }))
+						== to_check.end()) {
+			to_check.push_back( { x, y + 1 });
+		}
+
+		to_check.pop_front();
 	}
 
 	return found;

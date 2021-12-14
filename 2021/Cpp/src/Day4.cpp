@@ -10,7 +10,7 @@
 #include <iostream>
 #include <sstream>
 
-template <>
+template<>
 void DayRunner<4>::solve(std::ifstream input) {
 	std::string token;
 	input >> token;
@@ -49,7 +49,8 @@ void DayRunner<4>::solve(std::ifstream input) {
 		}
 	}
 
-	std::cout << "The first board winning score is " << unmarked * first_win_number << '.' << std::endl;
+	std::cout << "The first board winning score is "
+			<< unmarked * first_win_number << '.' << std::endl;
 
 	unmarked = 0;
 	for (uint8_t x = 0; x < 5; x++) {

@@ -8,7 +8,7 @@
 #include "Main.h"
 #include <iostream>
 
-template <>
+template<>
 void DayRunner<1>::solve(std::ifstream input) {
 	uint increases = 0, sum_increases = 0;
 	uint depth = 0;
@@ -24,7 +24,7 @@ void DayRunner<1>::solve(std::ifstream input) {
 				sum = depth + previous_depths[0] + previous_depths[1];
 				if (previous_sum != 0) {
 					if (previous_sum < sum) {
-						sum_increases ++;
+						sum_increases++;
 					}
 				}
 				previous_sum = sum;
