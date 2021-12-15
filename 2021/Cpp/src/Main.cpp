@@ -18,13 +18,14 @@ AoCRunner* getRunner(const uint8_t day,
 	if (day > 0 && day <= sizeof(runners) / sizeof(runners[0])) {
 		return runners[day - 1];
 	} else {
-		std::cerr << "Trying to run not yet implemented day " << (int) day
+		std::cerr << "Trying to run not yet implemented day " << (uint16_t) day
 				<< '.' << std::endl;
-		exit(4);
+		return NULL;
 	}
 }
 
 int main(int argc, char *argv[]) {
+	bool dayRun = false;
 	for (int i = 0; i < argc; i++) {
 		if (std::regex_match(argv[i], std::regex("-{0,2}day\\s*\\d{0,2}"))) {
 			uint8_t day = 1;
@@ -33,18 +34,23 @@ int main(int argc, char *argv[]) {
 				std::string dayStr = std::string(argv[i]);
 				day = std::stoi(dayStr.substr(dayStr.find_last_of(' ')));
 			} else if (argc > i
-					&& std::regex_match(argv[i + 1], std::regex("\\d{1,2}"))) {
-				day = std::stoi(argv[i + 1]);
+					&& std::regex_match(argv[++i], std::regex("\\d{1,2}"))) {
+				day = std::stoi(argv[i]);
 			}
 			AoCRunner *runner = getRunner(day,
-					std::make_integer_sequence<uint8_t, 14>());
-			runner->solve();
-			return 0;
+					std::make_integer_sequence<uint8_t, 15>());
+			if (runner != NULL) {
+				std::cout << "Running Day " << (uint16_t) day << '.' << std::endl;
+				runner->solve();
+				dayRun = true;
+			}
 		}
 	}
 
-	std::cout << "Please specify the day to run with -day DAY." << std::endl;
-	return 1;
+	if (!dayRun) {
+		std::cout << "Please specify the day to run with -day DAY." << std::endl;
+		return 1;
+	}
 }
 
 std::ifstream getInputFileStream(const uint8_t day) {
