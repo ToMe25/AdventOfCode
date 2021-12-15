@@ -18,7 +18,7 @@ void DayRunner<15>::solve(std::ifstream input) {
 	std::string line;
 	uint8_t x = 0;
 	uint8_t y = 0;
-	std::array<std::array<uint8_t, MAP_SIZE>, MAP_SIZE> map;
+	uint8_t map[MAP_SIZE][MAP_SIZE];
 	while (input >> line) {
 		for (char c : line) {
 			map[y][x] = c - '0';
@@ -33,7 +33,7 @@ void DayRunner<15>::solve(std::ifstream input) {
 	std::cout << "The cost for the easiest path for part one has a cost of "
 			<< goal.cost_sum << '.' << std::endl;
 
-	std::array<std::array<uint8_t, MAP_SIZE * 5>, MAP_SIZE * 5> map_2;
+	uint8_t map_2[MAP_SIZE * 5][MAP_SIZE * 5];
 	for (uint8_t i = 0; i < 5; i++) {
 		for (uint8_t j = 0; j < 5; j++) {
 			for (uint8_t y = 0; y < MAP_SIZE; y++) {
@@ -54,7 +54,7 @@ void DayRunner<15>::solve(std::ifstream input) {
 }
 
 template<size_t Size>
-Node find_path(const std::array<std::array<uint8_t, Size>, Size> map) {
+Node find_path(const uint8_t map[Size][Size]) {
 	std::multiset<Node> open;
 	std::unordered_set<Node> closed;
 
@@ -82,10 +82,6 @@ Node find_path(const std::array<std::array<uint8_t, Size>, Size> map) {
 					continue;
 				}
 
-				if ((it = open.find(neighbor)) != open.end()) {
-					open.erase(it);
-				}
-
 				neighbor.predecessor = &*closed.find(current);
 				neighbor.cost_sum = tentative;
 				neighbor.f = tentative + Size * 2 - 2
@@ -99,16 +95,14 @@ Node find_path(const std::array<std::array<uint8_t, Size>, Size> map) {
 }
 
 template<size_t Size>
-std::vector<Node> get_neighbors(const Node current,
-		const std::array<std::array<uint8_t, Size>, Size> map,
+std::list<Node> get_neighbors(const Node current,
+		const uint8_t map[Size][Size],
 		const std::multiset<Node> open) {
-	std::vector<Node> neighbors;
+	std::list<Node> neighbors;
 
 	std::set<Node>::iterator it;
-	Node new_node;
 	if (current.x > 0) {
-		new_node = Node(current.x - 1, current.y,
-				map[current.y][current.x - 1]);
+		Node new_node(current.x - 1, current.y, map[current.y][current.x - 1]);
 		if ((it = open.find(new_node)) != open.end()) {
 			neighbors.push_back(*it);
 		} else {
@@ -117,8 +111,7 @@ std::vector<Node> get_neighbors(const Node current,
 	}
 
 	if (current.x < Size - 1) {
-		new_node = Node(current.x + 1, current.y,
-				map[current.y][current.x + 1]);
+		Node new_node(current.x + 1, current.y, map[current.y][current.x + 1]);
 		if ((it = open.find(new_node)) != open.end()) {
 			neighbors.push_back(*it);
 		} else {
@@ -127,8 +120,7 @@ std::vector<Node> get_neighbors(const Node current,
 	}
 
 	if (current.y > 0) {
-		new_node = Node(current.x, current.y - 1,
-				map[current.y - 1][current.x]);
+		Node new_node(current.x, current.y - 1, map[current.y - 1][current.x]);
 		if ((it = open.find(new_node)) != open.end()) {
 			neighbors.push_back(*it);
 		} else {
@@ -137,8 +129,7 @@ std::vector<Node> get_neighbors(const Node current,
 	}
 
 	if (current.y < Size - 1) {
-		new_node = Node(current.x, current.y + 1,
-				map[current.y + 1][current.x]);
+		Node new_node(current.x, current.y + 1, map[current.y + 1][current.x]);
 		if ((it = open.find(new_node)) != open.end()) {
 			neighbors.push_back(*it);
 		} else {

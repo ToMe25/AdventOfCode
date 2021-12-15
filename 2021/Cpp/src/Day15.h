@@ -9,9 +9,8 @@
 #define DAY15_H_
 
 #include "Main.h"
-#include <array>
+#include <list>
 #include <set>
-#include <vector>
 
 struct Node {
 	uint16_t x;
@@ -107,7 +106,7 @@ std::ostream &operator <<(std::ostream &stream, const Node &node);
  * @return	The node for the bottom right position.
  */
 template<size_t Size>
-Node find_path(const std::array<std::array<uint8_t, Size>, Size> map);
+Node find_path(const uint8_t map[Size][Size]);
 
 /**
  * Gets the nodes for the fields neighboring the given node.
@@ -117,11 +116,11 @@ Node find_path(const std::array<std::array<uint8_t, Size>, Size> map);
  * @param map		The map in which to check the cost for the neighbors.
  * @param open		The list of open nodes.
  * 					Used to prevent creating duplicate nodes for the same position.
- * @return	A vector containing those of the four neighbors of the given node that exist.
+ * @return	A list containing those of the four neighbors of the given node that exist.
  */
 template<size_t Size>
-std::vector<Node> get_neighbors(const Node current,
-		const std::array<std::array<uint8_t, Size>, Size> map,
+std::list<Node> get_neighbors(const Node current,
+		const uint8_t map[Size][Size],
 		const std::multiset<Node> open);
 
 #endif /* DAY15_H_ */
