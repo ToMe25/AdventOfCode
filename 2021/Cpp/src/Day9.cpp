@@ -58,7 +58,7 @@ void DayRunner<9>::solve(std::ifstream input) {
 	std::vector<uint8_t> basin_sizes;
 	for (uint8_t y = 0; y < 100; y++) {
 		for (uint8_t x = 0; x < 100; x++) {
-			if (map[y][x] != 9 && checked.find( { x, y }) == checked.end()) {
+			if (map[y][x] != 9 && checked.count( { x, y }) == 0) {
 				const std::set<std::pair<uint8_t, uint8_t>> basin =
 						recursive_check(x, y, checked, map);
 				if (basin.size() > 0) {
@@ -83,7 +83,7 @@ const std::set<std::pair<uint8_t, uint8_t>> recursive_check(const uint8_t x_pos,
 		const std::set<std::pair<uint8_t, uint8_t>> checked,
 		const uint8_t map[100][100]) {
 	std::set<std::pair<uint8_t, uint8_t>> found;
-	if (checked.find( { x_pos, y_pos }) != checked.end()) {
+	if (checked.count( { x_pos, y_pos }) > 0) {
 		return found;
 	}
 
@@ -105,7 +105,7 @@ const std::set<std::pair<uint8_t, uint8_t>> recursive_check(const uint8_t x_pos,
 		checked_cpy.insert( { x, y });
 
 		if (x > 0 && map[y][x - 1] != 9
-				&& checked_cpy.find( { x - 1, y }) == checked_cpy.end()
+				&& checked_cpy.count( { x - 1, y }) == 0
 				&& std::find(to_check.begin(), to_check.end(),
 						std::pair<uint8_t, uint8_t>( { x - 1, y }))
 						== to_check.end()) {
@@ -113,7 +113,7 @@ const std::set<std::pair<uint8_t, uint8_t>> recursive_check(const uint8_t x_pos,
 		}
 
 		if (x < 99 && map[y][x + 1] != 9
-				&& checked_cpy.find( { x + 1, y }) == checked_cpy.end()
+				&& checked_cpy.count( { x + 1, y }) == 0
 				&& std::find(to_check.begin(), to_check.end(),
 						std::pair<uint8_t, uint8_t>( { x + 1, y }))
 						== to_check.end()) {
@@ -121,7 +121,7 @@ const std::set<std::pair<uint8_t, uint8_t>> recursive_check(const uint8_t x_pos,
 		}
 
 		if (y > 0 && map[y - 1][x] != 9
-				&& checked_cpy.find( { x, y - 1 }) == checked_cpy.end()
+				&& checked_cpy.count( { x, y - 1 }) == 0
 				&& std::find(to_check.begin(), to_check.end(),
 						std::pair<uint8_t, uint8_t>( { x, y - 1 }))
 						== to_check.end()) {
@@ -129,7 +129,7 @@ const std::set<std::pair<uint8_t, uint8_t>> recursive_check(const uint8_t x_pos,
 		}
 
 		if (y < 99 && map[y + 1][x] != 9
-				&& checked_cpy.find( { x, y + 1 }) == checked_cpy.end()
+				&& checked_cpy.count( { x, y + 1 }) == 0
 				&& std::find(to_check.begin(), to_check.end(),
 						std::pair<uint8_t, uint8_t>( { x, y + 1 }))
 						== to_check.end()) {

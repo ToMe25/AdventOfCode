@@ -10,8 +10,8 @@
 #include <cctype>
 #include <map>
 #include <iostream>
-#include <vector>
 #include <queue>
+#include <vector>
 
 template<>
 void DayRunner<12>::solve(std::ifstream input) {

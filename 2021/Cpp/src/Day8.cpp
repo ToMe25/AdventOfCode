@@ -11,13 +11,13 @@
 #include <iostream>
 #include <map>
 #include <sstream>
-#include <set>
+#include <unordered_set>
 #include <vector>
 
 template<>
 void DayRunner<8>::solve(std::ifstream input) {
 
-	std::set<char> number_to_chars[10];
+	std::unordered_set<char> number_to_chars[10];
 	number_to_chars[0] = { 'a', 'b', 'c', 'e', 'f', 'g' };
 	number_to_chars[1] = { 'c', 'f' };
 	number_to_chars[2] = { 'a', 'c', 'd', 'e', 'g' };
@@ -29,7 +29,7 @@ void DayRunner<8>::solve(std::ifstream input) {
 	number_to_chars[8] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g' };
 	number_to_chars[9] = { 'a', 'b', 'c', 'd', 'f', 'g' };
 
-	std::set<uint8_t> char_to_numbers[7];
+	std::unordered_set<uint8_t> char_to_numbers[7];
 	for (uint8_t i = 0; i < 10; i++) {
 		for (char c : number_to_chars[i]) {
 			char_to_numbers[c - 'a'].insert(i);
@@ -40,7 +40,7 @@ void DayRunner<8>::solve(std::ifstream input) {
 	for (uint8_t i = 0; i < 7; i++) {
 		uint8_t occurrences = 0;
 		for (uint8_t j = 0; j < 10; j++) {
-			if (number_to_chars[j].find('a' + i) != number_to_chars[j].end()) {
+			if (number_to_chars[j].count('a' + i) > 0) {
 				occurrences++;
 			}
 		}
@@ -87,7 +87,7 @@ void DayRunner<8>::solve(std::ifstream input) {
 					// Make sure char_to_possible_chars only contains characters that are used
 					// for a possible number for the current token.
 					for (std::pair<std::string, std::vector<uint8_t>> entry : token_to_possible_numbers) {
-						std::set<char> possible_chars;
+						std::unordered_set<char> possible_chars;
 						for (uint8_t nr : token_to_possible_numbers[entry.first]) {
 							possible_chars.insert(number_to_chars[nr].begin(),
 									number_to_chars[nr].end());

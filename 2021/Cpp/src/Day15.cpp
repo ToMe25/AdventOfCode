@@ -56,7 +56,7 @@ void DayRunner<15>::solve(std::ifstream input) {
 template<size_t Size>
 Node find_path(const std::array<std::array<uint8_t, Size>, Size> map) {
 	std::multiset<Node> open;
-	std::unordered_multiset<Node> closed;
+	std::unordered_set<Node> closed;
 
 	open.insert(Node(0, 0, map[0][0]));
 
@@ -82,8 +82,7 @@ Node find_path(const std::array<std::array<uint8_t, Size>, Size> map) {
 					continue;
 				}
 
-				if ((it = std::find(open.begin(), open.end(), neighbor))
-						!= open.end()) {
+				if ((it = open.find(neighbor)) != open.end()) {
 					open.erase(it);
 				}
 
@@ -110,8 +109,7 @@ std::vector<Node> get_neighbors(const Node current,
 	if (current.x > 0) {
 		new_node = Node(current.x - 1, current.y,
 				map[current.y][current.x - 1]);
-		if ((it = std::find(open.begin(), open.end(), new_node))
-				!= open.end()) {
+		if ((it = open.find(new_node)) != open.end()) {
 			neighbors.push_back(*it);
 		} else {
 			neighbors.push_back(new_node);
@@ -121,8 +119,7 @@ std::vector<Node> get_neighbors(const Node current,
 	if (current.x < Size - 1) {
 		new_node = Node(current.x + 1, current.y,
 				map[current.y][current.x + 1]);
-		if ((it = std::find(open.begin(), open.end(), new_node))
-				!= open.end()) {
+		if ((it = open.find(new_node)) != open.end()) {
 			neighbors.push_back(*it);
 		} else {
 			neighbors.push_back(new_node);
@@ -132,8 +129,7 @@ std::vector<Node> get_neighbors(const Node current,
 	if (current.y > 0) {
 		new_node = Node(current.x, current.y - 1,
 				map[current.y - 1][current.x]);
-		if ((it = std::find(open.begin(), open.end(), new_node))
-				!= open.end()) {
+		if ((it = open.find(new_node)) != open.end()) {
 			neighbors.push_back(*it);
 		} else {
 			neighbors.push_back(new_node);
@@ -143,8 +139,7 @@ std::vector<Node> get_neighbors(const Node current,
 	if (current.y < Size - 1) {
 		new_node = Node(current.x, current.y + 1,
 				map[current.y + 1][current.x]);
-		if ((it = std::find(open.begin(), open.end(), new_node))
-				!= open.end()) {
+		if ((it = open.find(new_node)) != open.end()) {
 			neighbors.push_back(*it);
 		} else {
 			neighbors.push_back(new_node);
