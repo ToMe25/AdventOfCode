@@ -10,7 +10,6 @@
 
 #include "Main.h"
 #include <list>
-#include <set>
 
 struct Node {
 	uint16_t x;
@@ -98,6 +97,19 @@ struct hash<Node> {
  */
 std::ostream &operator <<(std::ostream &stream, const Node &node);
 
+struct node_pointer_less {
+	/**
+	 * Compares the nodes from the two given pointers.
+	 *
+	 * @param A	The first node to compare.
+	 * @param B	The second node to compare.
+	 * @return	True if the node from A is less then the node from B.
+	 */
+	bool operator ()(const Node *A, const Node *B) const {
+		return *A < *B;
+	}
+};
+
 /**
  * Uses a standard A* algorithm to find the best path from the top left to the bottom right of the map.
  *
@@ -106,7 +118,7 @@ std::ostream &operator <<(std::ostream &stream, const Node &node);
  * @return	The node for the bottom right position.
  */
 template<size_t Size>
-Node find_path(const uint8_t map[Size][Size]);
+Node find_path(Node map[Size][Size]);
 
 /**
  * Gets the nodes for the fields neighboring the given node.
@@ -114,13 +126,11 @@ Node find_path(const uint8_t map[Size][Size]);
  * @tparam Size	The x and y size of the map.
  * @param current	The node for which to look for neighbors.
  * @param map		The map in which to check the cost for the neighbors.
- * @param open		The list of open nodes.
  * 					Used to prevent creating duplicate nodes for the same position.
  * @return	A list containing those of the four neighbors of the given node that exist.
  */
 template<size_t Size>
-std::list<Node> get_neighbors(const Node current,
-		const uint8_t map[Size][Size],
-		const std::multiset<Node> open);
+std::list<Node*> get_neighbors(Node *current,
+		const Node map[Size][Size]);
 
 #endif /* DAY15_H_ */

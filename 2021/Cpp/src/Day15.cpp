@@ -18,10 +18,10 @@ void DayRunner<15>::solve(std::ifstream input) {
 	std::string line;
 	uint8_t x = 0;
 	uint8_t y = 0;
-	uint8_t map[MAP_SIZE][MAP_SIZE];
+	Node map[MAP_SIZE][MAP_SIZE];
 	while (input >> line) {
 		for (char c : line) {
-			map[y][x] = c - '0';
+			map[y][x] = Node(x, y, c - '0');
 			x++;
 		}
 		x = 0;
@@ -33,15 +33,17 @@ void DayRunner<15>::solve(std::ifstream input) {
 	std::cout << "The cost for the easiest path for part one has a cost of "
 			<< goal.cost_sum << '.' << std::endl;
 
-	uint8_t map_2[MAP_SIZE * 5][MAP_SIZE * 5];
+	Node map_2[MAP_SIZE * 5][MAP_SIZE * 5];
 	for (uint8_t i = 0; i < 5; i++) {
 		for (uint8_t j = 0; j < 5; j++) {
 			for (uint8_t y = 0; y < MAP_SIZE; y++) {
 				for (uint8_t x = 0; x < MAP_SIZE; x++) {
-					map_2[i * MAP_SIZE + y][j * MAP_SIZE + x] = (map[y][x] + i + j) % 9;
-					if (map_2[i * MAP_SIZE + y][j * MAP_SIZE + x] == 0) {
-						map_2[i * MAP_SIZE + y][j * MAP_SIZE + x] = 9;
+					uint8_t cost = (map[y][x].cost + i + j) % 9;
+					if (cost == 0) {
+						cost = 9;
 					}
+					map_2[i * MAP_SIZE + y][j * MAP_SIZE + x] = Node(
+							j * MAP_SIZE + x, i * MAP_SIZE + y, cost);
 				}
 			}
 		}
@@ -54,87 +56,65 @@ void DayRunner<15>::solve(std::ifstream input) {
 }
 
 template<size_t Size>
-Node find_path(const uint8_t map[Size][Size]) {
+Node find_path(Node map[Size][Size]) {
 	std::multiset<Node> open;
-	std::unordered_set<Node> closed;
+	std::unordered_set<const Node*> closed;
 
-	open.insert(Node(0, 0, map[0][0]));
+	open.insert(map[0][0]);
 
-	Node current;
 	std::multiset<Node>::iterator it;
+	const Node *current = NULL;
 	while (open.size() > 0) {
 		it = open.begin();
-		current = *it;
+		current = &map[(*it).y][(*it).x];
 		open.erase(it);
 
-		if (current.y == Size - 1 && current.x == Size - 1) {
+		if (current->y == Size - 1 && current->x == Size - 1) {
 			break;
 		}
 
 		closed.insert(current);
 
-		for (Node neighbor : get_neighbors(current, map, open)) {
+		for (Node *neighbor : get_neighbors(current, map)) {
 			if (closed.count(neighbor) == 0) {
-				uint16_t tentative = current.cost_sum + neighbor.cost;
+				uint16_t tentative = current->cost_sum + neighbor->cost;
 
-				if (std::count(open.begin(), open.end(), neighbor) > 0
-						&& neighbor.cost_sum <= tentative) {
+				if (std::count(open.begin(), open.end(), *neighbor) > 0
+						&& neighbor->cost_sum <= tentative) {
 					continue;
 				}
 
-				neighbor.predecessor = &*closed.find(current);
-				neighbor.cost_sum = tentative;
-				neighbor.f = tentative + Size * 2 - 2
-						- neighbor.x - neighbor.y;
-				open.insert(neighbor);
+				neighbor->predecessor = current;
+				neighbor->cost_sum = tentative;
+				neighbor->f = tentative + Size * 2 - 2 - neighbor->x - neighbor->y;
+
+				open.insert(*neighbor);
 			}
 		}
 	}
 
-	return current;
+	return *current;
 }
 
 template<size_t Size>
-std::list<Node> get_neighbors(const Node current,
-		const uint8_t map[Size][Size],
-		const std::multiset<Node> open) {
-	std::list<Node> neighbors;
+std::list<Node*> get_neighbors(const Node *current,
+		Node map[Size][Size]) {
+	std::list<Node*> neighbors;
 
-	std::set<Node>::iterator it;
-	if (current.x > 0) {
-		Node new_node(current.x - 1, current.y, map[current.y][current.x - 1]);
-		if ((it = open.find(new_node)) != open.end()) {
-			neighbors.push_back(*it);
-		} else {
-			neighbors.push_back(new_node);
-		}
+	if (current->x > 0) {
+		neighbors.push_back(&map[current->y][current->x - 1]);
 	}
 
-	if (current.x < Size - 1) {
-		Node new_node(current.x + 1, current.y, map[current.y][current.x + 1]);
-		if ((it = open.find(new_node)) != open.end()) {
-			neighbors.push_back(*it);
-		} else {
-			neighbors.push_back(new_node);
-		}
+	if (current->x < Size - 1) {
+		neighbors.push_back(&map[current->y][current->x + 1]);
 	}
 
-	if (current.y > 0) {
-		Node new_node(current.x, current.y - 1, map[current.y - 1][current.x]);
-		if ((it = open.find(new_node)) != open.end()) {
-			neighbors.push_back(*it);
-		} else {
-			neighbors.push_back(new_node);
-		}
+	if (current->y > 0) {
+		neighbors.push_back(&map[current->y - 1][current->x]);
 	}
 
-	if (current.y < Size - 1) {
-		Node new_node(current.x, current.y + 1, map[current.y + 1][current.x]);
-		if ((it = open.find(new_node)) != open.end()) {
-			neighbors.push_back(*it);
-		} else {
-			neighbors.push_back(new_node);
-		}
+	if (current->y < Size - 1) {
+		neighbors.push_back(&map[current->y + 1][current->x]);
 	}
 
 	return neighbors;
