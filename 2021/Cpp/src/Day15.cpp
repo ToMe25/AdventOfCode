@@ -57,16 +57,16 @@ void DayRunner<15>::solve(std::ifstream input) {
 
 template<size_t Size>
 Node find_path(Node map[Size][Size]) {
-	std::multiset<Node> open;
+	std::multiset<Node*, node_pointer_less> open;
 	std::unordered_set<const Node*> closed;
 
-	open.insert(map[0][0]);
+	open.insert(&map[0][0]);
 
-	std::multiset<Node>::iterator it;
+	std::multiset<Node*>::iterator it;
 	const Node *current = NULL;
 	while (open.size() > 0) {
 		it = open.begin();
-		current = &map[(*it).y][(*it).x];
+		current = *it;
 		open.erase(it);
 
 		if (current->y == Size - 1 && current->x == Size - 1) {
@@ -79,8 +79,7 @@ Node find_path(Node map[Size][Size]) {
 			if (closed.count(neighbor) == 0) {
 				uint16_t tentative = current->cost_sum + neighbor->cost;
 
-				if (std::count(open.begin(), open.end(), *neighbor) > 0
-						&& neighbor->cost_sum <= tentative) {
+				if (neighbor->cost_sum > 0 && neighbor->cost_sum <= tentative) {
 					continue;
 				}
 
@@ -88,7 +87,7 @@ Node find_path(Node map[Size][Size]) {
 				neighbor->cost_sum = tentative;
 				neighbor->f = tentative + Size * 2 - 2 - neighbor->x - neighbor->y;
 
-				open.insert(*neighbor);
+				open.insert(neighbor);
 			}
 		}
 	}
