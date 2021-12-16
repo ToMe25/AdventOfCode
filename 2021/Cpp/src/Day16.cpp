@@ -50,23 +50,22 @@ void DayRunner<16>::solve(std::ifstream input) {
 				packets.pop();
 
 				if (packets.empty()) {
-					result = packet_values[packet];
+					result = value;
 				} else {
 					packet = packets.top();
 
 					switch (packet_types[packet]) {
 					case 0:
 						if (packet_values[packet] == -1) {
-							packet_values[packet]++;
+							packet_values[packet] = 0;
 						}
 						packet_values[packet] += value;
 						break;
 					case 1:
 						if (packet_values[packet] == -1) {
-							packet_values[packet] = value;
-						} else {
-							packet_values[packet] *= value;
+							packet_values[packet] = 1;
 						}
+						packet_values[packet] *= value;
 						break;
 					case 2:
 						if (packet_values[packet] == -1 || value < packet_values[packet]) {
