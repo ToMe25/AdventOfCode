@@ -37,47 +37,18 @@ void DayRunner<17>::solve(std::ifstream input) {
 		}
 	}
 
-	int16_t start_velocity_x = round(sqrt(target_x.first * 2));
-
 	int16_t vel_x, vel_y;
 	int16_t x, y;
 	int16_t max_y = 0;
 	int16_t best_max_y = 0;
-	for (int16_t start_velocity_y = 0; start_velocity_y <= -target_y.first * 2;
-			start_velocity_y++) {
-		x = y = 0;
-		vel_x = start_velocity_x;
-		vel_y = start_velocity_y;
-		while (vel_y >= 0 || y > target_y.first) {
-			x += vel_x;
-			y += vel_y;
-
-			if (vel_x > 0) {
-				vel_x--;
-			} else if (vel_x < 0) {
-				vel_x++;
-			}
-			vel_y--;
-
-			if (y > max_y) {
-				max_y = y;
-			}
-
-			if (x >= target_x.first && x <= target_x.second && y >= target_y.first
-					&& y <= target_y.second) {
-				best_max_y = max_y;
-				break;
-			}
-		}
-	}
-
-	std::cout << "The highest possible y position is " << best_max_y << '.' << std::endl;
 
 	uint16_t velocities = 0;
 	for (int16_t start_velocity_y = target_y.first;
 			start_velocity_y <= -target_y.first * 2; start_velocity_y++) {
-		for (int16_t start_velocity_x = 0; start_velocity_x <= target_x.second; start_velocity_x++) {
+		for (int16_t start_velocity_x = 0; start_velocity_x <= target_x.second;
+				start_velocity_x++) {
 			x = y = 0;
+			max_y = 0;
 			vel_x = start_velocity_x;
 			vel_y = start_velocity_y;
 			while (vel_y >= 0 || y > target_y.first) {
@@ -95,14 +66,19 @@ void DayRunner<17>::solve(std::ifstream input) {
 					max_y = y;
 				}
 
-				if (x >= target_x.first && x <= target_x.second && y >= target_y.first
-						&& y <= target_y.second) {
+				if (x >= target_x.first && x <= target_x.second
+						&& y >= target_y.first && y <= target_y.second) {
+					if (max_y > best_max_y) {
+						best_max_y = max_y;
+					}
 					velocities++;
 					break;
 				}
 			}
 		}
 	}
+
+	std::cout << "The highest possible y position is " << best_max_y << '.' << std::endl;
 
 	std::cout << "There are a total of " << velocities
 			<< " possible velocities that hit the target." << std::endl;
