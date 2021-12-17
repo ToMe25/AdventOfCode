@@ -44,13 +44,14 @@ void DayRunner<17>::solve(std::ifstream input) {
 
 	uint16_t velocities = 0;
 	for (int16_t start_velocity_y = target_y.first;
-			start_velocity_y <= -target_y.first * 2; start_velocity_y++) {
+			start_velocity_y <= -target_y.first; start_velocity_y++) {
 		for (int16_t start_velocity_x = 0; start_velocity_x <= target_x.second;
 				start_velocity_x++) {
 			x = y = 0;
 			max_y = 0;
 			vel_x = start_velocity_x;
 			vel_y = start_velocity_y;
+
 			while (vel_y >= 0 || y > target_y.first) {
 				x += vel_x;
 				y += vel_y;
