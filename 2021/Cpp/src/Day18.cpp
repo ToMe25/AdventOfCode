@@ -51,8 +51,7 @@ std::string add_snailfish(const std::string first, const std::string second) {
 	std::stack<uint16_t> pairs;
 	uint8_t last_nr;
 	uint16_t last_nr_i;
-	bool modified;
-	modified = true;
+	bool modified = true;
 
 	while (modified) {
 		modified = false;
@@ -74,7 +73,7 @@ std::string add_snailfish(const std::string first, const std::string second) {
 							if (isdigit(current[i - 1])) {
 								number = std::stoi(current.substr(i - 1, 2));
 							} else {
-								number = current[i] - '0';
+								number = c - '0';
 							}
 
 							if (last_nr > 9) {
@@ -131,14 +130,14 @@ std::string add_snailfish(const std::string first, const std::string second) {
 							current = current.replace(i - 3, 5, "0");
 							i -= 3;
 						}
+
 						pairs.pop();
 						last_nr_i = i;
 						last_nr = 0;
-
 						modified = true;
 					}
 				} else {
-					if (isdigit(current[i - 1])) {
+					if (last_nr_i + 1 == i) {
 						last_nr = std::stoi(current.substr(i - 1, 2));
 					} else {
 						last_nr = c - '0';
@@ -155,7 +154,7 @@ std::string add_snailfish(const std::string first, const std::string second) {
 					pairs.push(i);
 				} else if (c == ']') {
 					pairs.pop();
-				} else if (isdigit(current[i]) && isdigit(current[i + 1])) {
+				} else if (isdigit(c) && isdigit(current[i + 1])) {
 					uint8_t number = std::stoi(current.substr(i, 2));
 					std::ostringstream format;
 					format << '[' << (uint16_t) number / 2;
