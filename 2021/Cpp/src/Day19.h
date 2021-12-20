@@ -57,7 +57,7 @@ Scanner get_relative_to(const Scanner scanner, const Position pos);
  * @param pos_b	The position to add to pos_a.
  * @return	The sum of the two given positions.
  */
-Position position_add(const Position pos_a, const Position pos_b);
+constexpr Position operator +(const Position &pos_a, const Position &pos_b);
 
 /**
  * Subtracts the second position from the first.
@@ -66,7 +66,7 @@ Position position_add(const Position pos_a, const Position pos_b);
  * @param pos_b The position to subtract from pos_a.
  * @return	The difference between the two positions.
  */
-Position position_sub(const Position pos_a, const Position pos_b);
+constexpr Position operator -(const Position &pos_a, const Position &pos_b);
 
 /**
  * Prints a string representation of the given position to the given output stream.
@@ -75,7 +75,7 @@ Position position_sub(const Position pos_a, const Position pos_b);
  * @param scanner	The position to print to the given output stream.
  * @return	The given output stream.
  */
-std::ostream &operator <<(std::ostream &stream, const Position &pos);
+std::ostream& operator <<(std::ostream &stream, const Position &pos);
 
 /**
  * Prints a string representation of the given scanner to the given output stream.
@@ -84,7 +84,7 @@ std::ostream &operator <<(std::ostream &stream, const Position &pos);
  * @param scanner	The scanner to print to the given output stream.
  * @return	The given output stream.
  */
-std::ostream &operator <<(std::ostream &stream, const Scanner &scanner);
+std::ostream& operator <<(std::ostream &stream, const Scanner &scanner);
 
 namespace std {
 template<>
@@ -95,7 +95,7 @@ struct hash<Position> {
 	 * @param to_hash	The position for which to calculate the hash.
 	 * @return The hash value for the given position.
 	 */
-	size_t operator ()(const Position pos) const;
+	size_t operator ()(const Position &pos) const;
 };
 }
 

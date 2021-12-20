@@ -50,8 +50,8 @@ void DayRunner<19>::solve(std::ifstream input) {
 		for (std::pair<Scanner, Position> entry : scanner_positions) {
 			for (std::pair<Scanner, Position> neighbor : get_neighbors(scanners,
 					entry.first)) {
-				scanner_positions[neighbor.first] = position_add(entry.second,
-						neighbor.second);
+				scanner_positions[neighbor.first] = entry.second
+						+ neighbor.second;
 			}
 		}
 	}
@@ -97,7 +97,7 @@ std::map<Scanner, Position> get_neighbors(std::list<Scanner> &unknown_scanners,
 				Scanner scanner_b_rotated = rotate(scanner_b, rotation);
 				for (Position pos : scanner) {
 					for (Position pos_b : scanner_b_rotated) {
-						Position offset = position_sub(pos, pos_b);
+						Position offset = pos - pos_b;
 						Scanner scanner_b_translated = get_relative_to(
 								scanner_b_rotated, offset);
 
@@ -192,18 +192,18 @@ Scanner get_relative_to(const Scanner scanner, const Position pos) {
 	Scanner relative;
 
 	for (Position pos1 : scanner) {
-		relative.push_back(position_add(pos, pos1));
+		relative.push_back(pos + pos1);
 	}
 
 	return relative;
 }
 
-Position position_add(const Position pos_a, const Position pos_b) {
+constexpr Position operator+(const Position &pos_a, const Position &pos_b) {
 	return {(int16_t) (pos_a[0] + pos_b[0]), (int16_t) (pos_a[1] + pos_b[1]),
 		(int16_t) (pos_a[2] + pos_b[2])};
 }
 
-Position position_sub(const Position pos_a, const Position pos_b) {
+constexpr Position operator -(const Position &pos_a, const Position &pos_b) {
 	return {(int16_t) (pos_a[0] - pos_b[0]), (int16_t) (pos_a[1] - pos_b[1]),
 		(int16_t) (pos_a[2] - pos_b[2])};
 }
@@ -228,7 +228,7 @@ std::ostream& operator <<(std::ostream &stream, const Scanner &scanner) {
 	return stream;
 }
 
-size_t std::hash<Position>::operator ()(const Position pos) const {
+size_t std::hash<Position>::operator ()(const Position &pos) const {
 	size_t hash_value = hash<uint8_t>()(pos[0]);
 	hash_value ^= hash<uint8_t>()(pos[1]) << 1;
 	hash_value >>= 1;
