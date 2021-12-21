@@ -15,8 +15,12 @@ void DayRunner<21>::solve(std::ifstream input) {
 	std::string line;
 
 	uint8_t player_1_start_pos = 0;
-	uint8_t player_2_start_pos;
+	uint8_t player_2_start_pos = 0;
 	while (std::getline(input, line)) {
+		if (line.empty()) {
+			continue;
+		}
+
 		if (player_1_start_pos == 0) {
 			player_1_start_pos = std::stoi(line.substr(line.find_last_of(' ')));
 		} else {
@@ -81,8 +85,8 @@ void DayRunner<21>::solve(std::ifstream input) {
 	while (!universes.empty()) {
 		current = universes.top();
 		found = true;
-
 		player_1_wins = player_2_wins = 0;
+
 		for (uint8_t i = 2; i < 9; i++) {
 			player_1_pos = current.first & 0xF;
 			player_1_pos = (player_1_pos + i) % 10 + 1;
