@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
 				day = std::stoi(argv[i]);
 			}
 			AoCRunner *runner = getRunner(day,
-					std::make_integer_sequence<uint8_t, 20>());
+					std::make_integer_sequence<uint8_t, 21>());
 			if (runner != NULL) {
 				std::cout << "Running Day " << (uint16_t) day << '.' << std::endl;
 				runner->solve();
