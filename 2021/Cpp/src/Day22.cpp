@@ -17,15 +17,13 @@ void DayRunner<22>::solve(std::ifstream input) {
 	bool on = false;
 	int32_t coords[6];
 	std::string token;
-	uint8_t i;
-	bool positions[101][101][101] { false };
 	std::list<Region> on_regions;
 	while (std::getline(input, line)) {
 		std::replace(line.begin(), line.end(), ',', ' ');
 		line = std::regex_replace(line, std::regex("\\.\\."), " ..");
 
 		std::istringstream line_stream(line);
-		i = 0;
+		uint8_t i = 0;
 		while (line_stream >> token) {
 			if (i == 0) {
 				on = token == "on";
@@ -33,24 +31,6 @@ void DayRunner<22>::solve(std::ifstream input) {
 				coords[i - 1] = std::stoi(token.substr(2));
 			}
 			i++;
-		}
-
-		for (int32_t x = coords[0]; x <= coords[1]; x++) {
-			if (x >= -50 && x <= 50) {
-				for (int32_t y = coords[2]; y <= coords[3]; y++) {
-					if (y >= -50 && y <= 50) {
-						for (int32_t z = coords[4]; z <= coords[5]; z++) {
-							if (z >= -50 && z <= 50) {
-								if (on) {
-									positions[z + 50][y + 50][x + 50] = true;
-								} else {
-									positions[z + 50][y + 50][x + 50] = false;
-								}
-							}
-						}
-					}
-				}
-			}
 		}
 
 		Region new_region(coords);
@@ -80,14 +60,9 @@ void DayRunner<22>::solve(std::ifstream input) {
 	}
 
 	uint64_t active = 0;
-	for (uint8_t z = 0; z <= 100; z++) {
-		for (uint8_t y = 0; y <= 100; y++) {
-			for (uint8_t x = 0; x <= 100; x++) {
-				if (positions[z][y][x]) {
-					active++;
-				}
-			}
-		}
+	Region limit(-50, 50, -50, 50, -50, 50);
+	for (Region region : on_regions) {
+		active += region.intersection(limit).size;
 	}
 
 	std::cout << "There are " << active
