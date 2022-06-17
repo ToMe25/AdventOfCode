@@ -6,6 +6,7 @@
  */
 
 #include "Main.h"
+#include <chrono>
 #include <filesystem>
 #include <iostream>
 #include <regex>
@@ -25,30 +26,72 @@ AoCRunner* getRunner(const uint8_t day,
 }
 
 int main(int argc, char *argv[]) {
+	if (argc == 0) {
+		std::cerr << "This program expects the first parameter to be its execution path," << std::endl;
+		std::cerr << "however it wasn't given a parameter." << std::endl;
+		return 1;
+	}
+
+	bool time = false;
+	for (int i = 0; i < argc; i++) {
+		if (std::regex_match(argv[i], std::regex("-{0,2}h(elp)?"))) {
+			printUsage(argv[0]);
+			return 0;
+		} else if (std::regex_match(argv[i], std::regex("-{0,2}t(ime)?"))) {
+			time = true;
+		}
+	}
+
+	if (time) {
+		std::cout << "Timing day executions." << std::endl;
+	}
+
 	bool dayRun = false;
 	for (int i = 0; i < argc; i++) {
-		if (std::regex_match(argv[i], std::regex("-{0,2}day\\s*\\d{0,2}"))) {
+		if (std::regex_match(argv[i], std::regex("-{0,2}d(ay)?\\s*\\d{0,2}"))) {
 			uint8_t day = 1;
 			if (std::regex_match(argv[i],
-					std::regex("-{0,2}day\\s+\\d{1,2}"))) {
+					std::regex("-{0,2}d(ay)?\\s+\\d{1,2}"))) {
 				std::string dayStr = std::string(argv[i]);
 				day = std::stoi(dayStr.substr(dayStr.find_last_of(' ')));
-			} else if (argc > i
+			} else if (argc > i + 1
 					&& std::regex_match(argv[++i], std::regex("\\d{1,2}"))) {
 				day = std::stoi(argv[i]);
+			} else {
+				printUsage(argv[0]);
+				return 0;
 			}
+
 			AoCRunner *runner = getRunner(day,
 					std::make_integer_sequence<uint8_t, 22>());
 			if (runner != NULL) {
-				std::cout << "Running Day " << (uint16_t) day << '.' << std::endl;
+				std::cout << "Running day " << (uint16_t) day << '.' << std::endl;
+				std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 				runner->solve();
+				std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 				dayRun = true;
+
+				std::cout << "Running day " << (uint16_t) day << " took ";
+				uint64_t time_us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+				if (time_us / 60000000 > 0) {
+					std::cout << time_us / 60000000 << "m ";
+				}
+
+				if (time_us % 60000000 / 1000000 > 0) {
+					std::cout << time_us % 60000000 / 1000000 << "s ";
+				}
+
+				if (time_us % 1000000 / 1000 > 0) {
+					std::cout << time_us % 1000000 / 1000 << "ms ";
+				}
+
+				std::cout << time_us % 1000 << "µs." << std::endl;
 			}
 		}
 	}
 
 	if (!dayRun) {
-		std::cout << "Please specify the day to run with -day DAY." << std::endl;
+		printUsage(argv[0]);
 		return 1;
 	}
 }
@@ -81,4 +124,12 @@ std::ifstream getInputFileStream(const uint8_t day) {
 	}
 
 	return std::ifstream(input);
+}
+
+void printUsage(const char *filename) {
+	std::cout << "Usage: " << filename << " [<OPTIONS>] --day <DAY>" << std::endl;
+	std::cout << "At least one -day argument has to be specified." << std::endl;
+	std::cout << " -d --day <DAY>	Specifies a day to be run. Can be supplied more then once." << std::endl;
+	std::cout << " -h --help		Prints this help text and terminates." << std::endl;
+	std::cout << " -t --time		Measures the execution time of each day." << std::endl;
 }

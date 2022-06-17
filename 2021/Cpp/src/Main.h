@@ -11,6 +11,13 @@
 #include <fstream>
 #include <utility>
 
+/**
+ * The main method that gets called when the program is executed.
+ *
+ * @param argc	The number of arguments given to the program.
+ * @param argv	The arguments given to the programe.
+ * @return	The programe exit code.
+ */
 int main(int argc, char *argv[]);
 
 /*
@@ -21,6 +28,13 @@ int main(int argc, char *argv[]);
  * @return	A ifstream for the input file for the given day.
  */
 std::ifstream getInputFileStream(const uint8_t day);
+
+/**
+ * Prints the help text for this program to the system output.
+ *
+ * @param filename	The current execution path of this process.
+ */
+void printUsage(const char *filename);
 
 class AoCRunner {
 public:
