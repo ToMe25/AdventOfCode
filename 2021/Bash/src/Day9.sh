@@ -6,32 +6,39 @@ source Util.sh
 
 # Recursively checks this field and its neighbors for whether they are part of the same basin.
 function recursive_check() {
-	local x=$1
-	local y=$2
-	if [[ " ${checked[@]} " =~ " $x:$y " ]]; then
-		return
-	fi
+	local -a to_check=($x:$y)
 
-	if [ ${map[$y * 100 + $x]} == 9 ]; then
-		return
-	fi
+	while [ ${#to_check[@]} -gt 0 ]; do
+		local pos_str=${to_check[-1]}
+		unset to_check[-1]
+		local -a pos=(${pos_str/:/ })
+		local x=${pos[0]}
+		local y=${pos[1]}
+		if [[ " $checked" =~ " $pos_str " ]]; then
+			continue
+		fi
 
-	((found++))
-	checked+=($x:$y)
+		if [ ${map[$y * 100 + $x]} == 9 ]; then
+			continue
+		fi
 
-	if [ $x -gt 0 ]; then
-		recursive_check $(($x - 1)) $y
-	fi
-	if [ $x -lt 99 ]; then
-		recursive_check $(($x + 1)) $y
-	fi
+		((found++))
+		checked+="$pos_str "
 
-	if [ $y -gt 0 ]; then
-		recursive_check $x $(($y - 1))
-	fi
-	if [ $y -lt 99 ]; then
-		recursive_check $x $(($y + 1))
-	fi
+		if [ $x -gt 0 ]; then
+			to_check+=($(($x - 1)):$y)
+		fi
+		if [ $x -lt 99 ]; then
+			to_check+=($(($x + 1)):$y)
+		fi
+
+		if [ $y -gt 0 ]; then
+			to_check+=($x:$(($y - 1)))
+		fi
+		if [ $y -lt 99 ]; then
+			to_check+=($x:$(($y + 1)))
+		fi
+	done
 }
 
 function main() {
@@ -67,10 +74,10 @@ function main() {
 
 	echo "The sum of all risk levels is $risk_levels_sum."
 
-	let -a checked
+	let checked
 	for y in $(seq 0 99); do
 		for x in $(seq 0 99); do
-			if [[ ${map[$y * 100 + $x]} != 9 && ! " ${checked[@]} " =~ " $x:$y " ]]; then
+			if [[ ${map[$y * 100 + $x]} != 9 && ! " $checked" =~ " $x:$y " ]]; then
 				found=0
 				recursive_check $x $y
 				if [ $found -gt 0 ]; then
