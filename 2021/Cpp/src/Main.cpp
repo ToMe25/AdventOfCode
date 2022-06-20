@@ -71,21 +71,24 @@ int main(int argc, char *argv[]) {
 				std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 				dayRun = true;
 
-				std::cout << "Running day " << (uint16_t) day << " took ";
-				uint64_t time_us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-				if (time_us / 60000000 > 0) {
-					std::cout << time_us / 60000000 << "m ";
-				}
+				if (time) {
+					std::cout << "Running day " << (uint16_t) day << " took ";
+					uint64_t time_us = std::chrono::duration_cast<
+							std::chrono::microseconds>(end - start).count();
+					if (time_us / 60000000 > 0) {
+						std::cout << time_us / 60000000 << "m ";
+					}
 
-				if (time_us % 60000000 / 1000000 > 0) {
-					std::cout << time_us % 60000000 / 1000000 << "s ";
-				}
+					if (time_us % 60000000 / 1000000 > 0) {
+						std::cout << time_us % 60000000 / 1000000 << "s ";
+					}
 
-				if (time_us % 1000000 / 1000 > 0) {
-					std::cout << time_us % 1000000 / 1000 << "ms ";
-				}
+					if (time_us % 1000000 / 1000 > 0) {
+						std::cout << time_us % 1000000 / 1000 << "ms ";
+					}
 
-				std::cout << time_us % 1000 << "µs." << std::endl;
+					std::cout << time_us % 1000 << "µs." << std::endl;
+				}
 			}
 		}
 	}
