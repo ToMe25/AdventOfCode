@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
 			}
 
 			AoCRunner *runner = getRunner(day,
-					std::make_integer_sequence<uint8_t, 22>());
+					std::make_integer_sequence<uint8_t, 23>());
 			if (runner != NULL) {
 				std::cout << "Running day " << (uint16_t) day << '.' << std::endl;
 				std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
