@@ -8,14 +8,14 @@ def main():
     for nr in inputs:
         if not double and 2020 - nr in inputs:
             print("Found matching two number pair!")
-            print(f"The numbers are {nr} and {2020 - nr}, and the result is {nr * (2020 - nr)}.")
+            print("The numbers are %d and %d, and the result is %d." % (nr, 2020 - nr, nr * (2020 - nr)))
             double = True
 
         if not triple:
             for i in inputs:
                 if 2020 - nr - i in inputs:
                     print("Found matching three number pair!")
-                    print(f"The numbers are {nr}, {i}, and {2020 - nr - i}, and the result is {nr * i * (2020 - nr - i)}.")
+                    print("The numbers are %d, %d, and %d, and the result is %d." % (nr, i, 2020 - nr -i, nr * i * (2020 - nr - i)))
                     triple = True
                     break
 

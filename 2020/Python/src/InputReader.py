@@ -21,19 +21,20 @@ def getInputFile(day):
     if not path.exists(inf) or not path.isfile(inf):
         print(inf + " does not exist!")
         inf += ".txt"
-        print(f"trying {inf} instead.")
+        print("trying %s instead." % inf)
 
     if not path.exists(inf) or not path.isfile(inf):
         print(inf + " does not exist!")
-        inf = path.join(path.dirname(path.dirname(os.getcwd())), "input")
-        inf = path.join(inf, f"Day{day}.txt")
-        print(f"trying {inf} instead.")
+        inf = path.dirname(path.dirname(path.dirname(inf)))
+        inf = path.join(inf, "input")
+        inf = path.join(inf, "Day%d.txt" % day)
+        print("trying %s instead." % inf)
 
-    if not os.path.exists(inf) or not os.path.isfile(inf):
+    if not path.exists(inf) or not path.isfile(inf):
         print("None of the expected inputs exist!", file=sys.stderr)
         sys.exit(1)
     else:
-        print(f"Using input file {inf}.")
+        print("Using input file %s." % inf)
 
     return inf
 
