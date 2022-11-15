@@ -105,11 +105,11 @@ std::ifstream getInputFileStream(const uint8_t day) {
 	fs::path input = "..";
 	input += fs::path::preferred_separator;
 	input += "input";
-	input = fs::canonical(input);
 	if (!fs::exists(input)) {
 		std::cerr << "Directory " << input.c_str() << " doesn't exist." << std::endl;
 		exit(2);
 	}
+	input = fs::canonical(input);
 
 	if (!fs::is_directory(input)) {
 		std::cerr << "File " << input.c_str() << " is not a directory." << std::endl;

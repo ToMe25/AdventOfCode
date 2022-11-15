@@ -41,19 +41,19 @@ function main() {
 	local new_width=$current_width
 	local lit=0
 	local value;
-	for i in $(seq 0 49); do
+	for i in {0..49}; do
 		((new_height += 2))
 		((new_width += 2))
 		new_image=""
-		for j in $(seq 0 $(($new_height * $new_width - 1))); do
+		for ((j = 0; j < ($new_height * $new_width); j++)); do
 			value=""
-			for k in $(seq -2 0); do
+			for k in {-2..0}; do
 				local y=$(($j / $new_width + $k))
 				if [[ $y -ge 0 && $y -lt $current_height ]]; then
 					if [[ $(($j % $new_width)) -gt 1 && $(($j % $new_width)) -lt $current_width ]]; then
 						value+=${image:$(($y * $current_width + $j % $new_width - 2)):3}
 					else
-						for l in $(seq -2 0); do
+						for l in {-2..0}; do
 							local x=$(($j % $new_width + $l))
 							if [[ $x -ge 0 && $x -lt $current_width ]]; then
 								value+=${image:$(($y * $current_width + $x)):1}
@@ -79,7 +79,7 @@ function main() {
 		fi
 
 		if [ $i == 1 ]; then
-			for j in $(seq 0 $(($current_height * $current_width - 1))); do
+			for ((j = 0; j < $current_height * $current_width; j++)); do
 				if [ ${image:$j:1} == 1 ]; then
 					((lit++))
 				fi
@@ -90,7 +90,7 @@ function main() {
 	done
 
 	lit=0
-	for i in $(seq 0 $(($current_height * $current_width - 1))); do
+	for ((i = 0; i < $current_height * $current_width; i++)); do
 		if [ ${image:$i:1} == 1 ]; then
 			((lit++))
 		fi
