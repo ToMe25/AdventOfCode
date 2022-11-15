@@ -12,19 +12,17 @@ declare -A burrow_index=([A]=0 [B]=1 [C]=2 [D]=3)
 # Calculates the new token and cost after moving a amphipod according to the given values.
 function move() {
 	local token=$1
-	local cost=$2
-	local burrow=$3
-	local burrow_len=$4
-	local pos=$5
-	local depth=$6
+	local burrow=$2
+	local burrow_len=$3
+	local pos=$4
+	local depth=$5
 
 	local prefix=${token%%:*}
 	local burrows_start=${#prefix}
 	local burrow_pos=$((burrows_start + burrow * (burrow_len + 1) + depth + 1))
 
-	local new_token=$token
 	local burrow_char=${token:burrow_pos:1}
-	new_token="${new_token::burrow_pos}${token:pos:1}${new_token:$((burrow_pos + 1))}"
+	local new_token="${token::burrow_pos}${token:pos:1}${token:$((burrow_pos + 1))}"
 	new_token="${new_token::pos}$burrow_char${new_token:$((pos + 1))}"
 	if [ $burrow_char == "." ]; then
 		local type=${new_token:burrow_pos:1}
@@ -39,7 +37,7 @@ function move() {
 	fi
 
 	local new_cost=$(((burrow + 1) * 2 - pos))
-	new_cost=$((cost + (${new_cost#-} + depth + 1) * multi))
+	new_cost=$(((${new_cost#-} + depth + 1) * multi))
 
 	echo "$new_token $new_cost"
 }
@@ -49,6 +47,7 @@ function move() {
 function get_min_cost() {
 	local token=$1
 	local -a valid_temp_spots=(0 1 3 5 7 9 10)
+	local num_vts=${#valid_temp_spots[@]}
 	local prefix=${token%%:*}
 	local burrows_start=${#prefix}
 
@@ -78,12 +77,10 @@ function get_min_cost() {
 
 		token=${checking%% *}
 		checking=${checking#* }
-		local cost=${known[$token]}
+		unset cost
 
-		local start=$((burrows_start + 1))
 		for i in $seqbc; do
-			burrows[$i]=${token:start:burrow_len}
-			start=$((start + burrow_len + 1))
+			burrows[$i]=${token:$((burrows_start + 1 + (burrow_len + 1) * i)):burrow_len}
 		done
 
 		local modified=0
@@ -118,9 +115,13 @@ function get_min_cost() {
 				done
 
 				if [ ! $occupied -eq 1 ]; then
-					local new_tk=$(move $token $cost $burrow_idx $burrow_len $i $bottom_free)
+					if [ -z "$cost" ]; then
+						local cost=${known[$token]}
+					fi
+
+					local new_tk=$(move $token $burrow_idx $burrow_len $i $bottom_free)
 					local new_token=${new_tk% *}
-					local new_cost=${new_tk#* }
+					local new_cost=$(($cost + ${new_tk#* }))
 					local old_cost=${known[$new_token]}
 					if [[ -z "$old_cost" || $old_cost -gt $new_cost ]]; then
 						known[$new_token]=$new_cost
@@ -143,7 +144,7 @@ function get_min_cost() {
 				fi
 
 				local mismatch=0
-				for k in $seqbl; do
+				for ((k = j; k < $burrow_len; k++)); do
 					local char=${burrow:k:1}
 					if [ "${burrow_index[$char]-a}" != $i ]; then
 						mismatch=1
@@ -157,13 +158,17 @@ function get_min_cost() {
 
 				for ((k = i + 1; k >= 0; k--)); do
 					local pos=${valid_temp_spots[$k]}
-					if [ "${token:pos:1}" != "." ]; then
+					if [ ${token:pos:1} != "." ]; then
 						break
 					fi
 
-					local new_tk=$(move $token $cost $i $burrow_len $pos $j)
+					if [ -z "$cost" ]; then
+						local cost=${known[$token]}
+					fi
+
+					local new_tk=$(move $token $i $burrow_len $pos $j)
 					local new_token=${new_tk% *}
-					local new_cost=${new_tk#* }
+					local new_cost=$(($cost + ${new_tk#* }))
 					local old_cost=${known[$new_token]}
 					if [[ -z "$old_cost" || $old_cost -gt $new_cost ]]; then
 						known[$new_token]=$new_cost
@@ -171,15 +176,19 @@ function get_min_cost() {
 					fi
 				done
 
-				for ((k = i + 2; k < ${#valid_temp_spots[@]}; k++)); do
+				for ((k = i + 2; k < $num_vts; k++)); do
 					local pos=${valid_temp_spots[$k]}
-					if [ "${token:pos:1}" != "." ]; then
+					if [ ${token:pos:1} != "." ]; then
 						break
 					fi
 
-					local new_tk=$(move $token $cost $i $burrow_len $pos $j)
+					if [ -z "$cost" ]; then
+						local cost=${known[$token]}
+					fi
+
+					local new_tk=$(move $token $i $burrow_len $pos $j)
 					local new_token=${new_tk% *}
-					local new_cost=${new_tk#* }
+					local new_cost=$(($cost + ${new_tk#* }))
 					local old_cost=${known[$new_token]}
 					if [[ -z "$old_cost" || $old_cost -gt $new_cost ]]; then
 						known[$new_token]=$new_cost
@@ -206,10 +215,6 @@ function get_min_cost() {
 		solved_state+=':'
 	done
 
-	for key in "${!known[@]}"; do
-		echo "$key=${known[$key]}"
-	done
-	echo $solves_state
 	echo ${known[$solved_state]}
 }
 
