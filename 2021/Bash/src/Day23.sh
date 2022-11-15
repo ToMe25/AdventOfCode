@@ -51,7 +51,7 @@ function get_min_cost() {
 	local -a valid_temp_spots=(0 1 3 5 7 9 10)
 	local prefix=${token%%:*}
 	local burrows_start=${#prefix}
-	
+
 	# Assume all burrows share the same length.
 	prefix=${token:$((burrows_start + 1))}
 	prefix=${prefix%%:*}
@@ -60,27 +60,26 @@ function get_min_cost() {
 
 	local -A known
 	known[$token]=0
-	local -a checking=($token)
+	local checking=$token
 
 	local last=0
-	while [ ${#checking[@]} -gt 0 ]; do
+	while [ ${#checking} -gt 1 ]; do
 		local ks=${#known[@]}
 		if [ ! $((ks / 1000)) -eq $last ]; then
 			last=$((ks / 1000))
 			echo $ks 1>&2
-			if [ $ks -gt 5000 ]; then
+			if [ $ks -gt 10000 ]; then
 				return
 			fi
 		fi
 
-		token=${checking[0]}
-		unset checking[0]
-		checking=(${checking[@]})
+		token=${checking%% *}
+		checking=${checking#* }
 		local cost=${known[$token]}
 
 		local start=$((burrows_start + 1))
-		for i in $(seq $burrow_count); do
-			burrows[$((i - 1))]=${token:start:burrow_len}
+		for i in $(seq 0 $((burrow_count - 1))); do
+			burrows[$i]=${token:start:burrow_len}
 			start=$((start + burrow_len + 1))
 		done
 
@@ -106,7 +105,7 @@ function get_min_cost() {
 
 				local bottom_free=0
 				for j in $(seq 0 $((burrow_len - 1))); do
-					local burrow=${burrows[burrow_idx]}
+					local burrow=${burrows[$burrow_idx]}
 					if [ ${burrow:j:1} == "." ]; then
 						bottom_free=$j
 					elif [ ${burrow:j:1} != $c ]; then
@@ -117,11 +116,11 @@ function get_min_cost() {
 
 				if [ ! $occupied -eq 1 ]; then
 					local new_tk=$(move $token $cost $burrow_idx $burrow_len $i $bottom_free)
-					local new_token=${new_tk%% *}
-					local new_cost=${new_tk##* }
+					local new_token=${new_tk% *}
+					local new_cost=${new_tk#* }
 					if [[ -z "${known[$new_token]+a}" || ${known[$new_token]} -gt $new_cost ]]; then
 						known[$new_token]=$new_cost
-						checking[${#checking[@]}]=$new_token
+						checking+=" $new_token"
 						modified=1
 					fi
 				fi
@@ -133,8 +132,8 @@ function get_min_cost() {
 		fi
 
 		for i in $(seq 0 $((burrow_count - 1))); do
+			local burrow=${burrows[$i]}
 			for j in $(seq 0 $((burrow_len - 1))); do
-				local burrow=${burrows[i]}
 				if [ ${burrow:j:1} == "." ]; then
 					continue
 				fi
@@ -153,32 +152,32 @@ function get_min_cost() {
 				fi
 
 				for k in $(seq $((i + 1)) -1 0); do
-					local pos=${valid_temp_spots[k]}
+					local pos=${valid_temp_spots[$k]}
 					if [ "${token:pos:1}" != "." ]; then
 						break
 					fi
 
 					local new_tk=$(move $token $cost $i $burrow_len $pos $j)
-					local new_token=${new_tk%% *}
-					local new_cost=${new_tk##* }
+					local new_token=${new_tk% *}
+					local new_cost=${new_tk#* }
 					if [[ -z "${known[$new_token]+a}" || ${known[$new_token]} -gt $new_cost ]]; then
 						known[$new_token]=$new_cost
-						checking[${#checking[@]}]=$new_token
+						checking+=" $new_token"
 					fi
 				done
 
 				for k in $(seq $((i + 2)) $((${#valid_temp_spots[@]} - 1))); do
-					local pos=${valid_temp_spots[k]}
+					local pos=${valid_temp_spots[$k]}
 					if [ "${token:pos:1}" != "." ]; then
 						break
 					fi
 
 					local new_tk=$(move $token $cost $i $burrow_len $pos $j)
-					local new_token=${new_tk%% *}
-					local new_cost=${new_tk##* }
+					local new_token=${new_tk% *}
+					local new_cost=${new_tk#* }
 					if [[ -z "${known[$new_token]+a}" || ${known[$new_token]} -gt $new_cost ]]; then
 						known[$new_token]=$new_cost
-						checking[${#checking[@]}]=$new_token
+						checking+=" $new_token"
 					fi
 				done
 
