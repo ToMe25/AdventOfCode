@@ -57,6 +57,9 @@ function get_min_cost() {
 	prefix=${prefix%%:*}
 	local burrow_len=${#prefix}
 	local -a burrows
+	local seqbl=$(seq 0 $((burrow_len - 1)))
+	local seqbs=$(seq 0 $((burrows_start - 1)))
+	local seqbc=$(seq 0 $((burrow_count - 1)))
 
 	local -A known
 	known[$token]=0
@@ -84,15 +87,15 @@ function get_min_cost() {
 		done
 
 		local modified=0
-		for i in $(seq 0 $((burrows_start - 1))); do
+		for i in $seqbs; do
 			local c=${token:i:1}
 			if [ "$c" != "." ]; then
 				local burrow_idx=${burrow_index[$c]}
 				local target=$(((burrow_idx + 1) * 2))
+				local burrow=${burrows[$burrow_idx]}
 
 				local occupied=0
-				for j in $(seq $(((i + 1) < target ? (i + 1) : target)) $((i > (target + 1) ? i : (target + 1)))); do
-					((j--))
+				for j in $(seq $(((i + 1) < target ? i : (target - 1))) $((i > (target + 1) ? (i - 1) : target))); do
 					if [ ${token:j:1} != "." ]; then
 						occupied=1
 						break
@@ -104,11 +107,11 @@ function get_min_cost() {
 				fi
 
 				local bottom_free=0
-				for j in $(seq 0 $((burrow_len - 1))); do
-					local burrow=${burrows[$burrow_idx]}
-					if [ ${burrow:j:1} == "." ]; then
+				for j in $seqbl; do
+					local bc=${burrow:j:1}
+					if [ $bc == "." ]; then
 						bottom_free=$j
-					elif [ ${burrow:j:1} != $c ]; then
+					elif [ $bc != $c ]; then
 						occupied=1
 						break
 					fi
@@ -118,7 +121,8 @@ function get_min_cost() {
 					local new_tk=$(move $token $cost $burrow_idx $burrow_len $i $bottom_free)
 					local new_token=${new_tk% *}
 					local new_cost=${new_tk#* }
-					if [[ -z "${known[$new_token]+a}" || ${known[$new_token]} -gt $new_cost ]]; then
+					local old_cost=${known[$new_token]}
+					if [[ -z "$old_cost" || $old_cost -gt $new_cost ]]; then
 						known[$new_token]=$new_cost
 						checking+=" $new_token"
 						modified=1
@@ -131,15 +135,17 @@ function get_min_cost() {
 			continue
 		fi
 
-		for i in $(seq 0 $((burrow_count - 1))); do
+		for i in $seqbc; do
 			local burrow=${burrows[$i]}
-			for j in $(seq 0 $((burrow_len - 1))); do
+			local seqnvp=$(seq $((i + 1)) -1 0)
+			local seqvp=$(seq $((i + 2)) $((${#valid_temp_spots[@]} - 1)))
+			for j in $seqbl; do
 				if [ ${burrow:j:1} == "." ]; then
 					continue
 				fi
 
 				local mismatch=0
-				for k in $(seq 0 $((burrow_len - 1))); do
+				for k in $seqbl; do
 					local char=${burrow:k:1}
 					if [ "${burrow_index[$char]-a}" != $i ]; then
 						mismatch=1
@@ -151,7 +157,7 @@ function get_min_cost() {
 					continue
 				fi
 
-				for k in $(seq $((i + 1)) -1 0); do
+				for k in $seqnvp; do
 					local pos=${valid_temp_spots[$k]}
 					if [ "${token:pos:1}" != "." ]; then
 						break
@@ -160,13 +166,14 @@ function get_min_cost() {
 					local new_tk=$(move $token $cost $i $burrow_len $pos $j)
 					local new_token=${new_tk% *}
 					local new_cost=${new_tk#* }
-					if [[ -z "${known[$new_token]+a}" || ${known[$new_token]} -gt $new_cost ]]; then
+					local old_cost=${known[$new_token]}
+					if [[ -z "$old_cost" || $old_cost -gt $new_cost ]]; then
 						known[$new_token]=$new_cost
 						checking+=" $new_token"
 					fi
 				done
 
-				for k in $(seq $((i + 2)) $((${#valid_temp_spots[@]} - 1))); do
+				for k in $seqvp; do
 					local pos=${valid_temp_spots[$k]}
 					if [ "${token:pos:1}" != "." ]; then
 						break
@@ -175,7 +182,8 @@ function get_min_cost() {
 					local new_tk=$(move $token $cost $i $burrow_len $pos $j)
 					local new_token=${new_tk% *}
 					local new_cost=${new_tk#* }
-					if [[ -z "${known[$new_token]+a}" || ${known[$new_token]} -gt $new_cost ]]; then
+					local old_cost=${known[$new_token]}
+					if [[ -z "$old_cost" || $old_cost -gt $new_cost ]]; then
 						known[$new_token]=$new_cost
 						checking+=" $new_token"
 					fi
