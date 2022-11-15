@@ -186,7 +186,7 @@ uint32_t get_min_cost(std::string token) {
 	solved_state += ':';
 
 	for (uint8_t i = 0; i < burrow_count; i++) {
-		for (uint8_t j = 0; j < burrows[0].length(); j++) {
+		for (uint8_t j = 0; j < burrows[i].length(); j++) {
 			solved_state += 'A' + i;
 		}
 		solved_state += ':';
@@ -205,6 +205,7 @@ std::pair<std::string, uint32_t> move(const std::string token,
 	const uint8_t temp_char = new_token[burrow_pos];
 	new_token[burrow_pos] = new_token[pos];
 	new_token[pos] = temp_char;
+
 	const uint8_t type = temp_char == '.' ? new_token[burrow_pos] : temp_char;
 	uint16_t multi = std::max((uint16_t) 1,
 			(uint16_t) pow((uint8_t) 10, (uint8_t) (type - 'A')));
