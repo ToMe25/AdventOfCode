@@ -33,7 +33,7 @@ function move() {
 	fi
 	type=${burrow_index[$type]}
 
-	local multi=$((10**type))
+	local multi=$((10 ** type))
 	if [ $multi -lt 1 ]; then
 		multi=1
 	fi
@@ -71,7 +71,7 @@ function get_min_cost() {
 		if [ ! $((ks / 1000)) -eq $last ]; then
 			last=$((ks / 1000))
 			echo $ks 1>&2
-			if [ $ks -gt 10000 ]; then
+			if [ $ks -gt 20000 ]; then
 				return
 			fi
 		fi
@@ -81,7 +81,7 @@ function get_min_cost() {
 		local cost=${known[$token]}
 
 		local start=$((burrows_start + 1))
-		for i in $(seq 0 $((burrow_count - 1))); do
+		for i in $seqbc; do
 			burrows[$i]=${token:start:burrow_len}
 			start=$((start + burrow_len + 1))
 		done
@@ -95,7 +95,7 @@ function get_min_cost() {
 				local burrow=${burrows[$burrow_idx]}
 
 				local occupied=0
-				for j in $(seq $(((i + 1) < target ? i : (target - 1))) $((i > (target + 1) ? (i - 1) : target))); do
+				for ((j = ((i + 1) < target ? i : (target - 1)); j < (i > (target + 1) ? i : (target + 1)); j++)); do
 					if [ ${token:j:1} != "." ]; then
 						occupied=1
 						break
@@ -137,8 +137,6 @@ function get_min_cost() {
 
 		for i in $seqbc; do
 			local burrow=${burrows[$i]}
-			local seqnvp=$(seq $((i + 1)) -1 0)
-			local seqvp=$(seq $((i + 2)) $((${#valid_temp_spots[@]} - 1)))
 			for j in $seqbl; do
 				if [ ${burrow:j:1} == "." ]; then
 					continue
@@ -157,7 +155,7 @@ function get_min_cost() {
 					continue
 				fi
 
-				for k in $seqnvp; do
+				for ((k = i + 1; k >= 0; k--)); do
 					local pos=${valid_temp_spots[$k]}
 					if [ "${token:pos:1}" != "." ]; then
 						break
@@ -173,7 +171,7 @@ function get_min_cost() {
 					fi
 				done
 
-				for k in $seqvp; do
+				for ((k = i + 2; k < ${#valid_temp_spots[@]}; k++)); do
 					local pos=${valid_temp_spots[$k]}
 					if [ "${token:pos:1}" != "." ]; then
 						break
