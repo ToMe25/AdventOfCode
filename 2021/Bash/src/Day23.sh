@@ -9,12 +9,6 @@ burrow_count=4
 # Array used to get the burrow index for a type of amphipod.
 declare -A burrow_index=([A]=0 [B]=1 [C]=2 [D]=3)
 
-# Finds the position of the first occurance of the second arg in the first arg.
-function index_of() {
-	local prefix=${1%%$2*}
-	echo ${#prefix}
-}
-
 # Calculates the new token and cost after moving a amphipod according to the given values.
 function move() {
 	local token=$1
@@ -24,7 +18,8 @@ function move() {
 	local pos=$5
 	local depth=$6
 
-	local burrows_start=$(index_of $token ":")
+	local prefix=${token%%:*}
+	local burrows_start=${#prefix}
 	local burrow_pos=$((burrows_start + burrow * (burrow_len + 1) + depth + 1))
 
 	local new_token=$token
@@ -54,10 +49,13 @@ function move() {
 function get_min_cost() {
 	local token=$1
 	local -a valid_temp_spots=(0 1 3 5 7 9 10)
-	local burrows_start=$(index_of $token ":")
+	local prefix=${token%%:*}
+	local burrows_start=${#prefix}
 	
 	# Assume all burrows share the same length.
-	local burrow_len=$(index_of ${token:$((burrows_start + 1))} ":")
+	prefix=${token:$((burrows_start + 1))}
+	prefix=${prefix%%:*}
+	local burrow_len=${#prefix}
 	local -a burrows
 
 	local -A known
@@ -118,9 +116,9 @@ function get_min_cost() {
 				done
 
 				if [ ! $occupied -eq 1 ]; then
-					local -a new_tk=($(move $token $cost $burrow_idx $burrow_len $i $bottom_free))
-					local new_token=${new_tk[0]}
-					local new_cost=${new_tk[1]}
+					local new_tk=$(move $token $cost $burrow_idx $burrow_len $i $bottom_free)
+					local new_token=${new_tk%% *}
+					local new_cost=${new_tk##* }
 					if [[ -z "${known[$new_token]+a}" || ${known[$new_token]} -gt $new_cost ]]; then
 						known[$new_token]=$new_cost
 						checking[${#checking[@]}]=$new_token
@@ -160,9 +158,9 @@ function get_min_cost() {
 						break
 					fi
 
-					local -a new_tk=($(move $token $cost $i $burrow_len $pos $j))
-					local new_token=${new_tk[0]}
-					local new_cost=${new_tk[1]}
+					local new_tk=$(move $token $cost $i $burrow_len $pos $j)
+					local new_token=${new_tk%% *}
+					local new_cost=${new_tk##* }
 					if [[ -z "${known[$new_token]+a}" || ${known[$new_token]} -gt $new_cost ]]; then
 						known[$new_token]=$new_cost
 						checking[${#checking[@]}]=$new_token
@@ -175,9 +173,9 @@ function get_min_cost() {
 						break
 					fi
 
-					local -a new_tk=($(move $token $cost $i $burrow_len $pos $j))
-					local new_token=${new_tk[0]}
-					local new_cost=${new_tk[1]}
+					local new_tk=$(move $token $cost $i $burrow_len $pos $j)
+					local new_token=${new_tk%% *}
+					local new_cost=${new_tk##* }
 					if [[ -z "${known[$new_token]+a}" || ${known[$new_token]} -gt $new_cost ]]; then
 						known[$new_token]=$new_cost
 						checking[${#checking[@]}]=$new_token
