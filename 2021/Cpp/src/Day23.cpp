@@ -9,8 +9,8 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
-#include <stack>
 #include <unordered_map>
+#include <unordered_set>
 
 template<>
 void DayRunner<23>::solve(std::ifstream input) {
@@ -62,13 +62,13 @@ uint32_t get_min_cost(std::string token) {
 
 	std::unordered_map<std::string, uint32_t> known;
 	known[token] = 0;
-	std::stack<std::string> checking;
-	checking.push(token);
+	std::unordered_set<std::string> checking;
+	checking.insert(token);
 
 	std::string burrows[burrow_count];
 	while (checking.size() > 0) {
-		token = checking.top();
-		checking.pop();
+		token = *checking.begin();
+		checking.erase(token);
 		uint32_t cost = known[token];
 
 		size_t start = burrows_start + 1;
@@ -115,7 +115,7 @@ uint32_t get_min_cost(std::string token) {
 					if (known.find(new_tk.first) == known.end()
 							|| known[new_tk.first] > new_tk.second) {
 						known[new_tk.first] = new_tk.second;
-						checking.push(new_tk.first);
+						checking.insert(new_tk.first);
 						modified = true;
 					}
 				}
@@ -155,7 +155,7 @@ uint32_t get_min_cost(std::string token) {
 					if (known.find(new_tk.first) == known.end()
 							|| known[new_tk.first] > new_tk.second) {
 						known[new_tk.first] = new_tk.second;
-						checking.push(new_tk.first);
+						checking.insert(new_tk.first);
 					}
 				}
 
@@ -171,7 +171,7 @@ uint32_t get_min_cost(std::string token) {
 					if (known.find(new_tk.first) == known.end()
 							|| known[new_tk.first] > new_tk.second) {
 						known[new_tk.first] = new_tk.second;
-						checking.push(new_tk.first);
+						checking.insert(new_tk.first);
 					}
 				}
 				break;
@@ -195,8 +195,8 @@ uint32_t get_min_cost(std::string token) {
 }
 
 std::pair<std::string, uint32_t> move(const std::string token,
-		const uint32_t cost, const uint8_t burrow,
-		const uint8_t burrow_length, const uint8_t pos, const uint8_t depth) {
+		const uint32_t cost, const uint8_t burrow, const uint8_t burrow_length,
+		const uint8_t pos, const uint8_t depth) {
 	const size_t burrows_start = token.find(':');
 	const size_t burrow_pos = burrows_start + burrow * (burrow_length + 1)
 			+ depth + 1;
