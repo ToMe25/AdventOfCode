@@ -69,10 +69,15 @@ void DayRunner<24>::solve(std::ifstream input) {
 	instructions = static_calcs(instructions);
 	instructions = dead_code_removal(instructions);
 
+	Instruction instrArr[instructions.size()];
+	for (size_t i = 0; i < instructions.size(); i++) {
+		instrArr[i] = instructions[i];
+	}
+
 	std::array<int64_t, 4> result { 0, 0, 0, 1 };
 	uint8_t num_in[14] { 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 };
 	while (result[3] != 0) {
-		result = run_programm(instructions, num_in);
+		result = run_programm(instrArr, instructions.size(), num_in);
 
 		bool print = false;
 		for (int8_t i = 13; i >= 0; i--) {
@@ -320,12 +325,13 @@ std::vector<Instruction> dead_code_removal(
 	return result;
 }
 
-std::array<int64_t, 4> run_programm(const std::vector<Instruction> &insts,
-		const uint8_t input[14]) {
+std::array<int64_t, 4> run_programm(const Instruction instsv[],
+		const size_t instsc, const uint8_t input[14]) {
 	std::array<int64_t, 4> registers { 0, 0, 0, 0 };
 	size_t in_i = 0;
-	for (size_t i = 0; i < insts.size(); i++) {
-		const Instruction inst = insts[i];
+	for (size_t i = 0; i < instsc; i++) {
+		const Instruction inst = instsv[i];
+		const int64_t in_b = inst.const_b ? inst.in_b : registers[inst.in_b];
 		switch (inst.type) {
 		case InstType::NOP:
 			break;
@@ -333,32 +339,25 @@ std::array<int64_t, 4> run_programm(const std::vector<Instruction> &insts,
 			registers[inst.reg_a] = input[in_i++];
 			break;
 		case InstType::ADD:
-			registers[inst.reg_a] +=
-					inst.const_b ? inst.in_b : registers[inst.in_b];
+			registers[inst.reg_a] += in_b;
 			break;
 		case InstType::MUL:
-			registers[inst.reg_a] *=
-					inst.const_b ? inst.in_b : registers[inst.in_b];
+			registers[inst.reg_a] *= in_b;
 			break;
 		case InstType::DIV:
-			registers[inst.reg_a] /=
-					inst.const_b ? inst.in_b : registers[inst.in_b];
+			registers[inst.reg_a] /= in_b;
 			break;
 		case InstType::MOD:
-			registers[inst.reg_a] %=
-					inst.const_b ? inst.in_b : registers[inst.in_b];
+			registers[inst.reg_a] %= in_b;
 			break;
 		case InstType::SUB:
-			registers[inst.reg_a] -=
-					inst.const_b ? inst.in_b : registers[inst.in_b];
+			registers[inst.reg_a] -= in_b;
 			break;
 		case InstType::EQL:
-			registers[inst.reg_a] = registers[inst.reg_a]
-					== (inst.const_b ? inst.in_b : registers[inst.in_b]);
+			registers[inst.reg_a] = registers[inst.reg_a] == in_b;
 			break;
 		case InstType::SET:
-			registers[inst.reg_a] =
-					inst.const_b ? inst.in_b : registers[inst.in_b];
+			registers[inst.reg_a] = in_b;
 			break;
 		default:
 			std::cerr << "Received unknown instruction " << inst.type << '.'

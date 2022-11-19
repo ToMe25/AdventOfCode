@@ -60,13 +60,13 @@ struct Instruction {
 	 * The instruction type of this instruction.
 	 * Aka how the two values should interact.
 	 */
-	const InstType type;
+	InstType type;
 	/**
 	 * The primary register this instruction writes to and potentially reads from.
 	 */
-	const uint8_t reg_a;
-	const bool const_b;
-	const int32_t in_b;
+	uint8_t reg_a;
+	bool const_b;
+	int32_t in_b;
 
 	/**
 	 * Creates a null instruction. Not to be executed.
@@ -120,11 +120,12 @@ std::vector<Instruction> dead_code_removal(const std::vector<Instruction> &insts
  * Executes the given set of instructions with the given input.
  * The input is given to the program digit by digit.
  *
- * @param insts	The instructions to execute.
- * @param input	The input digits to handle.
+ * @param instsv	The instructions to execute.
+ * @param instsc	The number of instructions in instsv.
+ * @param input		The input digits to handle.
  * @return	The current register values.
  */
-std::array<int64_t, 4> run_programm(const std::vector<Instruction> &insts,
-		const uint8_t input[14]);
+std::array<int64_t, 4> run_programm(const Instruction instsv[],
+		const size_t instsc, const uint8_t input[14]);
 
 #endif /* DAY24_H_ */
