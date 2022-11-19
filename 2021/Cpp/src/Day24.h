@@ -61,6 +61,9 @@ struct Instruction {
 	 * Aka how the two values should interact.
 	 */
 	const InstType type;
+	/**
+	 * The primary register this instruction writes to and potentially reads from.
+	 */
 	const uint8_t reg_a;
 	const bool const_b;
 	const int32_t in_b;
@@ -96,11 +99,22 @@ std::ostream& operator <<(std::ostream &stream, const Instruction &inst);
 
 /**
  * Optimizes the given program to make it contain fewer instructions.
+ * This is done by replacing all sets of instructions that do not use anything
+ * touched by input with a single set instruction.
+ * Also removes instructions that do nothing.
  *
  * @param insts	The initial instructions of the program to optimize.
  * @return	An optimized list of instructions achieving the same result.
  */
-std::vector<Instruction> optimize(const std::vector<Instruction> insts);
+std::vector<Instruction> static_calcs(const std::vector<Instruction> &insts);
+
+/**
+ * Removes sets of instructions that calculate something that never gets used.
+ *
+ * @param insts	The previous instruction set to be optimized.
+ * @return	The new hopefully shorter instruction set.
+ */
+std::vector<Instruction> dead_code_removal(const std::vector<Instruction> &insts);
 
 /**
  * Executes the given set of instructions with the given input.

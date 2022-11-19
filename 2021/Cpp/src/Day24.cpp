@@ -66,7 +66,8 @@ void DayRunner<24>::solve(std::ifstream input) {
 		instructions.push_back(Instruction(type, reg_a, const_b, in_b));
 	}
 
-	instructions = optimize(instructions);
+	instructions = static_calcs(instructions);
+	instructions = dead_code_removal(instructions);
 
 	std::array<int64_t, 4> result { 0, 0, 0, 1 };
 	uint8_t num_in[14] { 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 };
@@ -99,6 +100,8 @@ void DayRunner<24>::solve(std::ifstream input) {
 	for (int i = 0; i < 14; i++) {
 		part1 += num_in[i] * pow(10, 13 - i);
 	}
+	part1 += 1;
+
 	std::cout << "The biggest valid serial number is " << part1 << '.'
 			<< std::endl;
 }
@@ -151,13 +154,13 @@ std::ostream& operator <<(std::ostream &stream, const Instruction &inst) {
 	return stream;
 }
 
-std::vector<Instruction> optimize(const std::vector<Instruction> insts) {
+std::vector<Instruction> static_calcs(const std::vector<Instruction> &insts) {
 	std::vector<Instruction> result;
 
-	// First replace instruction chains that don't use input with set instructions.
+	// Replace instruction chains that don't use input with set instructions.
 	// In this case dirty means interacted with input.
-	bool reg_dirty[4] {false};
-	bool last_dirty[4] {false};
+	bool reg_dirty[4] { false };
+	bool last_dirty[4] { false };
 	int64_t reg_state[4] { 0 };
 	for (Instruction inst : insts) {
 		if (inst.type == InstType::NOP) {
@@ -172,7 +175,8 @@ std::vector<Instruction> optimize(const std::vector<Instruction> insts) {
 				// Multiplying or dividing 0 by anything has no effect.
 				continue;
 			}
-		} else if (inst.type == InstType::MOD && !reg_dirty[inst.reg_a] && reg_state[inst.reg_a] == 0) {
+		} else if (inst.type == InstType::MOD && !reg_dirty[inst.reg_a]
+				&& reg_state[inst.reg_a] == 0) {
 			// 0 modulo anything is always 0.
 			continue;
 		} else if (inst.type == InstType::ADD || inst.type == InstType::SUB) {
@@ -191,16 +195,18 @@ std::vector<Instruction> optimize(const std::vector<Instruction> insts) {
 			if (inst.const_b && inst.in_b == 0) {
 				reg_dirty[inst.reg_a] = false;
 				last_dirty[inst.reg_a] = true;
-			} else if (!inst.const_b && !reg_dirty[inst.in_b] && reg_state[inst.in_b] == 0) {
+			} else if (!inst.const_b && !reg_dirty[inst.in_b]
+					&& reg_state[inst.in_b] == 0) {
 				reg_dirty[inst.reg_a] = false;
 				last_dirty[inst.reg_a] = true;
 			}
 		} else if (inst.type == InstType::MOD) {
 			// X modulo 1 is always 0, undirtying the register.
-			if (inst.const_b && inst.in_b == 1) {
+			if (inst.const_b && (inst.in_b == 1 || inst.in_b == -1)) {
 				reg_dirty[inst.reg_a] = false;
 				last_dirty[inst.reg_a] = true;
-			} else if (!inst.const_b && !reg_dirty[inst.in_b] && reg_state[inst.in_b] == 1) {
+			} else if (!inst.const_b && !reg_dirty[inst.in_b]
+					&& (reg_state[inst.in_b] == 1 || reg_state[inst.in_b] == -1)) {
 				reg_dirty[inst.reg_a] = false;
 				last_dirty[inst.reg_a] = true;
 			}
@@ -227,13 +233,15 @@ std::vector<Instruction> optimize(const std::vector<Instruction> insts) {
 			reg_dirty[inst.reg_a] = true;
 			if (inst.type == InstType::ADD && reg_state[inst.reg_a] == 0) {
 				// If added to 0 replace set and add with single set.
-				result.push_back(Instruction(SET, inst.reg_a, false, inst.in_b));
+				result.push_back(
+						Instruction(SET, inst.reg_a, false, inst.in_b));
 			} else {
 				result.push_back(inst);
 			}
 			continue;
 		}
 
+		// Evaluate instructions when both their inputs are static.
 		switch (inst.type) {
 		case InstType::INP:
 			reg_dirty[inst.reg_a] = true;
@@ -276,7 +284,44 @@ std::vector<Instruction> optimize(const std::vector<Instruction> insts) {
 	return result;
 }
 
-std::array<int64_t, 4> run_programm(const std::vector<Instruction> &insts, const uint8_t input[14]) {
+std::vector<Instruction> dead_code_removal(
+		const std::vector<Instruction> &insts) {
+	bool used[insts.size()] { false };
+	bool reg_used[4] { true, true, true, true };
+	for (size_t i = insts.size(); i > 0;) {
+		i--;
+		const Instruction inst = insts[i];
+		used[i] = reg_used[inst.reg_a];
+		if (used[i] && !inst.const_b) {
+			reg_used[inst.in_b] = true;
+		}
+
+		// If something overrides a register its previous value isn't used.
+		if (inst.type == InstType::INP) {
+			reg_used[inst.reg_a] = false;
+		} else if (inst.type == InstType::SET) {
+			reg_used[inst.reg_a] = false;
+		} else if (inst.type == InstType::MUL && inst.const_b
+				&& inst.in_b == 0) {
+			reg_used[inst.reg_a] = false;
+		} else if (inst.type == InstType::MOD && inst.const_b
+				&& (inst.in_b == 1 || inst.in_b == -1)) {
+			reg_used[inst.reg_a] = false;
+		}
+	}
+
+	std::vector<Instruction> result;
+	for (size_t i = 0; i < insts.size(); i++) {
+		if (used[i]) {
+			result.push_back(insts[i]);
+		}
+	}
+
+	return result;
+}
+
+std::array<int64_t, 4> run_programm(const std::vector<Instruction> &insts,
+		const uint8_t input[14]) {
 	std::array<int64_t, 4> registers { 0, 0, 0, 0 };
 	size_t in_i = 0;
 	for (size_t i = 0; i < insts.size(); i++) {
@@ -304,14 +349,16 @@ std::array<int64_t, 4> run_programm(const std::vector<Instruction> &insts, const
 					inst.const_b ? inst.in_b : registers[inst.in_b];
 			break;
 		case InstType::SUB:
-			registers[inst.reg_a] -= inst.const_b ? inst.in_b : registers[inst.in_b];
+			registers[inst.reg_a] -=
+					inst.const_b ? inst.in_b : registers[inst.in_b];
 			break;
 		case InstType::EQL:
 			registers[inst.reg_a] = registers[inst.reg_a]
 					== (inst.const_b ? inst.in_b : registers[inst.in_b]);
 			break;
 		case InstType::SET:
-			registers[inst.reg_a] = inst.const_b ? inst.in_b : registers[inst.in_b];
+			registers[inst.reg_a] =
+					inst.const_b ? inst.in_b : registers[inst.in_b];
 			break;
 		default:
 			std::cerr << "Received unknown instruction " << inst.type << '.'
