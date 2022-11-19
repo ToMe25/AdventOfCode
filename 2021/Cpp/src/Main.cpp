@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
 			}
 
 			AoCRunner *runner = getRunner(day,
-					std::make_integer_sequence<uint8_t, 23>());
+					std::make_integer_sequence<uint8_t, 24>());
 			if (runner != NULL) {
 				std::cout << "Running day " << (uint16_t) day << '.' << std::endl;
 				std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
 std::ifstream getInputFileStream(const uint8_t day) {
 	namespace fs = std::filesystem;
 
-	fs::path input = "..";
+	fs::path input("..");
 	input += fs::path::preferred_separator;
 	input += "input";
 	if (!fs::exists(input)) {
