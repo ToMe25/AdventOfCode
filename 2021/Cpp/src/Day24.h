@@ -10,6 +10,7 @@
 
 #include "Main.h"
 #include <array>
+#include <vector>
 #include <iostream>
 
 /**
@@ -17,10 +18,9 @@
  */
 enum InstType {
 	/**
-	 * Special type marking an Instruction as null.
-	 * This means this instruction was not correctly initialized.
+	 * No-op instruction. Does not do anything.
 	 */
-	NUL,
+	NOP,
 	/**
 	 * Read an input number and write it to the register.
 	 */
@@ -44,20 +44,32 @@ enum InstType {
 	/**
 	 * Set a to 1 if a == b, or 0 otherwise.
 	 */
-	EQL
+	SUB,
+	/**
+	 * Set a to b.
+	 */
+	EQL,
+	/**
+	 * Subtract b from a.
+	 */
+	SET
 };
 
 struct Instruction {
-	InstType type;
-	uint8_t reg_a;
-	bool const_b;
-	int32_t in_b;
+	/**
+	 * The instruction type of this instruction.
+	 * Aka how the two values should interact.
+	 */
+	const InstType type;
+	const uint8_t reg_a;
+	const bool const_b;
+	const int32_t in_b;
 
 	/**
 	 * Creates a null instruction. Not to be executed.
 	 */
 	Instruction() :
-			type(NUL), reg_a(0), const_b(true), in_b(0) {
+			type(NOP), reg_a(0), const_b(true), in_b(0) {
 	}
 
 	/**
@@ -83,15 +95,22 @@ struct Instruction {
 std::ostream& operator <<(std::ostream &stream, const Instruction &inst);
 
 /**
+ * Optimizes the given program to make it contain fewer instructions.
+ *
+ * @param insts	The initial instructions of the program to optimize.
+ * @return	An optimized list of instructions achieving the same result.
+ */
+std::vector<Instruction> optimize(const std::vector<Instruction> insts);
+
+/**
  * Executes the given set of instructions with the given input.
  * The input is given to the program digit by digit.
  *
- * @param instv	A pointer to an Instruction array.
- * @param instc	The size of the instv array.
+ * @param insts	The instructions to execute.
  * @param input	The input digits to handle.
  * @return	The current register values.
  */
-std::array<int64_t, 4> run_programm(const Instruction *instv, const size_t instc,
+std::array<int64_t, 4> run_programm(const std::vector<Instruction> &insts,
 		const uint8_t input[14]);
 
 #endif /* DAY24_H_ */
