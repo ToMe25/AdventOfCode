@@ -62,17 +62,14 @@ function get_min_cost() {
 
 	local -A known
 	known[$token]=0
-	local checking=$token
+	local checking="$token "
 
 	local last=0
 	while [ ${#checking} -gt 1 ]; do
 		local ks=${#known[@]}
 		if [ ! $((ks / 1000)) -eq $last ]; then
 			last=$((ks / 1000))
-			echo $ks 1>&2
-			if [ $ks -gt 20000 ]; then
-				return
-			fi
+			echo "Checked costs for $ks tokens." 1>&2
 		fi
 
 		token=${checking%% *}
@@ -91,42 +88,40 @@ function get_min_cost() {
 				local target=$(((burrow_idx + 1) * 2))
 				local burrow=${burrows[$burrow_idx]}
 
-				local occupied=0
+				local free=1
 				for ((j = ((i + 1) < target ? i : (target - 1)); j < (i > (target + 1) ? i : (target + 1)); j++)); do
 					if [ ${token:j:1} != "." ]; then
-						occupied=1
+						free=0
 						break
 					fi
 				done
 
-				if [ $occupied -eq 1 ]; then
-					continue
-				fi
+				if [ $free -eq 1 ]; then
+					local bottom_free=0
+					for j in $seqbl; do
+						local bc=${burrow:j:1}
+						if [ $bc == "." ]; then
+							bottom_free=$j
+						elif [ $bc != $c ]; then
+							free=0
+							break
+						fi
+					done
 
-				local bottom_free=0
-				for j in $seqbl; do
-					local bc=${burrow:j:1}
-					if [ $bc == "." ]; then
-						bottom_free=$j
-					elif [ $bc != $c ]; then
-						occupied=1
-						break
-					fi
-				done
+					if [ $free -eq 1 ]; then
+						if [ -z "$cost" ]; then
+							local cost=${known[$token]}
+						fi
 
-				if [ ! $occupied -eq 1 ]; then
-					if [ -z "$cost" ]; then
-						local cost=${known[$token]}
-					fi
-
-					local new_tk=$(move $token $burrow_idx $burrow_len $i $bottom_free)
-					local new_token=${new_tk% *}
-					local new_cost=$(($cost + ${new_tk#* }))
-					local old_cost=${known[$new_token]}
-					if [[ -z "$old_cost" || $old_cost -gt $new_cost ]]; then
-						known[$new_token]=$new_cost
-						checking+=" $new_token"
-						modified=1
+						local new_tk=$(move $token $burrow_idx $burrow_len $i $bottom_free)
+						local new_token=${new_tk% *}
+						local new_cost=$(($cost + ${new_tk#* }))
+						local old_cost=${known[$new_token]}
+						if [[ -z "$old_cost" || $old_cost -gt $new_cost ]]; then
+							known[$new_token]=$new_cost
+							checking+="$new_token "
+							modified=1
+						fi
 					fi
 				fi
 			fi
@@ -156,6 +151,58 @@ function get_min_cost() {
 					continue
 				fi
 
+				local burrow_idx=${burrow:j:1}
+				burrow_idx=${burrow_index[$burrow_idx]}
+				if [ $burrow_idx != $i ]; then
+					local start=$(((i + 1) * 2))
+					local target=$(((burrow_idx + 1) * 2))
+					local burrow=${burrows[$burrow_idx]}
+
+					local free=1
+					for ((k = (start < target ? start : target); k <= (start > target ? start : target); k++)); do
+						if [ ${token:k:1} != "." ]; then
+							free=0
+							break
+						fi
+					done
+
+					if [ $free -eq 1 ]; then
+						local bottom_free=0
+						for k in $seqbl; do
+							local bc=${burrow:k:1}
+							if [ $bc == "." ]; then
+								bottom_free=$k
+							elif [ $bc != ${burrow:j:1} ]; then
+								free=0
+								break
+							fi
+						done
+
+						if [ $free -eq 1 ]; then
+							if [ -z "$cost" ]; then
+								local cost=${known[$token]}
+							fi
+
+							local new_tk=$(move $token $i $burrow_len $target $j)
+							local new_token=${new_tk% *}
+							local new_cost=$(($cost + ${new_tk#* }))
+							new_tk=$(move $new_token $burrow_idx $burrow_len $target $bottom_free)
+							new_token=${new_tk% *}
+							((new_cost += ${new_tk#* }))
+							local old_cost=${known[$new_token]}
+							if [[ -z "$old_cost" || $old_cost -gt $new_cost ]]; then
+								known[$new_token]=$new_cost
+								checking+="$new_token "
+								modified=1
+							fi
+						fi
+					fi
+
+					if [ $modified -eq 1 ]; then
+						continue
+					fi
+				fi
+
 				for ((k = i + 1; k >= 0; k--)); do
 					local pos=${valid_temp_spots[$k]}
 					if [ ${token:pos:1} != "." ]; then
@@ -172,7 +219,7 @@ function get_min_cost() {
 					local old_cost=${known[$new_token]}
 					if [[ -z "$old_cost" || $old_cost -gt $new_cost ]]; then
 						known[$new_token]=$new_cost
-						checking+=" $new_token"
+						checking+="$new_token "
 					fi
 				done
 
@@ -192,7 +239,7 @@ function get_min_cost() {
 					local old_cost=${known[$new_token]}
 					if [[ -z "$old_cost" || $old_cost -gt $new_cost ]]; then
 						known[$new_token]=$new_cost
-						checking+=" $new_token"
+						checking+="$new_token "
 					fi
 				done
 

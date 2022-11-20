@@ -82,8 +82,8 @@ uint32_t get_min_cost(std::string token) {
 		for (size_t i = 0; i < burrows_start; i++) {
 			char c = token[i];
 			if (c != '.') {
-				uint8_t burrow = c - 'A';
-				uint8_t target = (burrow + 1) * 2;
+				const uint8_t burrow = c - 'A';
+				const uint8_t target = (burrow + 1) * 2;
 				bool free = true;
 				for (uint8_t j = std::min((uint8_t) (i + 1), target);
 						j < std::max((uint8_t) i, (uint8_t) (target + 1));
@@ -95,28 +95,27 @@ uint32_t get_min_cost(std::string token) {
 					}
 				}
 
-				if (!free) {
-					continue;
-				}
-
-				uint8_t bottom_free = 0;
-				for (size_t j = 0; j < burrows[burrow].length(); j++) {
-					if (burrows[burrow][j] == '.') {
-						bottom_free = j;
-					} else if (burrows[burrow][j] != c) {
-						free = false;
-						break;
-					}
-				}
-
 				if (free) {
-					std::pair<std::string, uint32_t> new_tk = move(token, cost,
-							burrow, burrows[0].length(), i, bottom_free);
-					if (known.find(new_tk.first) == known.end()
-							|| known[new_tk.first] > new_tk.second) {
-						known[new_tk.first] = new_tk.second;
-						checking.insert(new_tk.first);
-						modified = true;
+					uint8_t bottom_free = 0;
+					for (size_t j = 0; j < burrows[burrow].length(); j++) {
+						if (burrows[burrow][j] == '.') {
+							bottom_free = j;
+						} else if (burrows[burrow][j] != c) {
+							free = false;
+							break;
+						}
+					}
+
+					if (free) {
+						std::pair<std::string, uint32_t> new_tk = move(token,
+								cost, burrow, burrows[0].length(), i,
+								bottom_free);
+						if (known.find(new_tk.first) == known.end()
+								|| known[new_tk.first] > new_tk.second) {
+							known[new_tk.first] = new_tk.second;
+							checking.insert(new_tk.first);
+							modified = true;
+						}
 					}
 				}
 			}
@@ -142,6 +141,54 @@ uint32_t get_min_cost(std::string token) {
 
 				if (!mismatch) {
 					continue;
+				}
+
+				if (burrows[i][j] != i + 'A') {
+					const uint8_t start = (i + 1) * 2;
+					const uint8_t burrow = burrows[i][j] - 'A';
+					const uint8_t target = (burrow + 1) * 2;
+					bool free = true;
+					for (uint8_t k = std::min(start, target);
+							k <= std::max(start, target);
+							k++) {
+
+						if (token[k] != '.') {
+							free = false;
+							break;
+						}
+					}
+
+					if (free) {
+						uint8_t bottom_free = 0;
+						for (size_t k = 0; k < burrows[burrow].length(); k++) {
+							if (burrows[burrow][k] == '.') {
+								bottom_free = k;
+							} else if (burrows[burrow][k] != burrows[i][j]) {
+								free = false;
+								break;
+							}
+						}
+
+						if (free) {
+							std::pair<std::string, uint32_t> new_tk = move(
+									token, cost, i, burrows[i].length(),
+									target,
+									j);
+							new_tk = move(new_tk.first, new_tk.second, burrow,
+									burrows[burrow].length(), target,
+									bottom_free);
+							if (known.find(new_tk.first) == known.end()
+									|| known[new_tk.first] > new_tk.second) {
+								known[new_tk.first] = new_tk.second;
+								checking.insert(new_tk.first);
+								modified = true;
+							}
+						}
+					}
+
+					if (modified) {
+						continue;
+					}
 				}
 
 				for (int8_t k = i + 1; k >= 0; k--) {
