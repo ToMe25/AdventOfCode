@@ -385,17 +385,18 @@ void find_highest_valid(const Instruction *instv, const size_t instc,
 	while (registers[13][3] != 0 && !finished && !*stop) {
 		bool print = false;
 		for (uint8_t i = 13; i >= 2; i--) {
+			if (i == 2) {
+				// Would change the static third digit.
+				finished = true;
+				break;
+			}
+
 			if (num_in[i] == 1) {
 				if (i == 6) {
 					print = true;
 				}
 				num_in[i] = 9;
 			} else {
-				if (i == 2) {
-					// Would change the static third digit.
-					finished = true;
-					break;
-				}
 				num_in[i]--;
 				registers[i] = run_programm(instv + inp_pos[i], inp_pos[i + 1] - inp_pos[i], &num_in[i], 1);
 
@@ -418,7 +419,7 @@ void find_highest_valid(const Instruction *instv, const size_t instc,
 	}
 
 	if (!finished) {
-		if (stop) {
+		if (*stop) {
 			*result = -1;
 		} else {
 			for (int i = 0; i < 14; i++) {
