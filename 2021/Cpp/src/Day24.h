@@ -10,6 +10,7 @@
 
 #include "Main.h"
 #include <array>
+#include <atomic>
 #include <vector>
 #include <iostream>
 
@@ -128,5 +129,19 @@ std::vector<Instruction> dead_code_removal(const std::vector<Instruction> &insts
  */
 std::array<int64_t, 4> run_programm(const Instruction instsv[],
 		const size_t instsc, const uint8_t inputsv[], const size_t inputsc);
+
+/**
+ * Searches for a valid serial number in a number block.
+ * Sets result to the highest valid number found, or -1 if none was found.
+ *
+ * @param instv		The instructions to execute to validate whether a serial number is valid.
+ * @param instc		The number of instructions in instv.
+ * @param digits	The starting digits for the numbers to check.
+ * @param result	The pointer to write the first found number to.
+ * @param stop		An atomic bool to be set to true to stop this thread.
+ */
+void find_highest_valid(const Instruction *instv, const size_t instc,
+		const std::array<uint8_t, 3> digits, std::atomic<int64_t> *result,
+		std::atomic<bool> *stop);
 
 #endif /* DAY24_H_ */

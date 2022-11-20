@@ -8,6 +8,7 @@
 #include "Day24.h"
 #include <cmath>
 #include <iostream>
+#include <thread>
 #include <vector>
 
 template<>
@@ -74,55 +75,30 @@ void DayRunner<24>::solve(std::ifstream input) {
 		instrArr[i] = instructions[i];
 	}
 
-	uint16_t inp_pos[15];
-	size_t pos = 0;
-	for (size_t i = 0; i < instructions.size(); i++) {
-		if (instructions[i].type == InstType::INP) {
-			inp_pos[pos++] = i;
+	int64_t part1 = 0;
+	std::atomic<bool> stop = false;
+	for (uint8_t i = 81; i > 0; i++) {
+		std::vector<std::thread> threads;
+		std::atomic<int64_t> results[9] { 0 };
+		for (uint8_t j = 9; j > 0; j--) {
+			const std::array<uint8_t, 3> digits { (uint8_t) (i / 9), (uint8_t) ((i - 1) % 9 + 1), j };
+			threads.push_back(
+					std::thread(find_highest_valid, &instrArr[0],
+							instructions.size(), digits, &results[j], &stop));
 		}
-	}
-	inp_pos[pos] = instructions.size();
 
-	uint8_t num_in[14] { 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 };
-	std::array<int64_t, 4> registers[14];
-	for (uint8_t i = 0; i < 14; i++) {
-		registers[i] = run_programm(instrArr + inp_pos[i], inp_pos[i + 1] - inp_pos[i], &num_in[i], 1);
-	}
-
-	while (registers[13][3] != 0) {
-		bool print = false;
-		for (int8_t i = 13; i >= 0; i--) {
-			if (num_in[i] == 1) {
-				if (i == 7) {
-					print = true;
-				}
-				num_in[i] = 9;
-			} else {
-				num_in[i]--;
-				registers[i] = run_programm(instrArr + inp_pos[i], inp_pos[i + 1] - inp_pos[i], &num_in[i], 1);
-
-				for (uint8_t j = i; j < 14; j++) {
-					registers[j] = run_programm(instrArr + inp_pos[j], inp_pos[j + 1] - inp_pos[j], &num_in[j], 1);
-				}
-
-				if (print) {
-					uint64_t k = 0;
-					for (int8_t j = i; j >= 0; j--) {
-						k += (9 - num_in[j]) * pow(9, i - j);
-					}
-					std::cout << "Finished " << (uint64_t) (pow(9, 13 - i) * k)
-							<< " numbers." << std::endl;
-				}
-				break;
+		for (int8_t j = 8; j >= 0; j--) {
+			threads[j].join();
+			if (part1 == 0 && results[j] != -1) {
+				part1 = results[j];
+				stop = true;
 			}
 		}
-	}
 
-	uint64_t part1 = 0;
-	for (int i = 0; i < 14; i++) {
-		part1 += num_in[i] * pow(10, 13 - i);
+		if (part1 != 0) {
+			break;
+		}
 	}
-	part1 += 1;
 
 	std::cout << "The biggest valid serial number is " << part1 << '.'
 			<< std::endl;
@@ -383,4 +359,77 @@ std::array<int64_t, 4> run_programm(const Instruction instsv[],
 	}
 
 	return registers;
+}
+
+void find_highest_valid(const Instruction *instv, const size_t instc,
+		const std::array<uint8_t, 3> digits, std::atomic<int64_t> *result,
+		std::atomic<bool> *stop) {
+	uint16_t inp_pos[15];
+	size_t pos = 0;
+	for (size_t i = 0; i < instc; i++) {
+		if (instv[i].type == InstType::INP) {
+			inp_pos[pos++] = i;
+		}
+	}
+	inp_pos[pos] = instc;
+
+	const uint16_t id = digits[0] * 100 + digits[1] * 10 + digits[2];
+
+	uint8_t num_in[14] { digits[0], digits[1], digits[2], 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 };
+	std::array<int64_t, 4> registers[14];
+	for (uint8_t i = 0; i < 14; i++) {
+		registers[i] = run_programm(instv + inp_pos[i], inp_pos[i + 1] - inp_pos[i], &num_in[i], 1);
+	}
+
+	bool finished = false;
+	while (registers[13][3] != 0 && !finished && !*stop) {
+		bool print = false;
+		for (uint8_t i = 13; i >= 2; i--) {
+			if (num_in[i] == 1) {
+				if (i == 6) {
+					print = true;
+				}
+				num_in[i] = 9;
+			} else {
+				if (i == 2) {
+					// Would change the static third digit.
+					finished = true;
+					break;
+				}
+				num_in[i]--;
+				registers[i] = run_programm(instv + inp_pos[i], inp_pos[i + 1] - inp_pos[i], &num_in[i], 1);
+
+				for (uint8_t j = i; j < 14; j++) {
+					registers[j] = run_programm(instv + inp_pos[j], inp_pos[j + 1] - inp_pos[j], &num_in[j], 1);
+				}
+
+				if (print) {
+					uint64_t k = 0;
+					for (int8_t j = i; j > 2; j--) {
+						k += (9 - num_in[j]) * pow(9, i - j);
+					}
+					std::cout << "Thread " << id << " checked "
+							<< (uint64_t) (pow(9, 13 - i) * k) << " numbers."
+							<< std::endl;
+				}
+				break;
+			}
+		}
+	}
+
+	if (!finished) {
+		if (stop) {
+			*result = -1;
+		} else {
+			for (int i = 0; i < 14; i++) {
+				*result += num_in[i] * pow(10, 13 - i);
+			}
+			std::cout << "Thread " << id << " found number " << *result << '.'
+					<< std::endl;
+		}
+	} else {
+		*result = -1;
+		std::cout << "Thread " << id << " finished checking all its numbers."
+				<< std::endl;
+	}
 }
