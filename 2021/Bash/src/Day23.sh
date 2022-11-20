@@ -89,7 +89,7 @@ function get_min_cost() {
 				local burrow=${burrows[$burrow_idx]}
 
 				local free=1
-				for ((j = ((i + 1) < target ? i : (target - 1)); j < (i > (target + 1) ? i : (target + 1)); j++)); do
+				for ((j = ((i + 1) < target ? (i + 1) : target); j < (i > (target + 1) ? i : (target + 1)); j++)); do
 					if [ ${token:j:1} != "." ]; then
 						free=0
 						break
