@@ -122,10 +122,11 @@ std::vector<Instruction> dead_code_removal(const std::vector<Instruction> &insts
  *
  * @param instsv	The instructions to execute.
  * @param instsc	The number of instructions in instsv.
- * @param input		The input digits to handle.
+ * @param inputsv	The input numbers to handle.
+ * @param inputsc	The number of of inputs.
  * @return	The current register values.
  */
 std::array<int64_t, 4> run_programm(const Instruction instsv[],
-		const size_t instsc, const uint8_t input[14]);
+		const size_t instsc, const uint8_t inputsv[], const size_t inputsc);
 
 #endif /* DAY24_H_ */

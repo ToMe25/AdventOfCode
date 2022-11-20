@@ -74,20 +74,37 @@ void DayRunner<24>::solve(std::ifstream input) {
 		instrArr[i] = instructions[i];
 	}
 
-	std::array<int64_t, 4> result { 0, 0, 0, 1 };
-	uint8_t num_in[14] { 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 };
-	while (result[3] != 0) {
-		result = run_programm(instrArr, instructions.size(), num_in);
+	uint16_t inp_pos[15];
+	size_t pos = 0;
+	for (size_t i = 0; i < instructions.size(); i++) {
+		if (instructions[i].type == InstType::INP) {
+			inp_pos[pos++] = i;
+		}
+	}
+	inp_pos[pos] = instructions.size();
 
+	uint8_t num_in[14] { 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 };
+	std::array<int64_t, 4> registers[14];
+	for (uint8_t i = 0; i < 14; i++) {
+		registers[i] = run_programm(instrArr + inp_pos[i], inp_pos[i + 1] - inp_pos[i], &num_in[i], 1);
+	}
+
+	while (registers[13][3] != 0) {
 		bool print = false;
 		for (int8_t i = 13; i >= 0; i--) {
 			if (num_in[i] == 1) {
-				if (i == 8) {
+				if (i == 7) {
 					print = true;
 				}
 				num_in[i] = 9;
 			} else {
 				num_in[i]--;
+				registers[i] = run_programm(instrArr + inp_pos[i], inp_pos[i + 1] - inp_pos[i], &num_in[i], 1);
+
+				for (uint8_t j = i; j < 14; j++) {
+					registers[j] = run_programm(instrArr + inp_pos[j], inp_pos[j + 1] - inp_pos[j], &num_in[j], 1);
+				}
+
 				if (print) {
 					uint64_t k = 0;
 					for (int8_t j = i; j >= 0; j--) {
@@ -326,7 +343,7 @@ std::vector<Instruction> dead_code_removal(
 }
 
 std::array<int64_t, 4> run_programm(const Instruction instsv[],
-		const size_t instsc, const uint8_t input[14]) {
+		const size_t instsc, const uint8_t inputsv[], const size_t inputsc) {
 	std::array<int64_t, 4> registers { 0, 0, 0, 0 };
 	size_t in_i = 0;
 	for (size_t i = 0; i < instsc; i++) {
@@ -336,7 +353,7 @@ std::array<int64_t, 4> run_programm(const Instruction instsv[],
 		case InstType::NOP:
 			break;
 		case InstType::INP:
-			registers[inst.reg_a] = input[in_i++];
+			registers[inst.reg_a] = in_i < inputsc ? inputsv[in_i++] : 0;
 			break;
 		case InstType::ADD:
 			registers[inst.reg_a] += in_b;
