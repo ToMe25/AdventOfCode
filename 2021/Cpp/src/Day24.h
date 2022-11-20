@@ -43,15 +43,19 @@ enum InstType {
 	 */
 	MOD,
 	/**
-	 * Set a to 1 if a == b, or 0 otherwise.
+	 * Subtract b from a.
 	 */
 	SUB,
 	/**
-	 * Set a to b.
+	 * Set a to 1 if a == b, or 0 otherwise.
 	 */
 	EQL,
 	/**
-	 * Subtract b from a.
+	 * Set a to 1 if a is not equals b, or 0 oterwise.
+	 */
+	NEQ,
+	/**
+	 * Set a to b.
 	 */
 	SET
 };
@@ -66,6 +70,10 @@ struct Instruction {
 	 * The primary register this instruction writes to and potentially reads from.
 	 */
 	uint8_t reg_a;
+	/**
+	 * Whether the second value to use is a constant.
+	 * If not its a register index like reg_a.
+	 */
 	bool const_b;
 	int32_t in_b;
 

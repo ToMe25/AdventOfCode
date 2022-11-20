@@ -77,20 +77,22 @@ void DayRunner<24>::solve(std::ifstream input) {
 
 	int64_t part1 = 0;
 	std::atomic<bool> stop = false;
-	for (uint8_t i = 81; i > 0; i++) {
-		std::vector<std::thread> threads;
+	for (uint8_t i = 81; i > 0; i--) {
 		std::atomic<int64_t> results[9] { 0 };
+		std::vector<std::thread> threads;
 		for (uint8_t j = 9; j > 0; j--) {
-			const std::array<uint8_t, 3> digits { (uint8_t) (i / 9), (uint8_t) ((i - 1) % 9 + 1), j };
+			const std::array<uint8_t, 3> digits { (uint8_t) ((i - 1) / 9 + 1),
+					(uint8_t) ((i - 1) % 9 + 1), j };
 			threads.push_back(
 					std::thread(find_highest_valid, &instrArr[0],
-							instructions.size(), digits, &results[j], &stop));
+							instructions.size(), digits, &results[j - 1],
+							&stop));
 		}
 
-		for (int8_t j = 8; j >= 0; j--) {
+		for (int8_t j = 0; j < 9; j++) {
 			threads[j].join();
-			if (part1 == 0 && results[j] != -1) {
-				part1 = results[j];
+			if (part1 == 0 && results[8 - j] != -1) {
+				part1 = results[8 - j];
 				stop = true;
 			}
 		}
@@ -129,6 +131,9 @@ std::ostream& operator <<(std::ostream &stream, const Instruction &inst) {
 		break;
 	case InstType::EQL:
 		stream << "eql ";
+		break;
+	case InstType::NEQ:
+		stream << "neq ";
 		break;
 	case InstType::SET:
 		stream << "set ";
@@ -210,6 +215,16 @@ std::vector<Instruction> static_calcs(const std::vector<Instruction> &insts) {
 			}
 		}
 
+		// Replace double equals checks with single neq check.
+		if (inst.type == InstType::EQL) {
+			Instruction last = result.back();
+			if (inst.const_b && inst.in_b == 0 && last.type == InstType::EQL && inst.reg_a == last.reg_a) {
+				result.pop_back();
+				result.push_back(Instruction(NEQ, inst.reg_a, last.const_b, last.in_b));
+				continue;
+			}
+		}
+
 		if (reg_dirty[inst.reg_a]) {
 			// Do not remove instructions using a dirty primary register.
 			// Unless they clean it.
@@ -268,6 +283,9 @@ std::vector<Instruction> static_calcs(const std::vector<Instruction> &insts) {
 		case InstType::EQL:
 			reg_state[inst.reg_a] = reg_state[inst.reg_a]
 					== (inst.const_b ? inst.in_b : reg_state[inst.in_b]);
+			break;
+		case InstType::NEQ:
+			reg_state[inst.reg_a] = reg_state[inst.reg_a] != (inst.const_b ? inst.in_b : reg_state[inst.in_b]);
 			break;
 		case InstType::SET:
 			reg_state[inst.reg_a] =
@@ -348,6 +366,9 @@ std::array<int64_t, 4> run_programm(const Instruction instsv[],
 			break;
 		case InstType::EQL:
 			registers[inst.reg_a] = registers[inst.reg_a] == in_b;
+			break;
+		case InstType::NEQ:
+			registers[inst.reg_a] = registers[inst.reg_a] != in_b;
 			break;
 		case InstType::SET:
 			registers[inst.reg_a] = in_b;
