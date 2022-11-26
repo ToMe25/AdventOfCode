@@ -1,4 +1,5 @@
+# Build
+build/
+
 # Eclipse
-Debug/
-Release/
 .cproject
