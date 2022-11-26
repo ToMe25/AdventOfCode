@@ -148,8 +148,16 @@ std::array<int64_t, 4> run_programm(const Instruction instsv[],
  * @param result	The pointer to write the first found number to.
  * @param stop		An atomic bool to be set to true to stop this thread.
  */
-void find_highest_valid(const Instruction *instv, const size_t instc,
+void find_highest_valid_in_range(const Instruction *instv, const size_t instc,
 		const std::array<uint8_t, 3> digits, std::atomic<int64_t> *result,
 		std::atomic<bool> *stop);
+
+/**
+ * Multithreaded method searching for the highest valid 14 digit number.
+ *
+ * @param insts	The instructions to use to check whether a number is valid.
+ * @return	The highest valid number, or -1 if none was found.
+ */
+int64_t find_highest_valid(const std::vector<Instruction> insts);
 
 #endif /* DAY24_H_ */

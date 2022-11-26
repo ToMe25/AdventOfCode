@@ -70,38 +70,7 @@ void DayRunner<24>::solve(std::ifstream input) {
 	instructions = static_calcs(instructions);
 	instructions = dead_code_removal(instructions);
 
-	Instruction instrArr[instructions.size()];
-	for (size_t i = 0; i < instructions.size(); i++) {
-		instrArr[i] = instructions[i];
-	}
-
-	int64_t part1 = 0;
-	std::atomic<bool> stop = false;
-	for (uint8_t i = 81; i > 0; i--) {
-		std::atomic<int64_t> results[9] { 0 };
-		std::vector<std::thread> threads;
-		for (uint8_t j = 9; j > 0; j--) {
-			const std::array<uint8_t, 3> digits { (uint8_t) ((i - 1) / 9 + 1),
-					(uint8_t) ((i - 1) % 9 + 1), j };
-			threads.push_back(
-					std::thread(find_highest_valid, &instrArr[0],
-							instructions.size(), digits, &results[j - 1],
-							&stop));
-		}
-
-		for (int8_t j = 0; j < 9; j++) {
-			threads[j].join();
-			if (part1 == 0 && results[8 - j] != -1) {
-				part1 = results[8 - j];
-				stop = true;
-			}
-		}
-
-		if (part1 != 0) {
-			break;
-		}
-	}
-
+	int64_t part1 = find_highest_valid(instructions);
 	std::cout << "The biggest valid serial number is " << part1 << '.'
 			<< std::endl;
 }
@@ -218,9 +187,11 @@ std::vector<Instruction> static_calcs(const std::vector<Instruction> &insts) {
 		// Replace double equals checks with single neq check.
 		if (inst.type == InstType::EQL) {
 			Instruction last = result.back();
-			if (inst.const_b && inst.in_b == 0 && last.type == InstType::EQL && inst.reg_a == last.reg_a) {
+			if (inst.const_b && inst.in_b == 0 && last.type == InstType::EQL
+					&& inst.reg_a == last.reg_a) {
 				result.pop_back();
-				result.push_back(Instruction(NEQ, inst.reg_a, last.const_b, last.in_b));
+				result.push_back(
+						Instruction(NEQ, inst.reg_a, last.const_b, last.in_b));
 				continue;
 			}
 		}
@@ -285,7 +256,8 @@ std::vector<Instruction> static_calcs(const std::vector<Instruction> &insts) {
 					== (inst.const_b ? inst.in_b : reg_state[inst.in_b]);
 			break;
 		case InstType::NEQ:
-			reg_state[inst.reg_a] = reg_state[inst.reg_a] != (inst.const_b ? inst.in_b : reg_state[inst.in_b]);
+			reg_state[inst.reg_a] = reg_state[inst.reg_a]
+					!= (inst.const_b ? inst.in_b : reg_state[inst.in_b]);
 			break;
 		case InstType::SET:
 			reg_state[inst.reg_a] =
@@ -382,7 +354,7 @@ std::array<int64_t, 4> run_programm(const Instruction instsv[],
 	return registers;
 }
 
-void find_highest_valid(const Instruction *instv, const size_t instc,
+void find_highest_valid_in_range(const Instruction *instv, const size_t instc,
 		const std::array<uint8_t, 3> digits, std::atomic<int64_t> *result,
 		std::atomic<bool> *stop) {
 	uint16_t inp_pos[15];
@@ -396,10 +368,12 @@ void find_highest_valid(const Instruction *instv, const size_t instc,
 
 	const uint16_t id = digits[0] * 100 + digits[1] * 10 + digits[2];
 
-	uint8_t num_in[14] { digits[0], digits[1], digits[2], 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9 };
+	uint8_t num_in[14] { digits[0], digits[1], digits[2], 9, 9, 9, 9, 9, 9, 9,
+			9, 9, 9, 9 };
 	std::array<int64_t, 4> registers[14];
 	for (uint8_t i = 0; i < 14; i++) {
-		registers[i] = run_programm(instv + inp_pos[i], inp_pos[i + 1] - inp_pos[i], &num_in[i], 1);
+		registers[i] = run_programm(instv + inp_pos[i],
+				inp_pos[i + 1] - inp_pos[i], &num_in[i], 1);
 	}
 
 	bool finished = false;
@@ -419,10 +393,12 @@ void find_highest_valid(const Instruction *instv, const size_t instc,
 				num_in[i] = 9;
 			} else {
 				num_in[i]--;
-				registers[i] = run_programm(instv + inp_pos[i], inp_pos[i + 1] - inp_pos[i], &num_in[i], 1);
+				registers[i] = run_programm(instv + inp_pos[i],
+						inp_pos[i + 1] - inp_pos[i], &num_in[i], 1);
 
 				for (uint8_t j = i; j < 14; j++) {
-					registers[j] = run_programm(instv + inp_pos[j], inp_pos[j + 1] - inp_pos[j], &num_in[j], 1);
+					registers[j] = run_programm(instv + inp_pos[j],
+							inp_pos[j + 1] - inp_pos[j], &num_in[j], 1);
 				}
 
 				if (print) {
@@ -454,4 +430,61 @@ void find_highest_valid(const Instruction *instv, const size_t instc,
 		std::cout << "Thread " << id << " finished checking all its numbers."
 				<< std::endl;
 	}
+}
+
+int64_t find_highest_valid(const std::vector<Instruction> insts) {
+	Instruction instrArr[insts.size()];
+	for (size_t i = 0; i < insts.size(); i++) {
+		instrArr[i] = insts[i];
+	}
+
+	int64_t result = 0;
+	std::atomic<bool> stop = false;
+	std::atomic<int64_t> results[18] { 0 };
+	std::thread threads[18];
+	for (uint8_t i = 81; i > 0; i--) {
+		for (uint8_t j = 9; j > 0; j--) {
+			const std::array<uint8_t, 3> digits { (uint8_t) ((i - 1) / 9 + 1),
+					(uint8_t) ((i - 1) % 9 + 1), j };
+			threads[(i % 2) * 9 + j - 1] = std::thread(
+					find_highest_valid_in_range, &instrArr[0], insts.size(),
+					digits, &results[(i % 2) * 9 + j - 1], &stop);
+		}
+
+		if (i == 81) {
+			continue;
+		}
+
+		for (int8_t j = ((i + 1) % 2) * 9 - 1; j >= 0; j--) {
+			if (threads[j].joinable()) {
+				threads[j].join();
+			}
+
+			if (result == 0 && results[j] != -1) {
+				result = results[j];
+				stop = true;
+			}
+
+			if (j % 9 == 0) {
+				break;
+			}
+		}
+
+		if (result != 0) {
+			break;
+		}
+	}
+
+	for (int8_t i = 17; i >= 0; i--) {
+		if (threads[i].joinable()) {
+			threads[i].join();
+		}
+
+		if (result == 0 && results[i] != -1) {
+			result = results[i];
+			stop = true;
+		}
+	}
+
+	return result == 0 ? -1 : result;
 }
