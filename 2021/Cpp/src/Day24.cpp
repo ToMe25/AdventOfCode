@@ -7,7 +7,11 @@
 
 #include "Day24.h"
 #include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <dlfcn.h>
 #include <iostream>
+#include <fstream>
 #include <thread>
 #include <vector>
 
@@ -70,9 +74,73 @@ void DayRunner<24>::solve(std::ifstream input) {
 	instructions = static_calcs(instructions);
 	instructions = dead_code_removal(instructions);
 
-	int64_t part1 = find_highest_valid(instructions);
+	std::filesystem::path tmpDir("tmp");
+	if (std::filesystem::exists(tmpDir)
+			&& !std::filesystem::is_directory(tmpDir)) {
+		std::cerr << std::filesystem::canonical(tmpDir)
+				<< " exists but isn't a directory." << std::endl;
+		return;
+	} else if (!std::filesystem::exists(tmpDir)
+			&& !std::filesystem::create_directories(tmpDir)) {
+		std::cerr << tmpDir << " does not exist and can't be created."
+				<< std::endl;
+		return;
+	}
+	tmpDir = std::filesystem::canonical(tmpDir);
+
+	if (!compileInstructions(instructions, tmpDir)) {
+		return;
+	}
+
+	std::filesystem::path tmpLib(tmpDir);
+	tmpLib += std::filesystem::path::preferred_separator;
+	tmpLib += "tmp";
+	if (!std::filesystem::exists(tmpLib)) {
+		std::cerr << "Make didn't create library " << tmpLib << '.'
+				<< std::endl;
+		return;
+	}
+
+	void *lib = dlopen(tmpLib.c_str(), RTLD_NOW);
+	if (!lib) {
+		std::cerr << "Failed to load dynamically created library." << std::endl;
+		return;
+	}
+
+	dynfunc libFuncs[14];
+	for (uint8_t i = 0; i < 14; i++) {
+		std::string name("run_");
+		name.append(std::to_string(i));
+		libFuncs[i] = (dynfunc) dlsym(lib, name.c_str());
+		if (!libFuncs[i]) {
+			std::cerr << "Failed to load function " << name << '.' << std::endl;
+			return;
+		}
+	}
+
+	int64_t part1 = find_highest_valid(libFuncs);
 	std::cout << "The biggest valid serial number is " << part1 << '.'
 			<< std::endl;
+
+	std::filesystem::remove(tmpLib);
+	std::filesystem::path tmpO(tmpDir);
+	tmpO += std::filesystem::path::preferred_separator;
+	tmpO += "tmp.o";
+	std::filesystem::remove(tmpO);
+	std::filesystem::path tmpM(tmpDir);
+	tmpM += std::filesystem::path::preferred_separator;
+	tmpM += "tmp.Makefile";
+	std::filesystem::remove(tmpM);
+	std::filesystem::path tmpC(tmpDir);
+	tmpC += std::filesystem::path::preferred_separator;
+	tmpC += "tmp.c";
+	std::filesystem::remove(tmpC);
+	if (std::filesystem::is_empty(tmpDir)) {
+		std::filesystem::remove(tmpDir);
+	} else {
+		std::cout << "Couldn't remove tmp directory because it wasn't empty."
+				<< std::endl;
+	}
 }
 
 std::ostream& operator <<(std::ostream &stream, const Instruction &inst) {
@@ -227,11 +295,11 @@ std::vector<Instruction> static_calcs(const std::vector<Instruction> &insts) {
 
 		// Evaluate instructions when both their inputs are static.
 		switch (inst.type) {
-		case InstType::INP:
+		case INP:
 			reg_dirty[inst.reg_a] = true;
 			result.push_back(inst);
 			break;
-		case InstType::ADD:
+		case ADD:
 			reg_state[inst.reg_a] +=
 					inst.const_b ? inst.in_b : reg_state[inst.in_b];
 			break;
@@ -239,29 +307,31 @@ std::vector<Instruction> static_calcs(const std::vector<Instruction> &insts) {
 			reg_state[inst.reg_a] *=
 					inst.const_b ? inst.in_b : reg_state[inst.in_b];
 			break;
-		case InstType::DIV:
+		case DIV:
 			reg_state[inst.reg_a] /=
 					inst.const_b ? inst.in_b : reg_state[inst.in_b];
 			break;
-		case InstType::MOD:
+		case MOD:
 			reg_state[inst.reg_a] %=
 					inst.const_b ? inst.in_b : reg_state[inst.in_b];
 			break;
-		case InstType::SUB:
+		case SUB:
 			reg_state[inst.reg_a] -=
 					inst.const_b ? inst.in_b : reg_state[inst.in_b];
 			break;
-		case InstType::EQL:
+		case EQL:
 			reg_state[inst.reg_a] = reg_state[inst.reg_a]
 					== (inst.const_b ? inst.in_b : reg_state[inst.in_b]);
 			break;
-		case InstType::NEQ:
+		case NEQ:
 			reg_state[inst.reg_a] = reg_state[inst.reg_a]
 					!= (inst.const_b ? inst.in_b : reg_state[inst.in_b]);
 			break;
-		case InstType::SET:
+		case SET:
 			reg_state[inst.reg_a] =
 					inst.const_b ? inst.in_b : reg_state[inst.in_b];
+			break;
+		case NOP:
 			break;
 		default:
 			std::cerr << "Received unknown instruction " << inst.type << '.'
@@ -354,26 +424,20 @@ std::array<int64_t, 4> run_programm(const Instruction instsv[],
 	return registers;
 }
 
-void find_highest_valid_in_range(const Instruction *instv, const size_t instc,
+void find_highest_valid_in_range(const dynfunc funcs[14],
 		const std::array<uint8_t, 3> digits, std::atomic<int64_t> *result,
 		std::atomic<bool> *stop) {
-	uint16_t inp_pos[15];
-	size_t pos = 0;
-	for (size_t i = 0; i < instc; i++) {
-		if (instv[i].type == InstType::INP) {
-			inp_pos[pos++] = i;
-		}
-	}
-	inp_pos[pos] = instc;
-
 	const uint16_t id = digits[0] * 100 + digits[1] * 10 + digits[2];
-
 	uint8_t num_in[14] { digits[0], digits[1], digits[2], 9, 9, 9, 9, 9, 9, 9,
 			9, 9, 9, 9 };
-	std::array<int64_t, 4> registers[14];
+	long long int registers[14][4];
 	for (uint8_t i = 0; i < 14; i++) {
-		registers[i] = run_programm(instv + inp_pos[i],
-				inp_pos[i + 1] - inp_pos[i], &num_in[i], 1);
+		if (i > 0) {
+			memcpy(registers[i], registers[i - 1], sizeof(long long int) * 4);
+		}
+
+		funcs[i](&registers[i][0], &registers[i][1], &registers[i][2],
+				&registers[i][3], (char) num_in[i]);
 	}
 
 	bool finished = false;
@@ -393,12 +457,23 @@ void find_highest_valid_in_range(const Instruction *instv, const size_t instc,
 				num_in[i] = 9;
 			} else {
 				num_in[i]--;
-				registers[i] = run_programm(instv + inp_pos[i],
-						inp_pos[i + 1] - inp_pos[i], &num_in[i], 1);
+				if (i > 0) {
+					memcpy(registers[i], registers[i - 1],
+							sizeof(long long int) * 4);
+				}
+
+				funcs[i](&registers[i][0], &registers[i][1], &registers[i][2],
+						&registers[i][3], (char) num_in[i]);
 
 				for (uint8_t j = i; j < 14; j++) {
-					registers[j] = run_programm(instv + inp_pos[j],
-							inp_pos[j + 1] - inp_pos[j], &num_in[j], 1);
+					if (j > 0) {
+						memcpy(registers[j], registers[j - 1],
+								sizeof(long long int) * 4);
+					}
+
+					funcs[j](&registers[j][0], &registers[j][1],
+							&registers[j][2], &registers[j][3],
+							(char) num_in[j]);
 				}
 
 				if (print) {
@@ -432,12 +507,7 @@ void find_highest_valid_in_range(const Instruction *instv, const size_t instc,
 	}
 }
 
-int64_t find_highest_valid(const std::vector<Instruction> insts) {
-	Instruction instrArr[insts.size()];
-	for (size_t i = 0; i < insts.size(); i++) {
-		instrArr[i] = insts[i];
-	}
-
+int64_t find_highest_valid(const dynfunc funcs[14]) {
 	int64_t result = 0;
 	std::atomic<bool> stop = false;
 	std::atomic<int64_t> results[18] { 0 };
@@ -447,8 +517,8 @@ int64_t find_highest_valid(const std::vector<Instruction> insts) {
 			const std::array<uint8_t, 3> digits { (uint8_t) ((i - 1) / 9 + 1),
 					(uint8_t) ((i - 1) % 9 + 1), j };
 			threads[(i % 2) * 9 + j - 1] = std::thread(
-					find_highest_valid_in_range, &instrArr[0], insts.size(),
-					digits, &results[(i % 2) * 9 + j - 1], &stop);
+					find_highest_valid_in_range, funcs, digits,
+					&results[(i % 2) * 9 + j - 1], &stop);
 		}
 
 		if (i == 81) {
@@ -487,4 +557,161 @@ int64_t find_highest_valid(const std::vector<Instruction> insts) {
 	}
 
 	return result == 0 ? -1 : result;
+}
+
+bool compileInstructions(const std::vector<Instruction> insts,
+		const std::filesystem::path tmpDir) {
+	std::filesystem::path tmpC(tmpDir);
+	tmpC += std::filesystem::path::preferred_separator;
+	tmpC += "tmp.c";
+
+	if (std::filesystem::exists(tmpC)
+			&& !std::filesystem::is_regular_file(tmpC)) {
+		std::cerr << tmpC << " exists but isn't a file." << std::endl;
+		return false;
+	} else if (std::filesystem::exists(tmpC)
+			&& !std::filesystem::remove(tmpC)) {
+		std::cerr << "Failed to remove " << tmpC << '.' << std::endl;
+		return false;
+	}
+
+	std::ofstream tmpCO(tmpC);
+	const char method_start[] = "void run_";
+	const char method_params[] =
+			"(long long int *w, long long int *x, long long int *y, long long int *z, char inp) {";
+
+	uint16_t method_idx = 0;
+	for (Instruction inst : insts) {
+		if (inst.type == InstType::INP) {
+			if (method_idx > 0) {
+				tmpCO << '}' << std::endl << std::endl;
+			}
+			tmpCO << method_start << method_idx << method_params << std::endl;
+			method_idx++;
+		}
+
+		if (inst.type != InstType::NOP) {
+			tmpCO << '*' << (uint8_t) (inst.reg_a + 'w');
+		}
+
+		switch (inst.type) {
+		case NOP:
+			break;
+		case INP:
+			tmpCO << " = inp";
+			break;
+		case ADD:
+			tmpCO << " += ";
+			if (inst.const_b) {
+				tmpCO << inst.in_b;
+			} else {
+				tmpCO << '*' << (uint8_t) (((uint8_t) inst.in_b) + 'w');
+			}
+			break;
+		case MUL:
+			tmpCO << " *= ";
+			if (inst.const_b) {
+				tmpCO << inst.in_b;
+			} else {
+				tmpCO << '*' << (uint8_t) (((uint8_t) inst.in_b) + 'w');
+			}
+			break;
+		case DIV:
+			tmpCO << " /= ";
+			if (inst.const_b) {
+				tmpCO << inst.in_b;
+			} else {
+				tmpCO << '*' << (uint8_t) (((uint8_t) inst.in_b) + 'w');
+			}
+			break;
+		case MOD:
+			tmpCO << " %= ";
+			if (inst.const_b) {
+				tmpCO << inst.in_b;
+			} else {
+				tmpCO << '*' << (uint8_t) (((uint8_t) inst.in_b) + 'w');
+			}
+			break;
+		case SUB:
+			tmpCO << " -= ";
+			if (inst.const_b) {
+				tmpCO << inst.in_b;
+			} else {
+				tmpCO << '*' << (uint8_t) (((uint8_t) inst.in_b) + 'w');
+			}
+			break;
+		case EQL:
+			tmpCO << " = ";
+			tmpCO << '*' << (uint8_t) (inst.reg_a + 'w') << " == ";
+			if (inst.const_b) {
+				tmpCO << inst.in_b;
+			} else {
+				tmpCO << '*' << (uint8_t) (((uint8_t) inst.in_b) + 'w');
+			}
+			break;
+		case NEQ:
+			tmpCO << " = ";
+			tmpCO << '*' << (uint8_t) (inst.reg_a + 'w') << " != ";
+			if (inst.const_b) {
+				tmpCO << inst.in_b;
+			} else {
+				tmpCO << '*' << (uint8_t) (((uint8_t) inst.in_b) + 'w');
+			}
+			break;
+		case SET:
+			tmpCO << " = ";
+			if (inst.const_b) {
+				tmpCO << inst.in_b;
+			} else {
+				tmpCO << '*' << (uint8_t) (((uint8_t) inst.in_b) + 'w');
+			}
+			break;
+		}
+
+		if (inst.type != InstType::NOP) {
+			tmpCO << ';' << std::endl;
+		}
+	}
+
+	tmpCO << '}' << std::endl;
+	tmpCO.close();
+
+	std::filesystem::path tmpM(tmpDir);
+	tmpM += std::filesystem::path::preferred_separator;
+	tmpM += "tmp.Makefile";
+
+	if (std::filesystem::exists(tmpM)
+			&& !std::filesystem::is_regular_file(tmpM)) {
+		std::cerr << tmpC << " exists but isn't a file." << std::endl;
+		return false;
+	} else if (std::filesystem::exists(tmpM)
+			&& !std::filesystem::remove(tmpM)) {
+		std::cerr << "Failed to remove " << tmpM << '.' << std::endl;
+		return false;
+	}
+
+	std::ofstream tmpMO(tmpM);
+	tmpMO << "PROJECT_ROOT = $(dir $(abspath $(lastword $(MAKEFILE_LIST))))"
+			<< std::endl;
+	tmpMO << "OBJS := $(PROJECT_ROOT)tmp.o" << std::endl;
+	tmpMO << "CFLAGS += -O3 -fPIC" << std::endl;
+	tmpMO << "LDFLAGS += -shared" << std::endl;
+	tmpMO << "$(PROJECT_ROOT)tmp: $(OBJS)" << std::endl;
+	tmpMO << "\t$(CC) $(LDFLAGS) -o $@ $^" << std::endl;
+	tmpMO << "$(PROJECT_ROOT)%.o: $(PROJECT_ROOT)%.c" << std::endl;
+	tmpMO << "\t$(CC) -c $(CFLAGS) -o $@ $<" << std::endl;
+	tmpMO.close();
+
+	std::string cmd = std::string("make -f ").append(tmpM);
+	std::cout << "Running \"" << cmd << "\"." << std::endl;
+	int status = std::system(cmd.c_str());
+	if (status != 0) {
+		std::cerr << "Make command failed with status code " << status << '.'
+				<< std::endl;
+		return false;
+	} else {
+		std::cout << "Make finished." << std::endl;
+	}
+
+	return true;
 }

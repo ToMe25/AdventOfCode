@@ -22,7 +22,7 @@ else
     $(error Build mode $(BUILD_MODE) not supported by this Makefile)
 endif
 
-SRCS := $(shell find $(SRCS_DIR) -name '*.cpp' -or -name '*.c')
+SRCS := $(shell find $(SRC_DIRS) -name '*.cpp' -or -name '*.c')
 OBJS := $(subst $(PROJECT_ROOT),,$(SRCS))
 OBJS := $(abspath $(OBJS:%=$(BUILD_DIR)/%))
 OBJS := $(subst .cpp,.o,$(OBJS))

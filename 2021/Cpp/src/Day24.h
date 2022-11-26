@@ -11,8 +11,9 @@
 #include "Main.h"
 #include <array>
 #include <atomic>
-#include <vector>
+#include <filesystem>
 #include <iostream>
+#include <vector>
 
 /**
  * An enum representing the different types of instructions the ALU for this day can handle.
@@ -75,6 +76,10 @@ struct Instruction {
 	 * If not its a register index like reg_a.
 	 */
 	bool const_b;
+	/**
+	 * The second input for the calculation.
+	 * Can be either a register, if const_b is false, or a constant.
+	 */
 	int32_t in_b;
 
 	/**
@@ -96,6 +101,8 @@ struct Instruction {
 			type(t), reg_a(a), const_b(cb), in_b(b) {
 	}
 };
+
+typedef void (*dynfunc)(long long int*, long long int*, long long int*, long long int*, char);
 
 /**
  * Writes a string representation of the given instruction to the given output stream.
@@ -142,22 +149,31 @@ std::array<int64_t, 4> run_programm(const Instruction instsv[],
  * Searches for a valid serial number in a number block.
  * Sets result to the highest valid number found, or -1 if none was found.
  *
- * @param instv		The instructions to execute to validate whether a serial number is valid.
- * @param instc		The number of instructions in instv.
+ * @param funcs		The functions executing the individual segments of the input.
  * @param digits	The starting digits for the numbers to check.
  * @param result	The pointer to write the first found number to.
  * @param stop		An atomic bool to be set to true to stop this thread.
  */
-void find_highest_valid_in_range(const Instruction *instv, const size_t instc,
+void find_highest_valid_in_range(const dynfunc funcs[14],
 		const std::array<uint8_t, 3> digits, std::atomic<int64_t> *result,
 		std::atomic<bool> *stop);
 
 /**
  * Multithreaded method searching for the highest valid 14 digit number.
  *
- * @param insts	The instructions to use to check whether a number is valid.
+ * @param funcs	The functions executing the individual segments of the input.
  * @return	The highest valid number, or -1 if none was found.
  */
-int64_t find_highest_valid(const std::vector<Instruction> insts);
+int64_t find_highest_valid(const dynfunc funcs[14]);
+
+/**
+ * Compiles the given set of instructions to a native library in the given temporary directory.
+ * The instructions are split into functions such that each function only gets one input digit.
+ *
+ * @param insts		The instructions to compile to a native library.
+ * @param tempDir	The directory in which to generate the code and compile the library.
+ * @return	Whether the compilation was successful.
+ */
+bool compileInstructions(const std::vector<Instruction> insts, const std::filesystem::path tmpDir);
 
 #endif /* DAY24_H_ */
