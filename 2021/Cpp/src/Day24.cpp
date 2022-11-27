@@ -442,13 +442,10 @@ void find_first_valid_in_range(const dynfunc funcs[14],
 	}
 
 	long long int registers[14][4];
-	for (uint8_t i = 0; i < 14; i++) {
-		if (i > 0) {
-			memcpy(registers[i], registers[i - 1], sizeof(long long int) * 4);
-		}
-
-		funcs[i](&registers[i][0], &registers[i][1], &registers[i][2],
-				&registers[i][3], (char) num_in[i]);
+	const long long int start_reg[4] { 0 };
+	funcs[0](start_reg, registers[0], (char) num_in[0]);
+	for (uint8_t i = 1; i < 14; i++) {
+		funcs[i](registers[i - 1], registers[i], (char) num_in[i]);
 	}
 
 	bool finished = false;
@@ -467,7 +464,7 @@ void find_first_valid_in_range(const dynfunc funcs[14],
 				}
 				num_in[i] = 9;
 			} else if (!highest && num_in[i] == 9) {
-				if (i == 6) {
+				if (i == 5) {
 					print = true;
 				}
 				num_in[i] = 1;
@@ -478,23 +475,10 @@ void find_first_valid_in_range(const dynfunc funcs[14],
 					num_in[i]++;
 				}
 
-				if (i > 0) {
-					memcpy(registers[i], registers[i - 1],
-							sizeof(long long int) * 4);
-				}
-
-				funcs[i](&registers[i][0], &registers[i][1], &registers[i][2],
-						&registers[i][3], (char) num_in[i]);
+				funcs[i](registers[i - 1], registers[i], (char) num_in[i]);
 
 				for (uint8_t j = i; j < 14; j++) {
-					if (j > 0) {
-						memcpy(registers[j], registers[j - 1],
-								sizeof(long long int) * 4);
-					}
-
-					funcs[j](&registers[j][0], &registers[j][1],
-							&registers[j][2], &registers[j][3],
-							(char) num_in[j]);
+					funcs[j](registers[j - 1], registers[j], (char) num_in[j]);
 				}
 
 				if (print) {
@@ -519,6 +503,7 @@ void find_first_valid_in_range(const dynfunc funcs[14],
 		if (*stop) {
 			*result = -1;
 		} else {
+			*result = 0;
 			for (int i = 0; i < 14; i++) {
 				*result += num_in[i] * pow(10, 13 - i);
 			}
@@ -601,9 +586,9 @@ bool compileInstructions(const std::vector<Instruction> insts,
 	}
 
 	std::ofstream tmpCO(tmpC);
-	const char method_start[] = "void run_";
+	const char method_return[] = "void run_";
 	const char method_params[] =
-			"(long long int *w, long long int *x, long long int *y, long long int *z, char inp) {";
+			"(const long long int reg_vals[4], long long int *reg, const char inp) {";
 
 	uint16_t method_idx = 0;
 	for (Instruction inst : insts) {
@@ -611,12 +596,15 @@ bool compileInstructions(const std::vector<Instruction> insts,
 			if (method_idx > 0) {
 				tmpCO << '}' << std::endl << std::endl;
 			}
-			tmpCO << method_start << method_idx << method_params << std::endl;
+			tmpCO << method_return << method_idx << method_params << std::endl;
+			for (uint16_t i = 0; i < 4; i++) {
+				tmpCO << "reg[" << i << "] = reg_vals[" << i << "];" << std::endl;
+			}
 			method_idx++;
 		}
 
 		if (inst.type != InstType::NOP) {
-			tmpCO << '*' << (uint8_t) (inst.reg_a + 'w');
+			tmpCO << "reg[" << (uint16_t) inst.reg_a << ']';
 		}
 
 		switch (inst.type) {
@@ -630,7 +618,7 @@ bool compileInstructions(const std::vector<Instruction> insts,
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
 			} else {
-				tmpCO << '*' << (uint8_t) (((uint8_t) inst.in_b) + 'w');
+				tmpCO << "reg[" << inst.in_b << ']';
 			}
 			break;
 		case MUL:
@@ -638,7 +626,7 @@ bool compileInstructions(const std::vector<Instruction> insts,
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
 			} else {
-				tmpCO << '*' << (uint8_t) (((uint8_t) inst.in_b) + 'w');
+				tmpCO << "reg[" << inst.in_b << ']';
 			}
 			break;
 		case DIV:
@@ -646,7 +634,7 @@ bool compileInstructions(const std::vector<Instruction> insts,
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
 			} else {
-				tmpCO << '*' << (uint8_t) (((uint8_t) inst.in_b) + 'w');
+				tmpCO << "reg[" << inst.in_b << ']';
 			}
 			break;
 		case MOD:
@@ -654,7 +642,7 @@ bool compileInstructions(const std::vector<Instruction> insts,
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
 			} else {
-				tmpCO << '*' << (uint8_t) (((uint8_t) inst.in_b) + 'w');
+				tmpCO << "reg[" << inst.in_b << ']';
 			}
 			break;
 		case SUB:
@@ -662,25 +650,23 @@ bool compileInstructions(const std::vector<Instruction> insts,
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
 			} else {
-				tmpCO << '*' << (uint8_t) (((uint8_t) inst.in_b) + 'w');
+				tmpCO << "reg[" << inst.in_b << ']';
 			}
 			break;
 		case EQL:
-			tmpCO << " = ";
-			tmpCO << '*' << (uint8_t) (inst.reg_a + 'w') << " == ";
+			tmpCO << " = reg[" << (uint16_t) inst.reg_a << "] == ";
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
 			} else {
-				tmpCO << '*' << (uint8_t) (((uint8_t) inst.in_b) + 'w');
+				tmpCO << "reg[" << inst.in_b << ']';
 			}
 			break;
 		case NEQ:
-			tmpCO << " = ";
-			tmpCO << '*' << (uint8_t) (inst.reg_a + 'w') << " != ";
+			tmpCO << " = reg[" << (uint16_t) inst.reg_a << "] != ";
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
 			} else {
-				tmpCO << '*' << (uint8_t) (((uint8_t) inst.in_b) + 'w');
+				tmpCO << "reg[" << inst.in_b << ']';
 			}
 			break;
 		case SET:
@@ -688,7 +674,7 @@ bool compileInstructions(const std::vector<Instruction> insts,
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
 			} else {
-				tmpCO << '*' << (uint8_t) (((uint8_t) inst.in_b) + 'w');
+				tmpCO << "reg[" << inst.in_b << ']';
 			}
 			break;
 		}
@@ -707,7 +693,7 @@ bool compileInstructions(const std::vector<Instruction> insts,
 
 	if (std::filesystem::exists(tmpM)
 			&& !std::filesystem::is_regular_file(tmpM)) {
-		std::cerr << tmpC << " exists but isn't a file." << std::endl;
+		std::cerr << tmpM << " exists but isn't a file." << std::endl;
 		return false;
 	} else if (std::filesystem::exists(tmpM)
 			&& !std::filesystem::remove(tmpM)) {
@@ -720,7 +706,7 @@ bool compileInstructions(const std::vector<Instruction> insts,
 			<< std::endl;
 	tmpMO << "OBJS := $(PROJECT_ROOT)tmp.o" << std::endl;
 	tmpMO << "CFLAGS += -O3 -fPIC" << std::endl;
-	tmpMO << "LDFLAGS += -shared" << std::endl;
+	tmpMO << "LDFLAGS += -shared" << std::endl << std::endl;
 	tmpMO << "$(PROJECT_ROOT)tmp: $(OBJS)" << std::endl;
 	tmpMO << "\t$(CC) $(LDFLAGS) -o $@ $^" << std::endl;
 	tmpMO << "$(PROJECT_ROOT)%.o: $(PROJECT_ROOT)%.c" << std::endl;

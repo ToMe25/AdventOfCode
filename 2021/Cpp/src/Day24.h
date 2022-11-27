@@ -102,7 +102,7 @@ struct Instruction {
 	}
 };
 
-typedef void (*dynfunc)(long long int*, long long int*, long long int*, long long int*, char);
+typedef void (*dynfunc)(const long long int[4], long long int*, const char);
 
 /**
  * Writes a string representation of the given instruction to the given output stream.
