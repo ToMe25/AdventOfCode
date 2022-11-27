@@ -118,8 +118,14 @@ void DayRunner<24>::solve(std::ifstream input) {
 		}
 	}
 
-	int64_t part1 = find_highest_valid(libFuncs);
+	int64_t part1 = find_first_valid(libFuncs, true);
 	std::cout << "The biggest valid serial number is " << part1 << '.'
+			<< std::endl;
+
+	int64_t part2 = find_first_valid(libFuncs, false);
+	std::cout << "The biggest valid serial number is " << part1 << '.'
+			<< std::endl;
+	std::cout << "The smallest valid serial number is " << part2 << '.'
 			<< std::endl;
 
 	std::filesystem::remove(tmpLib);
@@ -424,12 +430,17 @@ std::array<int64_t, 4> run_programm(const Instruction instsv[],
 	return registers;
 }
 
-void find_highest_valid_in_range(const dynfunc funcs[14],
+void find_first_valid_in_range(const dynfunc funcs[14],
 		const std::array<uint8_t, 3> digits, std::atomic<int64_t> *result,
-		std::atomic<bool> *stop) {
+		std::atomic<bool> *stop, bool highest) {
 	const uint16_t id = digits[0] * 100 + digits[1] * 10 + digits[2];
-	uint8_t num_in[14] { digits[0], digits[1], digits[2], 9, 9, 9, 9, 9, 9, 9,
+	std::array<uint8_t, 14> num_in { digits[0], digits[1], digits[2], 9, 9, 9, 9, 9, 9, 9,
 			9, 9, 9, 9 };
+	if (!highest) {
+		num_in = { digits[0], digits[1], digits[2], 1, 1, 1, 1, 1, 1, 1,
+					1, 1, 1, 1 };
+	}
+
 	long long int registers[14][4];
 	for (uint8_t i = 0; i < 14; i++) {
 		if (i > 0) {
@@ -450,13 +461,23 @@ void find_highest_valid_in_range(const dynfunc funcs[14],
 				break;
 			}
 
-			if (num_in[i] == 1) {
-				if (i == 6) {
+			if (highest && num_in[i] == 1) {
+				if (i == 5) {
 					print = true;
 				}
 				num_in[i] = 9;
+			} else if (!highest && num_in[i] == 9) {
+				if (i == 6) {
+					print = true;
+				}
+				num_in[i] = 1;
 			} else {
-				num_in[i]--;
+				if (highest) {
+					num_in[i]--;
+				} else {
+					num_in[i]++;
+				}
+
 				if (i > 0) {
 					memcpy(registers[i], registers[i - 1],
 							sizeof(long long int) * 4);
@@ -479,7 +500,11 @@ void find_highest_valid_in_range(const dynfunc funcs[14],
 				if (print) {
 					uint64_t k = 0;
 					for (int8_t j = i; j > 2; j--) {
-						k += (9 - num_in[j]) * pow(9, i - j);
+						if (highest) {
+							k += (9 - num_in[j]) * pow(9, i - j);
+						} else {
+							k += (num_in[j] - 1) * pow(9, i - j);
+						}
 					}
 					std::cout << "Thread " << id << " checked "
 							<< (uint64_t) (pow(9, 13 - i) * k) << " numbers."
@@ -507,36 +532,36 @@ void find_highest_valid_in_range(const dynfunc funcs[14],
 	}
 }
 
-int64_t find_highest_valid(const dynfunc funcs[14]) {
+int64_t find_first_valid(const dynfunc funcs[14], bool highest) {
 	int64_t result = 0;
 	std::atomic<bool> stop = false;
 	std::atomic<int64_t> results[18] { 0 };
 	std::thread threads[18];
-	for (uint8_t i = 81; i > 0; i--) {
+	for (uint8_t i = highest ? 81 : 1; highest ? (i > 0) : (i <= 81); highest ? i-- : i++) {
 		for (uint8_t j = 9; j > 0; j--) {
 			const std::array<uint8_t, 3> digits { (uint8_t) ((i - 1) / 9 + 1),
 					(uint8_t) ((i - 1) % 9 + 1), j };
+
 			threads[(i % 2) * 9 + j - 1] = std::thread(
-					find_highest_valid_in_range, funcs, digits,
-					&results[(i % 2) * 9 + j - 1], &stop);
+					find_first_valid_in_range, funcs, digits,
+					&results[(i % 2) * 9 + j - 1], &stop, highest);
 		}
 
-		if (i == 81) {
+		if (highest && i == 81) {
+			continue;
+		} else if (!highest && i == 1 ) {
 			continue;
 		}
 
-		for (int8_t j = ((i + 1) % 2) * 9 - 1; j >= 0; j--) {
-			if (threads[j].joinable()) {
-				threads[j].join();
+		bool second = (i % 2) == 0;
+		for (int8_t j = (highest ? 8 : 0); highest ? (j >= 0) : (j < 9); highest ? j-- : j++) {
+			if (threads[j + second * 9].joinable()) {
+				threads[j + second * 9].join();
 			}
 
-			if (result == 0 && results[j] != -1) {
-				result = results[j];
+			if (result == 0 && results[j + second * 9] != -1) {
+				result = results[j + second * 9];
 				stop = true;
-			}
-
-			if (j % 9 == 0) {
-				break;
 			}
 		}
 
@@ -545,7 +570,7 @@ int64_t find_highest_valid(const dynfunc funcs[14]) {
 		}
 	}
 
-	for (int8_t i = 17; i >= 0; i--) {
+	for (int8_t i = highest ? 17 : 0; highest ? (i >= 0) : (i < 18); highest ? i-- : i++) {
 		if (threads[i].joinable()) {
 			threads[i].join();
 		}

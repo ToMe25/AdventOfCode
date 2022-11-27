@@ -146,25 +146,27 @@ std::array<int64_t, 4> run_programm(const Instruction instsv[],
 		const size_t instsc, const uint8_t inputsv[], const size_t inputsc);
 
 /**
- * Searches for a valid serial number in a number block.
- * Sets result to the highest valid number found, or -1 if none was found.
+ * Searches for the first valid serial number in a number block.
+ * Sets result to the first valid number found, or -1 if none was found.
  *
  * @param funcs		The functions executing the individual segments of the input.
  * @param digits	The starting digits for the numbers to check.
  * @param result	The pointer to write the first found number to.
  * @param stop		An atomic bool to be set to true to stop this thread.
+ * @param highest	If true this method looks for the highest valid number, otherwise the lowest.
  */
-void find_highest_valid_in_range(const dynfunc funcs[14],
+void find_first_valid_in_range(const dynfunc funcs[14],
 		const std::array<uint8_t, 3> digits, std::atomic<int64_t> *result,
-		std::atomic<bool> *stop);
+		std::atomic<bool> *stop, bool highest);
 
 /**
- * Multithreaded method searching for the highest valid 14 digit number.
+ * Multithreaded method searching for the first valid 14 digit number.
  *
- * @param funcs	The functions executing the individual segments of the input.
+ * @param funcs		The functions executing the individual segments of the input.
+ * @param highest	If true this method looks for the highest valid number, otherwise the lowest.
  * @return	The highest valid number, or -1 if none was found.
  */
-int64_t find_highest_valid(const dynfunc funcs[14]);
+int64_t find_first_valid(const dynfunc funcs[14], bool highest);
 
 /**
  * Compiles the given set of instructions to a native library in the given temporary directory.
