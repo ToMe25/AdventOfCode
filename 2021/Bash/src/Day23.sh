@@ -156,7 +156,7 @@ function get_min_cost() {
 				if [ $burrow_idx != $i ]; then
 					local start=$(((i + 1) * 2))
 					local target=$(((burrow_idx + 1) * 2))
-					local burrow=${burrows[$burrow_idx]}
+					local tgt_burrow=${burrows[$burrow_idx]}
 
 					local free=1
 					for ((k = (start < target ? start : target); k <= (start > target ? start : target); k++)); do
@@ -169,7 +169,7 @@ function get_min_cost() {
 					if [ $free -eq 1 ]; then
 						local bottom_free=0
 						for k in $seqbl; do
-							local bc=${burrow:k:1}
+							local bc=${tgt_burrow:k:1}
 							if [ $bc == "." ]; then
 								bottom_free=$k
 							elif [ $bc != ${burrow:j:1} ]; then
