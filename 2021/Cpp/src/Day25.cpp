@@ -44,13 +44,39 @@ void DayRunner<25>::solve(std::ifstream input) {
 					if (j < lines[0].length() - 1) {
 						if (cucumbers[i][j + 1] < 1) {
 							cucumbers[i][j + 1] = 2;
-							cucumbers[i][j] = -1;
+							cucumbers[i][j] = j == 0 ? -1 : 0;
 							moved = true;
 						}
 					} else {
 						if (cucumbers[i][0] == 0) {
-							cucumbers[i][0] = 2;
-							cucumbers[i][j] = -1;
+							cucumbers[i][0] = 1;
+							cucumbers[i][j] = 0;
+							moved = true;
+						}
+					}
+				}
+			}
+		}
+
+		for (size_t i = 0; i < lines.size(); i++) {
+			if (cucumbers[i][0] == -1) {
+				cucumbers[i][0] = 0;
+			}
+		}
+
+		for (size_t i = 0; i < lines.size(); i++) {
+			for (size_t j = 0; j < lines[0].length(); j++) {
+				if (cucumbers[i][j] == 3) {
+					if (i < lines.size() - 1) {
+						if (cucumbers[i + 1][j] < 1) {
+							cucumbers[i + 1][j] = 4;
+							cucumbers[i][j] = i == 0 ? -1 : 0;
+							moved = true;
+						}
+					} else {
+						if (cucumbers[0][j] == 0) {
+							cucumbers[0][j] = 3;
+							cucumbers[i][j] = 0;
 							moved = true;
 						}
 					}
@@ -64,34 +90,6 @@ void DayRunner<25>::solve(std::ifstream input) {
 					cucumbers[i][j] = 0;
 				} else if (cucumbers[i][j] == 2) {
 					cucumbers[i][j] = 1;
-				}
-			}
-		}
-
-		for (size_t i = 0; i < lines.size(); i++) {
-			for (size_t j = 0; j < lines[0].length(); j++) {
-				if (cucumbers[i][j] == 3) {
-					if (i < lines.size() - 1) {
-						if (cucumbers[i + 1][j] < 1) {
-							cucumbers[i + 1][j] = 4;
-							cucumbers[i][j] = -1;
-							moved = true;
-						}
-					} else {
-						if (cucumbers[0][j] == 0) {
-							cucumbers[0][j] = 4;
-							cucumbers[i][j] = -1;
-							moved = true;
-						}
-					}
-				}
-			}
-		}
-
-		for (size_t i = 0; i < lines.size(); i++) {
-			for (size_t j = 0; j < lines[0].length(); j++) {
-				if (cucumbers[i][j] == -1) {
-					cucumbers[i][j] = 0;
 				} else if (cucumbers[i][j] == 4) {
 					cucumbers[i][j] = 3;
 				}
