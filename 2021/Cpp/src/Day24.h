@@ -12,6 +12,7 @@
 #include <array>
 #include <atomic>
 #include <filesystem>
+#include <functional>
 #include <iostream>
 #include <vector>
 
@@ -102,7 +103,8 @@ struct Instruction {
 	}
 };
 
-typedef void (*dynfunc)(const long long int[4], long long int*, const char);
+typedef void (*dynfunc_ptr)(const long long int[4], long long int*, const char);
+typedef std::function<void (const long long int[4], long long int*, const char)> dynfunc;
 
 /**
  * Writes a string representation of the given instruction to the given output stream.
@@ -154,16 +156,16 @@ std::vector<Instruction> delay_input(const std::vector<Instruction> &insts);
 
 /**
  * Executes the given set of instructions with the given input.
- * The input is given to the program digit by digit.
+ * Can only handle a single INP instruction.
  *
  * @param instsv	The instructions to execute.
  * @param instsc	The number of instructions in instsv.
- * @param inputsv	The input numbers to handle.
- * @param inputsc	The number of of inputs.
- * @return	The current register values.
+ * @param reg_vals	The initial register values.
+ * @param reg		The registers to use while executing the instructions.
+ * @param inp		The input digit.
  */
-std::array<int64_t, 4> run_programm(const Instruction instsv[],
-		const size_t instsc, const uint8_t inputsv[], const size_t inputsc);
+void run_program(const Instruction instsv[], const size_t instsc,
+		const long long int reg_vals[4], long long int *reg, const char inp);
 
 /**
  * Searches for the first valid serial number in a number block.

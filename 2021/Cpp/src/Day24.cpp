@@ -10,8 +10,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <dlfcn.h>
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include <thread>
 #include <vector>
 
@@ -87,10 +87,6 @@ void DayRunner<24>::solve(std::ifstream input) {
 	instructions = merge_duplicate(instructions);
 	instructions = delay_input(instructions);
 
-	for (Instruction inst : instructions) {
-		std::cout << inst << std::endl;
-	}
-
 	std::filesystem::path tmpDir("tmp");
 	if (std::filesystem::exists(tmpDir)
 			&& !std::filesystem::is_directory(tmpDir)) {
@@ -124,11 +120,22 @@ void DayRunner<24>::solve(std::ifstream input) {
 		return;
 	}
 
+	size_t inps[15];
+	uint8_t in_i = 0;
+	for (size_t i = 0; i < instructions.size(); i++) {
+		if (instructions[i].type == INP) {
+			inps[in_i++] = i;
+		}
+	}
+	inps[in_i] = instructions.size();
+
 	dynfunc libFuncs[14];
 	for (uint8_t i = 0; i < 14; i++) {
 		std::string name("run_");
 		name.append(std::to_string(i));
-		libFuncs[i] = (dynfunc) dlsym(lib, name.c_str());
+		libFuncs[i] = (dynfunc) (dynfunc_ptr) dlsym(lib, name.c_str());
+		/*using namespace std::placeholders;
+		libFuncs[i] = (dynfunc) std::bind(run_program, &instructions.data()[inps[i]], inps[i + 1] - inps[i], _1, _2, _3);*/
 		if (!libFuncs[i]) {
 			std::cerr << "Failed to load function " << name << '.' << std::endl;
 			return;
@@ -456,50 +463,52 @@ std::vector<Instruction> merge_duplicate(
 	return result;
 }
 
-std::array<int64_t, 4> run_programm(const Instruction instsv[],
-		const size_t instsc, const uint8_t inputsv[], const size_t inputsc) {
-	std::array<int64_t, 4> registers { 0, 0, 0, 0 };
-	size_t in_i = 0;
+void run_program(const Instruction instsv[],
+		const size_t instsc, const long long int reg_vals[4],
+		long long int *reg, const char inp) {
+	reg[0] = reg_vals[0];
+	reg[1] = reg_vals[1];
+	reg[2] = reg_vals[2];
+	reg[3] = reg_vals[3];
+
 	for (size_t i = 0; i < instsc; i++) {
 		const Instruction inst = instsv[i];
-		const int64_t in_b = inst.const_b ? inst.in_b : registers[inst.in_b];
+		const int64_t in_b = inst.const_b ? inst.in_b : reg[inst.in_b];
 		switch (inst.type) {
 		case InstType::NOP:
 			break;
 		case InstType::INP:
-			registers[inst.reg_a] = in_i < inputsc ? inputsv[in_i++] : 0;
+			reg[inst.reg_a] = inp;
 			break;
 		case InstType::ADD:
-			registers[inst.reg_a] += in_b;
+			reg[inst.reg_a] += in_b;
 			break;
 		case InstType::SUB:
-			registers[inst.reg_a] -= in_b;
+			reg[inst.reg_a] -= in_b;
 			break;
 		case InstType::MUL:
-			registers[inst.reg_a] *= in_b;
+			reg[inst.reg_a] *= in_b;
 			break;
 		case InstType::DIV:
-			registers[inst.reg_a] /= in_b;
+			reg[inst.reg_a] /= in_b;
 			break;
 		case InstType::MOD:
-			registers[inst.reg_a] %= in_b;
+			reg[inst.reg_a] %= in_b;
 			break;
 		case InstType::EQL:
-			registers[inst.reg_a] = registers[inst.reg_a] == in_b;
+			reg[inst.reg_a] = reg[inst.reg_a] == in_b;
 			break;
 		case InstType::NEQ:
-			registers[inst.reg_a] = registers[inst.reg_a] != in_b;
+			reg[inst.reg_a] = reg[inst.reg_a] != in_b;
 			break;
 		case InstType::SET:
-			registers[inst.reg_a] = in_b;
+			reg[inst.reg_a] = in_b;
 			break;
 		default:
 			std::cerr << "Received unknown instruction " << inst.type << '.'
 					<< std::endl;
 		}
 	}
-
-	return registers;
 }
 
 void find_first_valid_in_range(const dynfunc funcs[14],
@@ -667,8 +676,8 @@ std::vector<Instruction> delay_input(const std::vector<Instruction> &insts) {
 				result.push_back(Instruction(INP, inst.in_b, false, 0));
 				reg_inp[inst.in_b] = -1;
 			}
+			result.push_back(inst);
 		}
-		result.push_back(inst);
 	}
 
 	return result;
@@ -743,7 +752,9 @@ bool compile_instructions(const std::vector<Instruction> insts,
 			}
 
 			method_idx++;
-		} else if (inst.type == InstType::INP) {
+		}
+
+		if (method_idx == 0 && inst.type == InstType::INP) {
 			method_idx++;
 		}
 
