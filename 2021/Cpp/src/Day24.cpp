@@ -29,6 +29,17 @@ void DayRunner<24>::solve(std::ifstream input) {
 		case 'a':
 			type = InstType::ADD;
 			break;
+		case 's':
+			if (line[1] == 'u') {
+				type = InstType::SUB;
+			} else if (line[1] == 'e') {
+				type = InstType::SET;
+			} else {
+				std::cerr << "Line \"" << line
+						<< "\" contained an invalid instruction type."
+						<< std::endl;
+			}
+			break;
 		case 'm':
 			if (line[1] == 'u') {
 				type = InstType::MUL;
@@ -71,8 +82,13 @@ void DayRunner<24>::solve(std::ifstream input) {
 		instructions.push_back(Instruction(type, reg_a, const_b, in_b));
 	}
 
-	instructions = static_calcs(instructions);
+	instructions = static_eval(instructions);
 	instructions = dead_code_removal(instructions);
+	instructions = merge_duplicate(instructions);
+
+	for (Instruction inst : instructions) {
+		std::cout << inst << std::endl;
+	}
 
 	std::filesystem::path tmpDir("tmp");
 	if (std::filesystem::exists(tmpDir)
@@ -160,6 +176,9 @@ std::ostream& operator <<(std::ostream &stream, const Instruction &inst) {
 	case InstType::ADD:
 		stream << "add ";
 		break;
+	case InstType::SUB:
+		stream << "sub ";
+		break;
 	case InstType::MUL:
 		stream << "mul ";
 		break;
@@ -168,9 +187,6 @@ std::ostream& operator <<(std::ostream &stream, const Instruction &inst) {
 		break;
 	case InstType::MOD:
 		stream << "mod ";
-		break;
-	case InstType::SUB:
-		stream << "sub ";
 		break;
 	case InstType::EQL:
 		stream << "eql ";
@@ -200,7 +216,7 @@ std::ostream& operator <<(std::ostream &stream, const Instruction &inst) {
 	return stream;
 }
 
-std::vector<Instruction> static_calcs(const std::vector<Instruction> &insts) {
+std::vector<Instruction> static_eval(const std::vector<Instruction> &insts) {
 	std::vector<Instruction> result;
 
 	// Replace instruction chains that don't use input with set instructions.
@@ -301,6 +317,8 @@ std::vector<Instruction> static_calcs(const std::vector<Instruction> &insts) {
 
 		// Evaluate instructions when both their inputs are static.
 		switch (inst.type) {
+		case NOP:
+			break;
 		case INP:
 			reg_dirty[inst.reg_a] = true;
 			result.push_back(inst);
@@ -309,7 +327,11 @@ std::vector<Instruction> static_calcs(const std::vector<Instruction> &insts) {
 			reg_state[inst.reg_a] +=
 					inst.const_b ? inst.in_b : reg_state[inst.in_b];
 			break;
-		case InstType::MUL:
+		case SUB:
+			reg_state[inst.reg_a] -=
+					inst.const_b ? inst.in_b : reg_state[inst.in_b];
+			break;
+		case MUL:
 			reg_state[inst.reg_a] *=
 					inst.const_b ? inst.in_b : reg_state[inst.in_b];
 			break;
@@ -319,10 +341,6 @@ std::vector<Instruction> static_calcs(const std::vector<Instruction> &insts) {
 			break;
 		case MOD:
 			reg_state[inst.reg_a] %=
-					inst.const_b ? inst.in_b : reg_state[inst.in_b];
-			break;
-		case SUB:
-			reg_state[inst.reg_a] -=
 					inst.const_b ? inst.in_b : reg_state[inst.in_b];
 			break;
 		case EQL:
@@ -337,8 +355,6 @@ std::vector<Instruction> static_calcs(const std::vector<Instruction> &insts) {
 			reg_state[inst.reg_a] =
 					inst.const_b ? inst.in_b : reg_state[inst.in_b];
 			break;
-		case NOP:
-			break;
 		default:
 			std::cerr << "Received unknown instruction " << inst.type << '.'
 					<< std::endl;
@@ -351,7 +367,7 @@ std::vector<Instruction> static_calcs(const std::vector<Instruction> &insts) {
 std::vector<Instruction> dead_code_removal(
 		const std::vector<Instruction> &insts) {
 	bool used[insts.size()] { false };
-	bool reg_used[4] { true, true, true, true };
+	bool reg_used[4] { false, false, false, true };
 	for (size_t i = insts.size(); i > 0;) {
 		i--;
 		const Instruction inst = insts[i];
@@ -384,6 +400,59 @@ std::vector<Instruction> dead_code_removal(
 	return result;
 }
 
+std::vector<Instruction> merge_duplicate(const std::vector<Instruction> &insts) {
+	std::vector<Instruction> result;
+	int64_t last_mergable[4] { -1, -1, -1, -1 };
+	for (size_t i = 0; i < insts.size(); i++) {
+		const Instruction inst = insts[i];
+
+		// Non constants can't be merged.
+		if (!inst.const_b) {
+			last_mergable[inst.reg_a] = -1;
+			last_mergable[inst.in_b] = -1;
+			result.push_back(inst);
+			continue;
+		}
+
+		if (last_mergable[inst.reg_a] == -1) {
+			if (inst.type == ADD || inst.type == SUB || inst.type == MUL || inst.type == DIV) {
+				last_mergable[inst.reg_a] = result.size();
+			} else {
+				last_mergable[inst.reg_a] = -1;
+			}
+			result.push_back(inst);
+			continue;
+		}
+
+		const InstType lastType = result[last_mergable[inst.reg_a]].type;
+		if (inst.type == lastType || (inst.type == ADD && lastType == SUB)
+				|| (inst.type == SUB && lastType == ADD)) {
+			switch (lastType) {
+			case ADD:
+				if (inst.type == ADD) {
+					result[last_mergable[inst.reg_a]].in_b += inst.in_b;
+				} else {
+					result[last_mergable[inst.reg_a]].in_b -= inst.in_b;
+				}
+				break;
+			case SUB:
+				if (inst.type == SUB) {
+					result[last_mergable[inst.reg_a]].in_b += inst.in_b;
+				} else {
+					result[last_mergable[inst.reg_a]].in_b -= inst.in_b;
+				}
+				break;
+			case MUL:
+			case DIV:
+				result[last_mergable[inst.reg_a]].in_b *= inst.in_b;
+				break;
+			}
+		}
+	}
+
+	return result;
+}
+
 std::array<int64_t, 4> run_programm(const Instruction instsv[],
 		const size_t instsc, const uint8_t inputsv[], const size_t inputsc) {
 	std::array<int64_t, 4> registers { 0, 0, 0, 0 };
@@ -400,6 +469,9 @@ std::array<int64_t, 4> run_programm(const Instruction instsv[],
 		case InstType::ADD:
 			registers[inst.reg_a] += in_b;
 			break;
+		case InstType::SUB:
+			registers[inst.reg_a] -= in_b;
+			break;
 		case InstType::MUL:
 			registers[inst.reg_a] *= in_b;
 			break;
@@ -408,9 +480,6 @@ std::array<int64_t, 4> run_programm(const Instruction instsv[],
 			break;
 		case InstType::MOD:
 			registers[inst.reg_a] %= in_b;
-			break;
-		case InstType::SUB:
-			registers[inst.reg_a] -= in_b;
 			break;
 		case InstType::EQL:
 			registers[inst.reg_a] = registers[inst.reg_a] == in_b;
@@ -621,6 +690,14 @@ bool compileInstructions(const std::vector<Instruction> insts,
 				tmpCO << "reg[" << inst.in_b << ']';
 			}
 			break;
+		case SUB:
+			tmpCO << " -= ";
+			if (inst.const_b) {
+				tmpCO << inst.in_b;
+			} else {
+				tmpCO << "reg[" << inst.in_b << ']';
+			}
+			break;
 		case MUL:
 			tmpCO << " *= ";
 			if (inst.const_b) {
@@ -639,14 +716,6 @@ bool compileInstructions(const std::vector<Instruction> insts,
 			break;
 		case MOD:
 			tmpCO << " %= ";
-			if (inst.const_b) {
-				tmpCO << inst.in_b;
-			} else {
-				tmpCO << "reg[" << inst.in_b << ']';
-			}
-			break;
-		case SUB:
-			tmpCO << " -= ";
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
 			} else {

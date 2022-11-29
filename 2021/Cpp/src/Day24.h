@@ -32,6 +32,10 @@ enum InstType {
 	 */
 	ADD,
 	/**
+	 * Subtract b from a.
+	 */
+	SUB,
+	/**
 	 * Multiplies register a by input b.
 	 */
 	MUL,
@@ -43,10 +47,6 @@ enum InstType {
 	 * Sets register a to a mod b.
 	 */
 	MOD,
-	/**
-	 * Subtract b from a.
-	 */
-	SUB,
 	/**
 	 * Set a to 1 if a == b, or 0 otherwise.
 	 */
@@ -122,7 +122,7 @@ std::ostream& operator <<(std::ostream &stream, const Instruction &inst);
  * @param insts	The initial instructions of the program to optimize.
  * @return	An optimized list of instructions achieving the same result.
  */
-std::vector<Instruction> static_calcs(const std::vector<Instruction> &insts);
+std::vector<Instruction> static_eval(const std::vector<Instruction> &insts);
 
 /**
  * Removes sets of instructions that calculate something that never gets used.
@@ -131,6 +131,16 @@ std::vector<Instruction> static_calcs(const std::vector<Instruction> &insts);
  * @return	The new hopefully shorter instruction set.
  */
 std::vector<Instruction> dead_code_removal(const std::vector<Instruction> &insts);
+
+/**
+ * Merges sets of instructions using constants of the same type.
+ * Only works with ADD, SUB, MUL, and DIV.
+ * ADD and SUB can be mixed.
+ *
+ * @param insts	The instructions to be optimized.
+ * @return	The optimized instruction set.
+ */
+std::vector<Instruction> merge_duplicate(const std::vector<Instruction> &insts);
 
 /**
  * Executes the given set of instructions with the given input.
