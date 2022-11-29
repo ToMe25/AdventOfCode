@@ -85,6 +85,7 @@ void DayRunner<24>::solve(std::ifstream input) {
 	instructions = static_eval(instructions);
 	instructions = dead_code_removal(instructions);
 	instructions = merge_duplicate(instructions);
+	instructions = delay_input(instructions);
 
 	for (Instruction inst : instructions) {
 		std::cout << inst << std::endl;
@@ -104,7 +105,7 @@ void DayRunner<24>::solve(std::ifstream input) {
 	}
 	tmpDir = std::filesystem::canonical(tmpDir);
 
-	if (!compileInstructions(instructions, tmpDir)) {
+	if (!compile_instructions(instructions, tmpDir)) {
 		return;
 	}
 
@@ -400,7 +401,8 @@ std::vector<Instruction> dead_code_removal(
 	return result;
 }
 
-std::vector<Instruction> merge_duplicate(const std::vector<Instruction> &insts) {
+std::vector<Instruction> merge_duplicate(
+		const std::vector<Instruction> &insts) {
 	std::vector<Instruction> result;
 	int64_t last_mergable[4] { -1, -1, -1, -1 };
 	for (size_t i = 0; i < insts.size(); i++) {
@@ -415,7 +417,8 @@ std::vector<Instruction> merge_duplicate(const std::vector<Instruction> &insts) 
 		}
 
 		if (last_mergable[inst.reg_a] == -1) {
-			if (inst.type == ADD || inst.type == SUB || inst.type == MUL || inst.type == DIV) {
+			if (inst.type == ADD || inst.type == SUB || inst.type == MUL
+					|| inst.type == DIV) {
 				last_mergable[inst.reg_a] = result.size();
 			} else {
 				last_mergable[inst.reg_a] = -1;
@@ -503,11 +506,11 @@ void find_first_valid_in_range(const dynfunc funcs[14],
 		const std::array<uint8_t, 3> digits, std::atomic<int64_t> *result,
 		std::atomic<bool> *stop, bool highest) {
 	const uint16_t id = digits[0] * 100 + digits[1] * 10 + digits[2];
-	std::array<uint8_t, 14> num_in { digits[0], digits[1], digits[2], 9, 9, 9, 9, 9, 9, 9,
-			9, 9, 9, 9 };
+	std::array<uint8_t, 14> num_in { digits[0], digits[1], digits[2], 9, 9, 9,
+			9, 9, 9, 9, 9, 9, 9, 9 };
 	if (!highest) {
-		num_in = { digits[0], digits[1], digits[2], 1, 1, 1, 1, 1, 1, 1,
-					1, 1, 1, 1 };
+		num_in = { digits[0], digits[1], digits[2], 1, 1, 1, 1, 1, 1, 1, 1, 1,
+				1, 1 };
 	}
 
 	long long int registers[14][4];
@@ -591,7 +594,8 @@ int64_t find_first_valid(const dynfunc funcs[14], bool highest) {
 	std::atomic<bool> stop = false;
 	std::atomic<int64_t> results[18] { 0 };
 	std::thread threads[18];
-	for (uint8_t i = highest ? 81 : 1; highest ? (i > 0) : (i <= 81); highest ? i-- : i++) {
+	for (uint8_t i = highest ? 81 : 1; highest ? (i > 0) : (i <= 81);
+			highest ? i-- : i++) {
 		for (uint8_t j = 9; j > 0; j--) {
 			const std::array<uint8_t, 3> digits { (uint8_t) ((i - 1) / 9 + 1),
 					(uint8_t) ((i - 1) % 9 + 1), j };
@@ -603,12 +607,13 @@ int64_t find_first_valid(const dynfunc funcs[14], bool highest) {
 
 		if (highest && i == 81) {
 			continue;
-		} else if (!highest && i == 1 ) {
+		} else if (!highest && i == 1) {
 			continue;
 		}
 
 		bool second = (i % 2) == 0;
-		for (int8_t j = (highest ? 8 : 0); highest ? (j >= 0) : (j < 9); highest ? j-- : j++) {
+		for (int8_t j = (highest ? 8 : 0); highest ? (j >= 0) : (j < 9);
+				highest ? j-- : j++) {
 			if (threads[j + second * 9].joinable()) {
 				threads[j + second * 9].join();
 			}
@@ -624,7 +629,8 @@ int64_t find_first_valid(const dynfunc funcs[14], bool highest) {
 		}
 	}
 
-	for (int8_t i = highest ? 17 : 0; highest ? (i >= 0) : (i < 18); highest ? i-- : i++) {
+	for (int8_t i = highest ? 17 : 0; highest ? (i >= 0) : (i < 18);
+			highest ? i-- : i++) {
 		if (threads[i].joinable()) {
 			threads[i].join();
 		}
@@ -638,7 +644,37 @@ int64_t find_first_valid(const dynfunc funcs[14], bool highest) {
 	return result == 0 ? -1 : result;
 }
 
-bool compileInstructions(const std::vector<Instruction> insts,
+std::vector<Instruction> delay_input(const std::vector<Instruction> &insts) {
+	std::vector<Instruction> result;
+
+	int64_t reg_inp[4] { -1, -1, -1, -1 };
+	for (const Instruction inst : insts) {
+		if (inst.type == INP) {
+			reg_inp[inst.reg_a] = result.size();
+		} else if (inst.type != NOP) {
+			if (!inst.const_b && reg_inp[inst.in_b] >= 0
+					&& reg_inp[inst.in_b] < reg_inp[inst.reg_a]) {
+				result.push_back(Instruction(INP, inst.in_b, false, 0));
+				reg_inp[inst.in_b] = -1;
+			}
+
+			if (reg_inp[inst.reg_a] >= 0) {
+				result.push_back(Instruction(INP, inst.reg_a, false, 0));
+				reg_inp[inst.reg_a] = -1;
+			}
+
+			if (!inst.const_b && reg_inp[inst.in_b] >= 0) {
+				result.push_back(Instruction(INP, inst.in_b, false, 0));
+				reg_inp[inst.in_b] = -1;
+			}
+		}
+		result.push_back(inst);
+	}
+
+	return result;
+}
+
+bool compile_instructions(const std::vector<Instruction> insts,
 		const std::filesystem::path tmpDir) {
 	std::filesystem::path tmpC(tmpDir);
 	tmpC += std::filesystem::path::preferred_separator;
@@ -659,21 +695,60 @@ bool compileInstructions(const std::vector<Instruction> insts,
 	const char method_params[] =
 			"(const long long int reg_vals[4], long long int *reg, const char inp) {";
 
-	uint16_t method_idx = 0;
-	for (Instruction inst : insts) {
-		if (inst.type == InstType::INP) {
+	int16_t method_idx = -1;
+	for (size_t i = 0; i < insts.size(); i++) {
+		const Instruction inst = insts[i];
+		if (method_idx == -1
+				|| (method_idx > 0 && inst.type == InstType::INP)) {
 			if (method_idx > 0) {
 				tmpCO << '}' << std::endl << std::endl;
 			}
-			tmpCO << method_return << method_idx << method_params << std::endl;
-			for (uint16_t i = 0; i < 4; i++) {
-				tmpCO << "reg[" << i << "] = reg_vals[" << i << "];" << std::endl;
+			tmpCO << method_return << std::max((int16_t) 0, method_idx)
+					<< method_params << std::endl;
+
+			bool regs_used[4] { false };
+			bool regs_checked[4] { false };
+			for (size_t j = i; j < insts.size(); j++) {
+				if (!regs_checked[insts[j].reg_a]) {
+					if (insts[j].type == INP || insts[j].type == SET) {
+						regs_used[insts[j].reg_a] = false;
+						regs_checked[insts[j].reg_a] = true;
+					} else if (insts[j].type != NOP) {
+						regs_used[insts[j].reg_a] = true;
+						regs_checked[insts[j].reg_a] = true;
+					}
+				}
+
+				if (insts[j].type != NOP && insts[j].type != INP
+						&& !insts[j].const_b && !regs_checked[insts[j].in_b]) {
+					regs_used[insts[j].in_b] = true;
+					regs_checked[insts[j].in_b] = true;
+				}
+
+				if (regs_checked[0] && regs_checked[1] && regs_checked[2]
+						&& regs_checked[3]) {
+					break;
+				}
 			}
+
+			for (uint16_t j = 0; j < 4; j++) {
+				if (regs_used[j]) {
+					tmpCO << "    reg[" << j;
+					if (method_idx > 0) {
+						tmpCO << "] = reg_vals[" << j << "];" << std::endl;
+					} else {
+						tmpCO << "] = 0;" << std::endl;
+					}
+				}
+			}
+
+			method_idx++;
+		} else if (inst.type == InstType::INP) {
 			method_idx++;
 		}
 
 		if (inst.type != InstType::NOP) {
-			tmpCO << "reg[" << (uint16_t) inst.reg_a << ']';
+			tmpCO << "    reg[" << (uint16_t) inst.reg_a << ']';
 		}
 
 		switch (inst.type) {

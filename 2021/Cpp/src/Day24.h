@@ -130,7 +130,8 @@ std::vector<Instruction> static_eval(const std::vector<Instruction> &insts);
  * @param insts	The previous instruction set to be optimized.
  * @return	The new hopefully shorter instruction set.
  */
-std::vector<Instruction> dead_code_removal(const std::vector<Instruction> &insts);
+std::vector<Instruction> dead_code_removal(
+		const std::vector<Instruction> &insts);
 
 /**
  * Merges sets of instructions using constants of the same type.
@@ -141,6 +142,15 @@ std::vector<Instruction> dead_code_removal(const std::vector<Instruction> &insts
  * @return	The optimized instruction set.
  */
 std::vector<Instruction> merge_duplicate(const std::vector<Instruction> &insts);
+
+/**
+ * Moves INP instructions directly before the first instruction that uses the register they set.
+ * Because the code can be split on INP instructions this should reduce execution time.
+ *
+ * @param insts	The instructions to be optimized.
+ * @return	The reordered instruction set.
+ */
+std::vector<Instruction> delay_input(const std::vector<Instruction> &insts);
 
 /**
  * Executes the given set of instructions with the given input.
@@ -186,6 +196,7 @@ int64_t find_first_valid(const dynfunc funcs[14], bool highest);
  * @param tempDir	The directory in which to generate the code and compile the library.
  * @return	Whether the compilation was successful.
  */
-bool compileInstructions(const std::vector<Instruction> insts, const std::filesystem::path tmpDir);
+bool compile_instructions(const std::vector<Instruction> insts,
+		const std::filesystem::path tmpDir);
 
 #endif /* DAY24_H_ */
