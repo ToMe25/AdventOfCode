@@ -9,6 +9,8 @@ burrow_count=4
 # Array used to get the burrow index for a type of amphipod.
 declare -A burrow_index=([A]=0 [B]=1 [C]=2 [D]=3)
 
+declare -a part2_burrows=(DD CB BA AC)
+
 # Calculates the new token and cost after moving a amphipod according to the given values.
 function move() {
 	local token=$1
@@ -293,6 +295,19 @@ function main() {
 	local cost=$(get_min_cost $start_tk)
 
 	echo "The cheapest way to order all part 1 amphipods has a cost of $cost."
+
+	local prefix=${start_tk%%:*}
+	local burrows_start=${#prefix}
+	start_tk=${start_tk:0:burrows_start + 1}
+
+	for i in $(seq 0 $((burrow_count - 1))); do
+		burrow=${burrows[$i]}
+		start_tk+=${burrow:0:1}${part2_burrows[$i]}${burrow:1:1}:
+	done
+
+	cost=$(get_min_cost $start_tk)
+
+	echo "The cheapest way to order all part 2 amphipods has a cost of $cost."
 }
 
 main
