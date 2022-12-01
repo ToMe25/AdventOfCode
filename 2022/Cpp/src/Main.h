@@ -32,6 +32,14 @@ namespace aoc {
 std::ifstream getInputFileStream(const uint8_t day);
 
 /**
+ * Reads all lines from the given input stream and returns a vector containing them all.
+ *
+ * @param input	The file to read the lines from.
+ * @return	A vector containing each non-empty line as separate string.
+ */
+std::vector<std::string> readLines(std::ifstream &input);
+
+/**
  * Prints the help text for this program to the given output stream.
  *
  * @param out	The output stream to print the usage to.

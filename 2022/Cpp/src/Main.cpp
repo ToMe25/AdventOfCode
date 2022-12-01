@@ -193,6 +193,19 @@ std::ifstream aoc::getInputFileStream(const uint8_t day) {
 	return std::ifstream(input);
 }
 
+std::vector<std::string> aoc::readLines(std::ifstream &input) {
+	std::vector<std::string> lines;
+
+	std::string line;
+	while (std::getline(input, line)) {
+		if (line.length() > 0) {
+			lines.push_back(line);
+		}
+	}
+
+	return lines;
+}
+
 void aoc::printUsage(std::ostream &out, const char *file) {
 	out << "Usage: " << file << " [<OPTIONS>] --day <DAY>" << std::endl;
 	out << "At least one -day argument has to be specified." << std::endl;
