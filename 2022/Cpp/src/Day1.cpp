@@ -7,26 +7,41 @@
 
 #include "Main.h"
 
-std::string part1(std::ifstream input) {
-	uint32_t max = 0;
+std::pair<std::string, std::string> comb(std::ifstream input) {
+	uint32_t max[3] { 0 };
 	uint32_t current = 0;
 	std::string line;
 	while (std::getline(input, line)) {
 		if (line.length() == 0) {
-			if (current > max) {
-				max = current;
+			if (current >= max[0]) {
+				max[2] = max[1];
+				max[1] = max[0];
+				max[0] = current;
+			} else if (current >= max[1]) {
+				max[2] = max[1];
+				max[1] = current;
+			} else if (current > max[2]) {
+				max[2] = current;
 			}
+
 			current = 0;
 		} else {
 			current += std::stoi(line);
 		}
 	}
 
-	if (current > max) {
-		max = current;
+	if (current >= max[0]) {
+		max[2] = max[1];
+		max[1] = max[0];
+		max[0] = current;
+	} else if (current >= max[1]) {
+		max[2] = max[1];
+		max[1] = current;
+	} else if (current > max[2]) {
+		max[2] = current;
 	}
 
-	return std::to_string(max);
+	return {std::to_string(max[0]), std::to_string(max[0] + max[1] + max[2])};
 }
 
-bool d1p1 = aoc::registerPart1(1, &part1);
+bool d1c = aoc::registerCombined(1, &comb);
