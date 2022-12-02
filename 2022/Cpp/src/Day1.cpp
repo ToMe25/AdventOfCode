@@ -7,7 +7,7 @@
 
 #include "Main.h"
 
-std::pair<std::string, std::string> comb(std::ifstream input) {
+std::pair<std::string, std::string> day1comb(std::ifstream input) {
 	uint32_t max[3] { 0 };
 	uint32_t current = 0;
 	std::string line;
@@ -44,4 +44,4 @@ std::pair<std::string, std::string> comb(std::ifstream input) {
 	return {std::to_string(max[0]), std::to_string(max[0] + max[1] + max[2])};
 }
 
-bool d1c = aoc::registerCombined(1, &comb);
+bool d1c = aoc::registerCombined(1, &day1comb);
