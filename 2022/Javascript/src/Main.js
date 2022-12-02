@@ -9,7 +9,13 @@ function getDayInput(day) {
 	const path = require('path')
 	
 	var input = path.join(path.dirname(path.dirname(path.resolve(''))), 'input')
-	fs.accessSync(input, fs.constants.F_OK)
+	try {
+		fs.accessSync(input, fs.constants.F_OK)
+	} catch(err) {
+		console.error(input + " doesn't exist.")
+		input = path.join(path.dirname(path.resolve('')), 'input')
+		fs.accessSync(input, fs.constants.F_OK)
+	}
 	
 	input = path.join(input, `Day${day}.txt`)
 	fs.accessSync(input, fs.constants.R_OK)
