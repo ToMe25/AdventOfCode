@@ -6,13 +6,15 @@ function main() {
 
 	var p1score = 0
 	var p2score = 0
-	for (var i in lines) {
+	const A = 'A'.charCodeAt(0)
+	const X = 'X'.charCodeAt(0)
+	for (let i in lines) {
 		if (lines[i].length < 2) {
 			continue
 		}
 
-		var enemy = lines[i].charCodeAt(0) - 'A'.charCodeAt(0)
-		var mine = lines[i].charCodeAt(2) - 'X'.charCodeAt(0)
+		var enemy = lines[i].charCodeAt(0) - A
+		var mine = lines[i].charCodeAt(2) - X
 		p1score += mine + 1
 		if (enemy == mine - 1) {
 			p1score += 6

@@ -21,10 +21,11 @@ std::string day3part1(std::ifstream input) {
 		uint64_t first = 0;
 		for (size_t i = 0; i < len; i++) {
 			const char c = line[i];
+			const uint64_t pos = (c > 'Z' ? c - 'a' : c - 'A' + 26);
 			if (i < end1) {
-				first |= (1ll << (c > 'Z' ? c - 'a' : c - 'A' + 26));
-			} else if (first & (1ll << (c > 'Z' ? c - 'a' : c - 'A' + 26))) {
-				sum += (c > 'Z' ? c - 'a' : c - 'A' + 26) + 1;
+				first |= (1ll << pos);
+			} else if (first & (1ll << pos)) {
+				sum += pos + 1;
 				break;
 			}
 		}

@@ -6,8 +6,8 @@ function main() {
 
 	var max = new Array(3)
 	var current = 0
-	for (var i in lines) {
-		var line = lines[i]
+	for (let i in lines) {
+		let line = lines[i]
 
 		if (line.length > 0) {
 			current += Number(line)
