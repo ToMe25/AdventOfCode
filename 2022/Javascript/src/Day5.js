@@ -6,7 +6,7 @@ function main() {
 
 	var crates = []
 	var crates2 = undefined
-	for (i in lines) {
+	for (let i in lines) {
 		if (lines[i].length < 3) {
 			continue
 		} else if (lines[i].trim().startsWith('[')) {
@@ -39,14 +39,14 @@ function main() {
 	}
 
 	var part1res = ""
-	for (i in crates) {
+	for (let i in crates) {
 		part1res += crates[i][crates[i].length - 1]
 	}
 
 	console.log(`The part one top crates are ${part1res}.`)
 
 	var part2res = ""
-	for (i in crates2) {
+	for (let i in crates2) {
 		part2res += crates2[i][crates2[i].length - 1]
 	}
 
