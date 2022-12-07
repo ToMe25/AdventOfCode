@@ -86,7 +86,7 @@ std::ostream& operator<<(std::ostream &stream, const aoc::FSNode &node) {
 	return stream;
 }
 
-std::string day7part1(std::ifstream input) {
+std::pair<std::string, std::string> day7Combined(std::ifstream input) {
 	aoc::FSNode *root = new aoc::FSNode(NULL, "/", 0, true);
 	aoc::FSNode *current = root;
 
@@ -162,7 +162,24 @@ std::string day7part1(std::ifstream input) {
 		}
 	}
 
-	return std::to_string(part1sum);
+	const size_t missingSpace = 30000000 - (70000000 - root->size);
+	size_t min = root->size;
+	stack.push_back(root);
+	while (stack.size() > 0) {
+		const aoc::FSNode *current = stack.back();
+		stack.pop_back();
+		if (current->size >= missingSpace && current->size < min) {
+			min = current->size;
+		}
+
+		for (const aoc::FSNode *node : current->getChildren()) {
+			if (node->directory) {
+				stack.push_back(node);
+			}
+		}
+	}
+
+	return {std::to_string(part1sum), std::to_string(min)};
 }
 
-bool d7p1 = aoc::registerPart1(7, &day7part1);
+bool d7c = aoc::registerCombined(7, &day7Combined);
