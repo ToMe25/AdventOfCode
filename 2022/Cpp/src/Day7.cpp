@@ -45,6 +45,7 @@ aoc::FSNode* aoc::FSNode::getChildForName(const std::string name) const {
 
 std::vector<aoc::FSNode*> aoc::FSNode::getChildren() const {
 	std::vector<FSNode*> result;
+	result.reserve(children.size());
 	for (std::pair<std::string, FSNode*> entry : children) {
 		result.push_back(entry.second);
 	}
