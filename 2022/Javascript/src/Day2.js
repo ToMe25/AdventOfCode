@@ -13,8 +13,8 @@ function main() {
 			continue
 		}
 
-		var enemy = lines[i].charCodeAt(0) - A
-		var mine = lines[i].charCodeAt(2) - X
+		let enemy = lines[i].charCodeAt(0) - A
+		let mine = lines[i].charCodeAt(2) - X
 		p1score += mine + 1
 		if (enemy == mine - 1) {
 			p1score += 6
