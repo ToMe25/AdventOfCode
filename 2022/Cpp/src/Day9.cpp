@@ -98,12 +98,12 @@ std::string day9part2(std::ifstream input) {
 					break;
 				}
 
-				for (uint8_t i = 1; i < 10; i++) {
+				for (uint8_t j = 1; j < 10; j++) {
 					bool neighbor = false;
 					for (int8_t x = -1; x < 2; x++) {
 						for (int8_t y = -1; y < 2; y++) {
-							if (positions[i - 1].first == positions[i].first + x
-									&& positions[i - 1].second == positions[i].second + y) {
+							if (positions[j - 1].first == positions[j].first + x
+									&& positions[j - 1].second == positions[j].second + y) {
 								neighbor = true;
 								break;
 							}
@@ -115,16 +115,16 @@ std::string day9part2(std::ifstream input) {
 					}
 
 					if (!neighbor) {
-						if (positions[i - 1].first > positions[i].first) {
-							positions[i].first++;
-						} else if (positions[i - 1].first < positions[i].first) {
-							positions[i].first--;
+						if (positions[j - 1].first > positions[j].first) {
+							positions[j].first++;
+						} else if (positions[j - 1].first < positions[j].first) {
+							positions[j].first--;
 						}
 
-						if (positions[i - 1].second > positions[i].second) {
-							positions[i].second++;
-						} else if (positions[i - 1].second < positions[i].second) {
-							positions[i].second--;
+						if (positions[j - 1].second > positions[j].second) {
+							positions[j].second++;
+						} else if (positions[j - 1].second < positions[j].second) {
+							positions[j].second--;
 						}
 					}
 				}
