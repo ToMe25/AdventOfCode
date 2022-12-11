@@ -106,7 +106,7 @@ std::vector<aoc::Monkey> aoc::parse_monkeys(std::vector<std::string> lines) {
 						<< "\"." << std::endl;
 				err = true;
 			} else {
-				id = std::stoi(line.substr(7));
+				id = std::stoi(line.substr(7, line.length() - 8));
 			}
 			break;
 		case 1:
@@ -151,7 +151,7 @@ std::vector<aoc::Monkey> aoc::parse_monkeys(std::vector<std::string> lines) {
 			break;
 		case 4:
 			if (line.substr(0, 7) != "If true") {
-				std::cerr << "Trying to parse invalid test line \"" << line
+				std::cerr << "Trying to parse invalid if true line \"" << line
 						<< "\"." << std::endl;
 				err = true;
 			} else {
@@ -160,7 +160,7 @@ std::vector<aoc::Monkey> aoc::parse_monkeys(std::vector<std::string> lines) {
 			break;
 		case 5:
 			if (line.substr(0, 8) != "If false") {
-				std::cerr << "Trying to parse invalid test line \"" << line
+				std::cerr << "Trying to parse invalid if false line \"" << line
 						<< "\"." << std::endl;
 				err = true;
 			} else {

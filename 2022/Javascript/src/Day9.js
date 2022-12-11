@@ -37,37 +37,37 @@ function main() {
 			}
 
 			for (let k = 1; k < 10; k++) {
-				let neighbor = false;
+				let neighbor = false
 				for (let x = -1; x < 2; x++) {
 					for (let y = -1; y < 2; y++) {
 						if (positions[k - 1].x == positions[k].x + x
 							&& positions[k - 1].y == positions[k].y + y) {
-							neighbor = true;
-							break;
+							neighbor = true
+							break
 						}
 					}
 
 					if (neighbor) {
-						break;
+						break
 					}
 				}
 
 				if (!neighbor) {
 					if (positions[k - 1].x > positions[k].x) {
-						positions[k].x++;
+						positions[k].x++
 					} else if (positions[k - 1].x < positions[k].x) {
-						positions[k].x--;
+						positions[k].x--
 					}
 
 					if (positions[k - 1].y > positions[k].y) {
-						positions[k].y++;
+						positions[k].y++
 					} else if (positions[k - 1].y < positions[k].y) {
-						positions[k].y--;
+						positions[k].y--
 					}
 				}
 			}
-			part1visited.add(positions[1].x + ':' + positions[1].y);
-			part2visited.add(positions[9].x + ':' + positions[9].y);
+			part1visited.add(positions[1].x + ':' + positions[1].y)
+			part2visited.add(positions[9].x + ':' + positions[9].y)
 		}
 	}
 
