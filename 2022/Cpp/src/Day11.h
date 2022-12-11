@@ -34,6 +34,16 @@ private:
 	const uint8_t op_sec;
 
 	/**
+	 * Whether the worry reduction is a modulo or a division operation.
+	 */
+	bool rel_mod;
+
+	/**
+	 * The worry reduction divisor.
+	 */
+	uint32_t rel_div;
+
+	/**
 	 * The divisor to use to determine which monkey an item should be thrown to.
 	 */
 	const uint8_t test_div;
@@ -51,12 +61,12 @@ private:
 	/**
 	 * The items this monkey currently holds.
 	 */
-	std::vector<uint32_t> items;
+	std::vector<uint64_t> items;
 
 	/**
 	 * The number of items this monkey has already inspected.
 	 */
-	uint32_t inspected = 0;
+	uint64_t inspected = 0;
 
 public:
 	/**
@@ -67,13 +77,16 @@ public:
 	 * @param operation_multiply	Whether this monkey should multiply the items value, instead of adding to it.
 	 * @param operation_const		Whether the second value for the item value modification is a constant.
 	 * @param operation_second		The second value for the operation. Ignored if operation_const is false.
+	 * @param relief_mod			Whether the worry reduction should be a modulo operation instead of a division.
+	 * @param relief_divisor		The divisor for the worry reduction operation.
 	 * @param test_divisor			The divisor used to check which monkey to throw items to.
 	 * @param true_target			The monkey to throw items for which the test returns true to.
 	 * @param false_target			The monkey to throw items for which the test returns false to.
 	 */
-	Monkey(const uint8_t id, const std::vector<uint32_t> start_items,
+	Monkey(const uint8_t id, const std::vector<uint64_t> start_items,
 			const bool operation_multiply, const bool operation_const,
-			const uint8_t operation_second, const uint8_t test_divisor,
+			const uint8_t operation_second, const bool relief_mod,
+			const uint32_t relief_divisor, const uint8_t test_divisor,
 			Monkey *true_target = NULL, Monkey *false_target = NULL);
 
 	/**
@@ -100,11 +113,26 @@ public:
 	void set_targets(Monkey *true_target, Monkey *false_target);
 
 	/**
+	 * Sets how the worry value should be reduced after a monkey inspected an item.
+	 *
+	 * @param relief_mod			Whether the worry reduction should be a modulo operation instead of a division.
+	 * @param relief_divisor		The divisor for the worry reduction operation.
+	 */
+	void set_relief(const bool relief_mod, const uint32_t relief_divisor);
+
+	/**
+	 * Gets the divisor used to check which monkey an item should be thrown to.
+	 *
+	 * @return	The divisor used to check which monkey an item should be thrown to.
+	 */
+	uint32_t get_test_divisor() const;
+
+	/**
 	 * Get the number of items this monkey has already inspected.
 	 *
 	 * @return	The number of items this monkey has already inspected.
 	 */
-	uint32_t get_inspected() const;
+	uint64_t get_inspected() const;
 
 	/**
 	 * Print this monkeys id and how many items it has already inspected to the given output stream.
@@ -115,6 +143,14 @@ public:
 	 */
 	friend std::ostream& operator<<(std::ostream &stream, const Monkey &monkey);
 };
+
+/**
+ * Parses the given vector of lines to a vector of the monkeys represented by those lines.
+ *
+ * @param lines	The lines to parse.
+ * @return	The newly parsed monkeys.
+ */
+std::vector<aoc::Monkey> parse_monkeys(const std::vector<std::string> lines);
 
 /**
  * Print this monkeys id and how many items it has already inspected to the given output stream.
