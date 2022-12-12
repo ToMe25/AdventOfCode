@@ -5,8 +5,33 @@
  *      Author: ToMe25
  */
 
-#include "Main.h"
-#include <map>
+#include "Day12.h"
+
+template<class T1, class T2>
+size_t std::hash<std::pair<T1, T2>>::operator ()(
+		const std::pair<T1, T2> &p) const {
+	return std::hash<T1> { }(p.first) ^ (std::hash<T2> { }(p.second) << 1);
+}
+
+bool aoc::check_position(const std::vector<std::vector<uint8_t>> &heights,
+		const std::map<std::pair<uint8_t, uint8_t>, uint16_t> &costs,
+		const std::pair<uint8_t, uint8_t> &end_pos,
+		const uint8_t current_height, const uint16_t current_cost,
+		const std::pair<uint8_t, uint8_t> &new_pos) {
+	if (heights[new_pos.second][new_pos.first] > current_height + 1) {
+		return false;
+	}
+
+	if (costs.count(new_pos) > 0 && costs.at(new_pos) <= current_cost + 1) {
+		return false;
+	}
+
+	if (costs.count(end_pos) > 0 && costs.at(end_pos) <= current_cost + 1) {
+		return false;
+	}
+
+	return true;
+}
 
 std::string day12part1(std::ifstream input) {
 	std::vector<std::vector<uint8_t>> heights;
@@ -43,135 +68,122 @@ std::string day12part1(std::ifstream input) {
 		const std::pair<uint8_t, uint8_t> current_pos = stack.back();
 		stack.pop_back();
 		const uint16_t current_cost = costs[current_pos];
-		const uint8_t current_height = heights[current_pos.second][current_pos.first];
+		const uint8_t current_height =
+				heights[current_pos.second][current_pos.first];
 		if (costs.count(end_pos) > 0 && current_cost >= costs[end_pos]) {
 			continue;
 		}
 
 		if (current_pos.first <= end_pos.first && current_pos.first > 0) {
-			if (heights[current_pos.second][current_pos.first - 1] <= current_height + 1) {
-				const std::pair<uint8_t, uint8_t> new_pos(current_pos.first - 1, current_pos.second);
-				if (costs.count(new_pos) == 0 || current_cost + 1 < costs[new_pos]) {
-					if (costs.count(end_pos) == 0 || costs[end_pos] > current_cost + 1) {
-						costs[new_pos] = current_cost + 1;
-						if (new_pos == end_pos) {
-							continue;
-						} else if (std::count(stack.rbegin(), stack.rend(), new_pos) == 0) {
-							stack.push_back(new_pos);
-						}
-					}
+			const std::pair<uint8_t, uint8_t> new_pos(current_pos.first - 1,
+					current_pos.second);
+			if (aoc::check_position(heights, costs, end_pos, current_height,
+					current_cost, new_pos)) {
+				costs[new_pos] = current_cost + 1;
+				if (new_pos == end_pos) {
+					continue;
+				} else {
+					stack.push_back(new_pos);
 				}
 			}
 		}
 
-		if (current_pos.first >= end_pos.first && current_pos.first < heights[current_pos.second].size() - 1) {
-			if (heights[current_pos.second][current_pos.first + 1] <= current_height + 1) {
-				const std::pair<uint8_t, uint8_t> new_pos(current_pos.first + 1, current_pos.second);
-				if (costs.count(new_pos) == 0 || current_cost + 1 < costs[new_pos]) {
-					if (costs.count(end_pos) == 0 || costs[end_pos] > current_cost + 1) {
-						costs[new_pos] = current_cost + 1;
-						if (new_pos == end_pos) {
-							continue;
-						} else if (std::count(stack.rbegin(), stack.rend(), new_pos) == 0) {
-							stack.push_back(new_pos);
-						}
-					}
+		if (current_pos.first >= end_pos.first
+				&& current_pos.first < heights[current_pos.second].size() - 1) {
+			const std::pair<uint8_t, uint8_t> new_pos(current_pos.first + 1,
+					current_pos.second);
+			if (aoc::check_position(heights, costs, end_pos, current_height,
+					current_cost, new_pos)) {
+				costs[new_pos] = current_cost + 1;
+				if (new_pos == end_pos) {
+					continue;
+				} else {
+					stack.push_back(new_pos);
 				}
 			}
 		}
 
 		if (current_pos.second <= end_pos.second && current_pos.second > 0) {
-			if (heights[current_pos.second - 1][current_pos.first] <= current_height + 1) {
-				const std::pair<uint8_t, uint8_t> new_pos(current_pos.first, current_pos.second - 1);
-				if (costs.count(new_pos) == 0 || current_cost + 1 < costs[new_pos]) {
-					if (costs.count(end_pos) == 0 || costs[end_pos] > current_cost + 1) {
-						costs[new_pos] = current_cost + 1;
-						if (new_pos == end_pos) {
-							continue;
-						} else if (std::count(stack.rbegin(), stack.rend(), new_pos) == 0) {
-							stack.push_back(new_pos);
-						}
-					}
+			const std::pair<uint8_t, uint8_t> new_pos(current_pos.first,
+					current_pos.second - 1);
+			if (aoc::check_position(heights, costs, end_pos, current_height,
+					current_cost, new_pos)) {
+				costs[new_pos] = current_cost + 1;
+				if (new_pos == end_pos) {
+					continue;
+				} else {
+					stack.push_back(new_pos);
 				}
 			}
 		}
 
-		if (current_pos.second >= end_pos.second && current_pos.second < heights.size() - 1) {
-			if (heights[current_pos.second + 1][current_pos.first] <= current_height + 1) {
-				const std::pair<uint8_t, uint8_t> new_pos(current_pos.first, current_pos.second + 1);
-				if (costs.count(new_pos) == 0 || current_cost + 1 < costs[new_pos]) {
-					if (costs.count(end_pos) == 0 || costs[end_pos] > current_cost + 1) {
-						costs[new_pos] = current_cost + 1;
-						if (new_pos == end_pos) {
-							continue;
-						} else if (std::count(stack.rbegin(), stack.rend(), new_pos) == 0) {
-							stack.push_back(new_pos);
-						}
-					}
+		if (current_pos.second >= end_pos.second
+				&& current_pos.second < heights.size() - 1) {
+			const std::pair<uint8_t, uint8_t> new_pos(current_pos.first,
+					current_pos.second + 1);
+			if (aoc::check_position(heights, costs, end_pos, current_height,
+					current_cost, new_pos)) {
+				costs[new_pos] = current_cost + 1;
+				if (new_pos == end_pos) {
+					continue;
+				} else {
+					stack.push_back(new_pos);
 				}
 			}
 		}
 
 		if (current_pos.first > end_pos.first) {
-			if (heights[current_pos.second][current_pos.first - 1] <= current_height + 1) {
-				const std::pair<uint8_t, uint8_t> new_pos(current_pos.first - 1, current_pos.second);
-				if (costs.count(new_pos) == 0 || current_cost + 1 < costs[new_pos]) {
-					if (costs.count(end_pos) == 0 || costs[end_pos] > current_cost + 1) {
-						costs[new_pos] = current_cost + 1;
-						if (new_pos == end_pos) {
-							continue;
-						} else if (std::count(stack.rbegin(), stack.rend(), new_pos) == 0) {
-							stack.push_back(new_pos);
-						}
-					}
+			const std::pair<uint8_t, uint8_t> new_pos(current_pos.first - 1,
+					current_pos.second);
+			if (aoc::check_position(heights, costs, end_pos, current_height,
+					current_cost, new_pos)) {
+				costs[new_pos] = current_cost + 1;
+				if (new_pos == end_pos) {
+					continue;
+				} else {
+					stack.push_back(new_pos);
 				}
 			}
 		}
 
 		if (current_pos.first < end_pos.first) {
-			if (heights[current_pos.second][current_pos.first + 1] <= current_height + 1) {
-				const std::pair<uint8_t, uint8_t> new_pos(current_pos.first + 1, current_pos.second);
-				if (costs.count(new_pos) == 0 || current_cost + 1 < costs[new_pos]) {
-					if (costs.count(end_pos) == 0 || costs[end_pos] > current_cost + 1) {
-						costs[new_pos] = current_cost + 1;
-						if (new_pos == end_pos) {
-							continue;
-						} else if (std::count(stack.rbegin(), stack.rend(), new_pos) == 0) {
-							stack.push_back(new_pos);
-						}
-					}
+			const std::pair<uint8_t, uint8_t> new_pos(current_pos.first + 1,
+					current_pos.second);
+			if (aoc::check_position(heights, costs, end_pos, current_height,
+					current_cost, new_pos)) {
+				costs[new_pos] = current_cost + 1;
+				if (new_pos == end_pos) {
+					continue;
+				} else {
+					stack.push_back(new_pos);
 				}
 			}
 		}
 
 		if (current_pos.second > end_pos.second) {
-			if (heights[current_pos.second - 1][current_pos.first] <= current_height + 1) {
-				const std::pair<uint8_t, uint8_t> new_pos(current_pos.first, current_pos.second - 1);
-				if (costs.count(new_pos) == 0 || current_cost + 1 < costs[new_pos]) {
-					if (costs.count(end_pos) == 0 || costs[end_pos] > current_cost + 1) {
-						costs[new_pos] = current_cost + 1;
-						if (new_pos == end_pos) {
-							continue;
-						} else if (std::count(stack.rbegin(), stack.rend(), new_pos) == 0) {
-							stack.push_back(new_pos);
-						}
-					}
+			const std::pair<uint8_t, uint8_t> new_pos(current_pos.first,
+					current_pos.second - 1);
+			if (aoc::check_position(heights, costs, end_pos, current_height,
+					current_cost, new_pos)) {
+				costs[new_pos] = current_cost + 1;
+				if (new_pos == end_pos) {
+					continue;
+				} else {
+					stack.push_back(new_pos);
 				}
 			}
 		}
 
 		if (current_pos.second < end_pos.second) {
-			if (heights[current_pos.second + 1][current_pos.first] <= current_height + 1) {
-				const std::pair<uint8_t, uint8_t> new_pos(current_pos.first, current_pos.second + 1);
-				if (costs.count(new_pos) == 0 || current_cost + 1 < costs[new_pos]) {
-					if (costs.count(end_pos) == 0 || costs[end_pos] > current_cost + 1) {
-						costs[new_pos] = current_cost + 1;
-						if (new_pos == end_pos) {
-							continue;
-						} else if (std::count(stack.rbegin(), stack.rend(), new_pos) == 0) {
-							stack.push_back(new_pos);
-						}
-					}
+			const std::pair<uint8_t, uint8_t> new_pos(current_pos.first,
+					current_pos.second + 1);
+			if (aoc::check_position(heights, costs, end_pos, current_height,
+					current_cost, new_pos)) {
+				costs[new_pos] = current_cost + 1;
+				if (new_pos == end_pos) {
+					continue;
+				} else {
+					stack.push_back(new_pos);
 				}
 			}
 		}
