@@ -15,18 +15,17 @@ namespace aoc {
 /**
  * Checks whether the given new position should be checked.
  *
- * @param heights	The current height map.
- * @param costs		The cheapest cost to reach each position.
- * @param end_pos	The target position to reach.
+ * @param heights			The current height map.
+ * @param costs				The cheapest cost to reach each position.
  * @param current_height	The height of the current position.
  * @param current_cost		The cost required to reach the current position.
+ * @param end_cost			The minimum cost known to reach the target. Set to -1 if the end was not yet reached.
  * @param new_pos			The position to potentially check next.
  */
 bool check_position(const std::vector<std::vector<uint8_t>> &heights,
 		const std::map<std::pair<uint8_t, uint8_t>, uint16_t> &costs,
-		const std::pair<uint8_t, uint8_t> &end_pos,
 		const uint8_t current_height, const uint16_t current_cost,
-		const std::pair<uint8_t, uint8_t> &new_pos);
+		const int16_t end_cost, const std::pair<uint8_t, uint8_t> &new_pos);
 }
 
 namespace std {
