@@ -5,7 +5,128 @@
  *      Author: ToMe25
  */
 
-#include "Main.h"
+#include "Day13.h"
+
+bool aoc::compare_lists(const std::string &first, const std::string &second) {
+	std::string::const_iterator lli = first.begin();
+	std::string::const_iterator li = second.begin();
+	while (lli < first.end() && li < second.end()) {
+		char lc = *lli;
+		char c = *li;
+		if (c == lc) {
+			lli++;
+			li++;
+			continue;
+		}
+
+		if (lc == ']') {
+			return true;
+		} else if (c == ']') {
+			return false;
+		} else if (lc == '[') {
+			uint8_t layers = 0;
+			while (*lli == '[') {
+				lli++;
+				layers++;
+			}
+			lc = *lli;
+
+			if (lc == ']') {
+				return true;
+			} else if (c == ']') {
+				return false;
+			} else if (std::isdigit(*(li + 1)) && !std::isdigit(*(lli + 1))) {
+				return true;
+			} else if (!std::isdigit(*(li + 1)) && std::isdigit(*(lli + 1))) {
+				return false;
+			} else if (lc < c) {
+				return true;
+			} else if (lc > c) {
+				return false;
+			} else if (lc == c) {
+				lli++;
+				li++;
+				if (std::isdigit(*li) && std::isdigit(*lli)) {
+					if (*lli < *li) {
+						return true;
+					} else if (*lli > *li) {
+						return false;
+					} else if (*lli == *li && *(lli + 1) == ']') {
+						lli += layers + 1;
+						li++;
+						continue;
+					}
+				} else if (*lli == ']') {
+					lli += layers + 1;
+					li++;
+					continue;
+				}
+			}
+		} else if (c == '[') {
+			uint8_t layers = 0;
+			while (*li == '[') {
+				li++;
+				layers++;
+			}
+			c = *li;
+
+			if (lc == ']') {
+				return true;
+			} else if (c == ']') {
+				return false;
+			} else if (std::isdigit(*(li + 1)) && !std::isdigit(*(lli + 1))) {
+				return true;
+			} else if (!std::isdigit(*(li + 1)) && std::isdigit(*(lli + 1))) {
+				return false;
+			} else if (lc < c) {
+				return true;
+			} else if (lc > c) {
+				return false;
+			} else if (lc == c) {
+				lli++;
+				li++;
+				if (std::isdigit(*li) && std::isdigit(*lli)) {
+					if (*lli < *li) {
+						return true;
+					} else if (*lli > *li) {
+						return false;
+					} else if (*lli == *li && *(li + 1) == ']') {
+						lli++;
+						li += layers + 1;
+						continue;
+					}
+				} else if (*li == ']') {
+					lli++;
+					li += layers + 1;
+					continue;
+				}
+			}
+		} else if (std::isdigit(lc) && std::isdigit(c)) {
+			// There aren't any three digit numbers.
+			// Also if both numbers have two digits checking digit by digit is fine.
+			if (std::isdigit(*(li + 1)) && !std::isdigit(*(lli + 1))) {
+				return true;
+			} else if (!std::isdigit(*(li + 1)) && std::isdigit(*(lli + 1))) {
+				return false;
+			} else if (lc < c) {
+				return true;
+			} else if (lc > c) {
+				return false;
+			}
+		} else if (lc == ',') {
+			return true;
+		} else if (c == ',') {
+			return false;
+		} else if (!std::isdigit(lc)) {
+			std::cerr << "Line " << first << " contained unrecognized char "
+					<< lc << '.' << std::endl;
+		} else {
+			std::cerr << "Line " << second << " contained unrecognized char "
+					<< c << '.' << std::endl;
+		}
+	}
+	return false;
+}
 
 std::string day13part1(std::ifstream input) {
 	std::string last_line;
@@ -20,127 +141,12 @@ std::string day13part1(std::ifstream input) {
 		if (last_line.length() == 0) {
 			last_line = line;
 			pair_idx++;
-			continue;
-		}
-
-		std::string::iterator lli = last_line.begin();
-		std::string::iterator li = line.begin();
-		while (lli < last_line.end() && li < line.end()) {
-			char lc = *lli;
-			char c = *li;
-			if (c == lc) {
-				lli++;
-				li++;
-				continue;
-			}
-
-			if (lc == ']') {
+		} else {
+			if (aoc::compare_lists(last_line, line)) {
 				correct_pairs.push_back(pair_idx);
-			} else if (c == ']') {
-				// Do nothing
-			} else if (lc == '[') {
-				uint8_t layers = 0;
-				while (*lli == '[') {
-					lli++;
-					layers++;
-				}
-				lc = *lli;
-
-				if (lc == ']') {
-					correct_pairs.push_back(pair_idx);
-				} else if (c == ']') {
-					// Do nothing
-				} else if (std::isdigit(*(li + 1))
-						&& !std::isdigit(*(lli + 1))) {
-					correct_pairs.push_back(pair_idx);
-				} else if (!std::isdigit(*(li + 1))
-						&& std::isdigit(*(lli + 1))) {
-					// Do nothing
-				} else if (lc < c) {
-					correct_pairs.push_back(pair_idx);
-				} else if (lc == c) {
-					lli++;
-					li++;
-					if (std::isdigit(*li) && std::isdigit(*lli)) {
-						if (*lli < *li) {
-							correct_pairs.push_back(pair_idx);
-						} else if (*lli > *li) {
-							// Do nothing
-						} else if (*lli == *li && *(lli + 1) == ']') {
-							lli += layers + 1;
-							li++;
-							continue;
-						}
-					} else if (*lli == ']') {
-						lli += layers + 1;
-						li++;
-						continue;
-					}
-				}
-			} else if (c == '[') {
-				uint8_t layers = 0;
-				while (*li == '[') {
-					li++;
-					layers++;
-				}
-				c = *li;
-
-				if (lc == ']') {
-					correct_pairs.push_back(pair_idx);
-				} else if (c == ']') {
-					// Do nothing
-				} else if (std::isdigit(*(li + 1)) && !std::isdigit(*(lli + 1))) {
-					correct_pairs.push_back(pair_idx);
-				} else if (!std::isdigit(*(li + 1)) && std::isdigit(*(lli + 1))) {
-					// Do nothing
-				} else if (lc < c) {
-					correct_pairs.push_back(pair_idx);
-				} else if (lc == c) {
-					lli++;
-					li++;
-					if (std::isdigit(*li) && std::isdigit(*lli)) {
-						if (*lli < *li) {
-							correct_pairs.push_back(pair_idx);
-						} else if (*lli > *li) {
-							std::cout << last_line << std::endl;
-							std::cout << line << std::endl << std::endl;
-							// Do nothing
-						} else if (*lli == *li && *(li + 1) == ']') {
-							lli++;
-							li += layers + 1;
-							continue;
-						}
-					} else if (*li == ']') {
-						lli++;
-						li += layers + 1;
-						continue;
-					}
-				}
-			} else if (std::isdigit(lc) && std::isdigit(c)) {
-				// There aren't any three digit numbers.
-				// Also if both numbers have two digits checking digit by digit is fine.
-				if (std::isdigit(*(li + 1)) && !std::isdigit(*(lli + 1))) {
-					correct_pairs.push_back(pair_idx);
-				} else if (!std::isdigit(*(li + 1)) && std::isdigit(*(lli + 1))) {
-					// Do nothing
-				} else if (lc < c) {
-					correct_pairs.push_back(pair_idx);
-				}
-			} else if (lc == ',') {
-				correct_pairs.push_back(pair_idx);
-			} else if (c == ',') {
-				// Do nothing
-			} else if (!std::isdigit(lc)) {
-				std::cerr << "Line " << last_line
-						<< " contained unrecognized char " << lc << '.'
-						<< std::endl;
-			} else {
-				std::cerr << "Line " << line << " contained unrecognized char "
-						<< c << '.' << std::endl;
 			}
-			break;
+			last_line = "";
 		}
-		last_line = "";
 	}
 
 	uint64_t idx_sum = 0;
@@ -150,4 +156,35 @@ std::string day13part1(std::ifstream input) {
 	return std::to_string(idx_sum);
 }
 
+std::string day13part2(std::ifstream input) {
+	std::vector<std::string> lines;
+	std::string line;
+	while (std::getline(input, line)) {
+		if (line.length() > 0) {
+			lines.push_back(line);
+		}
+	}
+
+	lines.push_back("[[2]]");
+	lines.push_back("[[6]]");
+	std::sort(lines.begin(), lines.end(), &aoc::compare_lists);
+
+	if (std::count(lines.begin(), lines.end(), "[[2]]") == 0) {
+		std::cerr << "Couldn't find the first divider packet." << std::endl;
+		return "error";
+	}
+	const size_t first = std::find(lines.begin(), lines.end(), "[[2]]")
+			- lines.begin() + 1;
+
+	if (std::count(lines.begin(), lines.end(), "[[6]]") == 0) {
+		std::cerr << "Couldn't find the first divider packet." << std::endl;
+		return "error";
+	}
+	const size_t second = std::find(lines.begin(), lines.end(), "[[6]]")
+			- lines.begin() + 1;
+
+	return std::to_string(first * second);
+}
+
 bool d13p1 = aoc::registerPart1(13, &day13part1);
+bool d13p2 = aoc::registerPart2(13, &day13part2);
