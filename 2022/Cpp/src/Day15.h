@@ -9,6 +9,7 @@
 #define DAY15_H_
 
 #include "Main.h"
+#include <unordered_set>
 
 namespace aoc {
 /**
@@ -48,7 +49,8 @@ public:
 	 * @param sensor_pos	The position of the sensor in 2D space.
 	 * @param beacon_pos	The position of the beacon the sensor locked onto.
 	 */
-	sensor(const std::pair<int64_t, int64_t> sensor_pos, const std::pair<int64_t, int64_t> beacon_pos);
+	sensor(const std::pair<int64_t, int64_t> sensor_pos,
+			const std::pair<int64_t, int64_t> beacon_pos);
 
 	/**
 	 * Returns a new pair representing the position of the sensor.
@@ -76,19 +78,30 @@ public:
 	 * Checks whether the given position is within the area where there can be no beacon,
 	 * other than the one locked onto by the sensor.
 	 *
+	 * @param x	The X coordinate of the position to check.
+	 * @param y The Y coordinate of the position to check.
 	 * @return True if the position is within this sensors range.
 	 */
 	bool convers_position(const int64_t x, const int64_t y) const;
 
 	/**
-	 * Creates a vector containing all the X positions on a given Y position that are covered by this sensor.
-	 * The resulting vector is ordered incrementing.
+	 * Adds the x positions this sensor covers on the given y position to the given set.
 	 *
-	 * @param y		The y position to check;
-	 * @param empty	If true, and the beacon is on that y position, the beacon pos will not be included.
-	 * @return	The newly created vector.
+	 * @param positions	The set to add the positions to.
+	 * @param pos_y		The y position to check;
+	 * @param empty		If true, and the beacon is on that y position, the beacon position will not be included.
 	 */
-	std::vector<int64_t> covered_on_y(const int64_t y, const bool empty) const;
+	void add_covered_on_y(std::unordered_set<int64_t> &positions, const int64_t pos_y,
+			const bool empty) const;
+
+	/**
+	 * Calculates the distance between the given position and the sensor.
+	 *
+	 * @param x	The X position to check against.
+	 * @param y The Y position to check against.
+	 * @return	The manhatten distance between the sensor and the given position.
+	 */
+	uint64_t distance_to(const int64_t x, const int64_t y) const;
 
 	/**
 	 * Prints the given beacon to the given output stream.
