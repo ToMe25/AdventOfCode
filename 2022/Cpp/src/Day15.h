@@ -82,7 +82,7 @@ public:
 	 * @param y The Y coordinate of the position to check.
 	 * @return True if the position is within this sensors range.
 	 */
-	bool convers_position(const int64_t x, const int64_t y) const;
+	bool covers_position(const int64_t x, const int64_t y) const;
 
 	/**
 	 * Adds the x positions this sensor covers on the given y position to the given set.

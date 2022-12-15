@@ -26,7 +26,7 @@ uint64_t aoc::sensor::get_distance() const {
 	return distance;
 }
 
-bool aoc::sensor::convers_position(const int64_t x, const int64_t y) const {
+bool aoc::sensor::covers_position(const int64_t x, const int64_t y) const {
 	const uint64_t x_dist = abs(pos_x - x);
 	if (x_dist > distance) {
 		return false;
@@ -130,14 +130,14 @@ std::string day15part2(std::ifstream input) {
 	int64_t x = 0;
 	int64_t y = 0;
 	bool covered = true;
-	for (;y < max_pos; y++) {
-		while (x < max_pos) {
+	for (;y <= max_pos; y++) {
+		while (x <= max_pos) {
 			covered = false;
 			for (const aoc::sensor &s : sensors) {
-				if (s.convers_position(x, y)) {
+				if (s.covers_position(x, y)) {
 					x += s.get_distance() - s.distance_to(x, y) + 1;
 					if (x == s.get_sensor_pos().first) {
-						x += s.get_distance();
+						x += s.get_distance() + 1;
 					}
 					covered = true;
 					break;
