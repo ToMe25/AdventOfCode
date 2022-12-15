@@ -7,7 +7,7 @@
 
 #include "Main.h"
 
-std::string day15part1(std::ifstream input) {
+std::string day14part1(std::ifstream input) {
 	std::vector<std::array<uint16_t, 4>> lines;
 	std::string line;
 	uint16_t x_offset = UINT16_MAX;
@@ -109,7 +109,7 @@ std::string day15part1(std::ifstream input) {
 	return std::to_string(count - 1);
 }
 
-std::string day15part2(std::ifstream input) {
+std::string day14part2(std::ifstream input) {
 	std::vector<std::array<uint16_t, 4>> lines;
 	std::string line;
 	uint16_t x_offset = UINT16_MAX;
@@ -210,5 +210,5 @@ std::string day15part2(std::ifstream input) {
 	return std::to_string(count);
 }
 
-bool d15p1 = aoc::registerPart1(14, &day15part1);
-bool d15p2 = aoc::registerPart2(14, &day15part2);
+bool d14p1 = aoc::registerPart1(14, &day14part1);
+bool d14p2 = aoc::registerPart2(14, &day14part2);
