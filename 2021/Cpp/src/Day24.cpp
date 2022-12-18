@@ -7,50 +7,51 @@
 
 #include "Day24.h"
 #include <cmath>
-#include <cstdlib>
-#include <cstring>
 #include <dlfcn.h>
-#include <fstream>
-#include <iostream>
 #include <thread>
-#include <vector>
 
-// The execution mode value used to make the assembly be interpreted.
-#define EXEC_MODE_INTERPRETED 1
-// The execution mode value used to make compile and run the assembly.
-#define EXEC_MODE_COMPILED 2
+enum ExecMode {
+	/**
+	 * Interprets the given input assembly.
+	 */
+	INTERPRETE,
+	/**
+	 * Generates C code from the input assembly, compiles that, and runs it.
+	 */
+	COMPILE
+};
 
-// Whether the input assembly should be interpreted or compiled.
-#define EXEC_MODE EXEC_MODE_INTERPRETED
+enum RunType {
+	/**
+	 * Tests the input with all 14 digit numbers without zeros to find the highest and lowest match.
+	 */
+	SOLVE,
+	/**
+	 * Executes the input with the specified input digits and prints all register states.
+	 */
+	EXECUTE
+};
 
-// Whether the input assembly should be optimized. Set to 0 to disable.
-#define OPTIMIZE 1
+/**
+ * Whether the input assembly should be interpreted or compiled.
+ */
+const ExecMode EXEC_MODE = COMPILE;
 
-// The run type to try and solve the AoC day.
-#define RUN_TYPE_SOVLE 1
+/**
+ * Whether the input assembly should be optimized.
+ */
+const bool OPTIMIZE = true;
 
-// The run type to execute the input program.
-#define RUN_TYPE_EXECUTE 2
+/**
+ * Whether the input program should be executed or solved.
+ * Run type execute is not yet compatible with compiled execution.
+ */
+const RunType RUN_TYPE = SOLVE;
 
-// Whether the input program should be executed or solved.
-// Run type execute is not yet compatible with compiled execution.
-#define RUN_TYPE RUN_TYPE_EXECUTE
-
-#if RUN_TYPE == RUN_TYPE_EXECUTE
-// The digits to use as input for the program.
-const char input_digits[] = { 1, 2 };
-#if EXEC_MODE == EXEC_MODE_COMPILED
-#error "Run type execute is not yet compatible with compiled execution."
-#endif
-#endif
-
-#if EXEC_MODE != EXEC_MODE_INTERPRETED && EXEC_MODE != EXEC_MODE_COMPILED
-#error "Unknown execution mode."
-#endif
-
-#if RUN_TYPE != RUN_TYPE_SOLVE && RUN_TYPE != RUN_TYPE_EXECUTE
-#error "Unknown run type."
-#endif
+/**
+ * The digits to use as input for the program.
+ */
+const char INPUT_DIGITS[] = { 1, 2 };
 
 template<>
 void DayRunner<24>::solve(std::ifstream input) {
@@ -129,118 +130,95 @@ void DayRunner<24>::solve(std::ifstream input) {
 		instructions.push_back(Instruction(type, reg_a, const_b, in_b));
 	}
 
-#if OPTIMIZE == 1
-	instructions = static_eval(instructions);
-	instructions = dead_code_removal(instructions);
-	instructions = merge_duplicate(instructions);
-	instructions = delay_input(instructions);
-#endif
+	if (RUN_TYPE == EXECUTE && EXEC_MODE == COMPILE) {
+		std::cerr << "Run type EXECUTE does not yet support compiled execution." << std::endl;
+		return;
+	}
 
-#if EXEC_MODE == EXEC_MODE_COMPILED
+	if (OPTIMIZE) {
+		instructions = static_eval(instructions);
+		instructions = dead_code_removal(instructions);
+		instructions = merge_duplicate(instructions);
+		instructions = delay_input(instructions);
+	}
+
 	std::filesystem::path tmpDir("tmp");
-	if (std::filesystem::exists(tmpDir)
-			&& !std::filesystem::is_directory(tmpDir)) {
-		std::cerr << std::filesystem::canonical(tmpDir)
-				<< " exists but isn't a directory." << std::endl;
-		return;
-	} else if (!std::filesystem::exists(tmpDir)
-			&& !std::filesystem::create_directories(tmpDir)) {
-		std::cerr << tmpDir << " does not exist and can't be created."
-				<< std::endl;
-		return;
-	}
-	tmpDir = std::filesystem::canonical(tmpDir);
+	std::optional<std::filesystem::path> tmpLib = std::nullopt;
+	if (RUN_TYPE == SOLVE) {
+		void *lib = NULL;
+		size_t inps[15];
+		if (EXEC_MODE == COMPILE) {
+			tmpLib = create_temp_lib(instructions, tmpDir);
+			if (!tmpLib.has_value()) {
+				return;
+			}
 
-	if (!compile_instructions(instructions, tmpDir)) {
-		return;
-	}
+			lib = dlopen(tmpLib.value().c_str(), RTLD_NOW);
+			if (!lib) {
+				std::cerr << "Failed to load dynamically created library."
+						<< std::endl;
+				return;
+			}
+		} else if (EXEC_MODE == INTERPRETE) {
+			uint8_t in_i = 0;
+			for (size_t i = 0; i < instructions.size(); i++) {
+				if (instructions[i].type == InstType::INP) {
+					inps[in_i++] = i;
+				}
+			}
+			inps[in_i] = instructions.size();
 
-	std::filesystem::path tmpLib(tmpDir);
-	tmpLib += std::filesystem::path::preferred_separator;
-	tmpLib += "tmp";
-	if (!std::filesystem::exists(tmpLib)) {
-		std::cerr << "Make didn't create library " << tmpLib << '.'
-				<< std::endl;
-		return;
-	}
-
-	void *lib = dlopen(tmpLib.c_str(), RTLD_NOW);
-	if (!lib) {
-		std::cerr << "Failed to load dynamically created library." << std::endl;
-		return;
-	}
-#endif /* EXEC_MODE == EXEC_MODE_COMPILED */
-
-#if EXEC_MODE == EXEC_MODE_INTERPRETED
-	size_t inps[15];
-	uint8_t in_i = 0;
-	for (size_t i = 0; i < instructions.size(); i++) {
-		if (instructions[i].type == InstType::INP) {
-			inps[in_i++] = i;
+			if (in_i != 15) {
+				std::cerr << "Input does not have 14 input instructions."
+						<< std::endl;
+				return;
+			}
 		}
-	}
-	inps[in_i] = instructions.size();
-#endif /* EXEC_MODE == EXEC_MODE_INTERPRETED */
 
-#if RUN_TYPE == RUN_TYPE_SOLVE
-	dynfunc libFuncs[14];
-	for (uint8_t i = 0; i < 14; i++) {
-		std::string name("run_");
-		name.append(std::to_string(i));
-#if EXEC_MODE == EXEC_MODE_INTERPRETED
-		using namespace std::placeholders;
-		libFuncs[i] = (dynfunc) std::bind(run_program,
-				&instructions.data()[inps[i]], inps[i + 1] - inps[i], _1, _2,
-				_3);
-#elif EXEC_MODE == EXEC_MODE_COMPILED
-		libFuncs[i] = (dynfunc) (dynfunc_ptr) dlsym(lib, name.c_str());
-		if (!libFuncs[i]) {
-			std::cerr << "Failed to load function " << name << '.' << std::endl;
-			return;
+		dynfunc libFuncs[14];
+		for (uint8_t i = 0; i < 14; i++) {
+			std::string name("run_");
+			name.append(std::to_string(i));
+			if (EXEC_MODE == INTERPRETE) {
+				using namespace std::placeholders;
+				libFuncs[i] = (dynfunc) std::bind(
+						(void (*)(const Instruction*, const size_t,
+								const long long int*, long long int*,
+								const char)) run_program,
+						&instructions.data()[inps[i]], inps[i + 1] - inps[i],
+						_1, _2, _3);
+			} else if (EXEC_MODE == COMPILE) {
+				libFuncs[i] = (dynfunc) (dynfunc_ptr) dlsym(lib, name.c_str());
+				if (!libFuncs[i]) {
+					std::cerr << "Failed to load function " << name << '.'
+							<< std::endl;
+					return;
+				}
+			}
 		}
-#endif
-	}
 
-	int64_t part1 = find_first_valid(libFuncs, true);
-	std::cout << "The biggest valid serial number is " << part1 << '.'
-			<< std::endl;
-
-	int64_t part2 = find_first_valid(libFuncs, false);
-	std::cout << "The biggest valid serial number is " << part1 << '.'
-			<< std::endl;
-	std::cout << "The smallest valid serial number is " << part2 << '.'
-			<< std::endl;
-#elif RUN_TYPE == RUN_TYPE_EXECUTE
-	const long long int initial_regs[4] { 0 };
-	long long int registers[4];
-	run_program(instructions.data(), instructions.size(), initial_regs,
-			registers, input_digits, sizeof(input_digits) / sizeof(char));
-	std::cout << "The register values after running the program are w="
-			<< registers[0] << ", x=" << registers[1] << ", y=" << registers[2]
-			<< ", z=" << registers[3] << '.' << std::endl;
-#endif /* RUN_TYPE == RUN_TYPE_SOLVE */
-
-#if EXEC_MODE == EXEC_MODE_COMPILED
-	std::filesystem::remove(tmpLib);
-	std::filesystem::path tmpO(tmpDir);
-	tmpO += std::filesystem::path::preferred_separator;
-	tmpO += "tmp.o";
-	std::filesystem::remove(tmpO);
-	std::filesystem::path tmpM(tmpDir);
-	tmpM += std::filesystem::path::preferred_separator;
-	tmpM += "tmp.Makefile";
-	std::filesystem::remove(tmpM);
-	std::filesystem::path tmpC(tmpDir);
-	tmpC += std::filesystem::path::preferred_separator;
-	tmpC += "tmp.c";
-	std::filesystem::remove(tmpC);
-	if (std::filesystem::is_empty(tmpDir)) {
-		std::filesystem::remove(tmpDir);
-	} else {
-		std::cout << "Couldn't remove tmp directory because it wasn't empty."
+		int64_t part1 = find_first_valid(libFuncs, true);
+		std::cout << "The biggest valid serial number is " << part1 << '.'
 				<< std::endl;
+
+		int64_t part2 = find_first_valid(libFuncs, false);
+		std::cout << "The biggest valid serial number is " << part1 << '.'
+				<< std::endl;
+		std::cout << "The smallest valid serial number is " << part2 << '.'
+				<< std::endl;
+	} else if (RUN_TYPE == EXECUTE) {
+		const long long int initial_regs[4] { 0 };
+		long long int registers[4];
+		run_program(instructions.data(), instructions.size(), initial_regs,
+				registers, INPUT_DIGITS, sizeof(INPUT_DIGITS) / sizeof(char));
+		std::cout << "The register values after running the program are w="
+				<< registers[0] << ", x=" << registers[1] << ", y="
+				<< registers[2] << ", z=" << registers[3] << '.' << std::endl;
 	}
-#endif /* EXEC_MODE == EXEC_MODE_COMPILED */
+
+	if (EXEC_MODE == COMPILE) {
+		delete_temp(tmpDir, tmpLib.value());
+	}
 }
 
 std::ostream& operator <<(std::ostream &stream, const Instruction &inst) {
@@ -430,11 +408,11 @@ std::vector<Instruction> static_eval(const std::vector<Instruction> &insts) {
 std::vector<Instruction> dead_code_removal(
 		const std::vector<Instruction> &insts) {
 	bool used[insts.size()] { false };
-#if RUN_TYPE == RUN_TYPE_SOLVE
 	bool reg_used[4] { false, false, false, true };
-#elif RUN_TYPE == RUN_TYPE_EXECUTE
-	bool reg_used[4] { true, true, true, true };
-#endif
+	if (RUN_TYPE == EXECUTE) {
+		reg_used[0] = reg_used[1] = reg_used[2] = true;
+	}
+
 	for (size_t i = insts.size(); i > 0;) {
 		i--;
 		const Instruction inst = insts[i];
@@ -969,4 +947,60 @@ bool compile_instructions(const std::vector<Instruction> insts,
 	}
 
 	return true;
+}
+
+std::optional<std::filesystem::path> create_temp_lib(
+		const std::vector<Instruction> instructions,
+		const std::filesystem::path tmpDir) {
+	if (std::filesystem::exists(tmpDir)
+			&& !std::filesystem::is_directory(tmpDir)) {
+		std::cerr << std::filesystem::canonical(tmpDir)
+				<< " exists but isn't a directory." << std::endl;
+		return std::nullopt;
+	} else if (!std::filesystem::exists(tmpDir)
+			&& !std::filesystem::create_directories(tmpDir)) {
+		std::cerr << tmpDir << " does not exist and can't be created."
+				<< std::endl;
+		return std::nullopt;
+	}
+
+	if (!compile_instructions(instructions, tmpDir)) {
+		return std::nullopt;
+	}
+
+	std::filesystem::path tmpLib(tmpDir);
+	tmpLib += std::filesystem::path::preferred_separator;
+	tmpLib += "tmp";
+	if (!std::filesystem::exists(tmpLib)) {
+		std::cerr << "Make didn't create library " << tmpLib << '.'
+				<< std::endl;
+		return std::nullopt;
+	}
+
+	return std::optional<std::filesystem::path> { tmpLib };
+}
+
+bool delete_temp(const std::filesystem::path tmpDir,
+		const std::filesystem::path tmpLib) {
+	std::filesystem::remove(tmpLib);
+	std::filesystem::path tmpO(tmpDir);
+	tmpO += std::filesystem::path::preferred_separator;
+	tmpO += "tmp.o";
+	std::filesystem::remove(tmpO);
+	std::filesystem::path tmpM(tmpDir);
+	tmpM += std::filesystem::path::preferred_separator;
+	tmpM += "tmp.Makefile";
+	std::filesystem::remove(tmpM);
+	std::filesystem::path tmpC(tmpDir);
+	tmpC += std::filesystem::path::preferred_separator;
+	tmpC += "tmp.c";
+	std::filesystem::remove(tmpC);
+	if (std::filesystem::is_empty(tmpDir)) {
+		std::filesystem::remove(tmpDir);
+		return true;
+	} else {
+		std::cout << "Couldn't remove tmp directory because it wasn't empty."
+				<< std::endl;
+		return false;
+	}
 }

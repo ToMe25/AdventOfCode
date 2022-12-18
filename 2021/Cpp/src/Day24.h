@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <functional>
 #include <iostream>
+#include <optional>
 #include <vector>
 
 /**
@@ -114,7 +115,7 @@ struct Instruction {
 };
 
 typedef void (*dynfunc_ptr)(const long long int[4], long long int*, const char);
-typedef std::function<void (const long long int[4], long long int*, const char)> dynfunc;
+typedef std::function<void(const long long int[4], long long int*, const char)> dynfunc;
 
 /**
  * Writes a string representation of the given instruction to the given output stream.
@@ -197,7 +198,8 @@ void run_program(const Instruction instsv[], const size_t instsc,
  * @param inpc		The number of input digits in inpv.
  */
 void run_program(const Instruction instsv[], const size_t instsc,
-		const long long int reg_vals[4], long long int *reg, const char inpv[], const size_t inpc);
+		const long long int reg_vals[4], long long int *reg, const char inpv[],
+		const size_t inpc);
 
 /**
  * Searches for the first valid serial number in a number block.
@@ -232,5 +234,26 @@ int64_t find_first_valid(const dynfunc funcs[14], bool highest);
  */
 bool compile_instructions(const std::vector<Instruction> insts,
 		const std::filesystem::path tmpDir);
+
+/**
+ * Creates a temporary shared library from the given instructions in a temporary directory.
+ *
+ * @param instructions	The instructions to compile.
+ * @param tmpDir		The temporary directory to create the library in.
+ * @return	The path of the library, if successful, or nothing otherwise.
+ */
+std::optional<std::filesystem::path> create_temp_lib(
+		const std::vector<Instruction> instructions,
+		const std::filesystem::path tmpDir);
+
+/**
+ * Deletes the temporary shared library and directory.
+ * Deletes tmp.c, tmp.o, tmp.Makefile, and the given temp lib before trying to delete the directory.
+ *
+ * @param tmpDir	The temporary directory to delete the temp files in.
+ * @param tmpLib	The temporary shared library to delete.
+ * @return	True if the directory was successfully deleted.
+ */
+bool delete_temp(const std::filesystem::path tmpDir, const std::filesystem::path tmpLib);
 
 #endif /* DAY24_H_ */
