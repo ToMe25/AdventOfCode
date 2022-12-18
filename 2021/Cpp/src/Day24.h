@@ -187,6 +187,19 @@ void run_program(const Instruction instsv[], const size_t instsc,
 		const long long int reg_vals[4], long long int *reg, const char inp);
 
 /**
+ * Executes the given set of instructions with the given input.
+ *
+ * @param instsv	The instructions to execute.
+ * @param instsc	The number of instructions in instsv.
+ * @param reg_vals	The initial register values.
+ * @param reg		The registers to use while executing the instructions.
+ * @param inpv		The input digits to use for input instructions.
+ * @param inpc		The number of input digits in inpv.
+ */
+void run_program(const Instruction instsv[], const size_t instsc,
+		const long long int reg_vals[4], long long int *reg, const char inpv[], const size_t inpc);
+
+/**
  * Searches for the first valid serial number in a number block.
  * Sets result to the first valid number found, or -1 if none was found.
  *

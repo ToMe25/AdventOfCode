@@ -21,10 +21,35 @@
 #define EXEC_MODE_COMPILED 2
 
 // Whether the input assembly should be interpreted or compiled.
-#define EXEC_MODE EXEC_MODE_COMPILED
+#define EXEC_MODE EXEC_MODE_INTERPRETED
+
+// Whether the input assembly should be optimized. Set to 0 to disable.
+#define OPTIMIZE 1
+
+// The run type to try and solve the AoC day.
+#define RUN_TYPE_SOVLE 1
+
+// The run type to execute the input program.
+#define RUN_TYPE_EXECUTE 2
+
+// Whether the input program should be executed or solved.
+// Run type execute is not yet compatible with compiled execution.
+#define RUN_TYPE RUN_TYPE_EXECUTE
+
+#if RUN_TYPE == RUN_TYPE_EXECUTE
+// The digits to use as input for the program.
+const char input_digits[] = { 1, 2 };
+#if EXEC_MODE == EXEC_MODE_COMPILED
+#error "Run type execute is not yet compatible with compiled execution."
+#endif
+#endif
 
 #if EXEC_MODE != EXEC_MODE_INTERPRETED && EXEC_MODE != EXEC_MODE_COMPILED
 #error "Unknown execution mode."
+#endif
+
+#if RUN_TYPE != RUN_TYPE_SOLVE && RUN_TYPE != RUN_TYPE_EXECUTE
+#error "Unknown run type."
 #endif
 
 template<>
@@ -104,10 +129,12 @@ void DayRunner<24>::solve(std::ifstream input) {
 		instructions.push_back(Instruction(type, reg_a, const_b, in_b));
 	}
 
+#if OPTIMIZE == 1
 	instructions = static_eval(instructions);
 	instructions = dead_code_removal(instructions);
 	instructions = merge_duplicate(instructions);
 	instructions = delay_input(instructions);
+#endif
 
 #if EXEC_MODE == EXEC_MODE_COMPILED
 	std::filesystem::path tmpDir("tmp");
@@ -155,6 +182,7 @@ void DayRunner<24>::solve(std::ifstream input) {
 	inps[in_i] = instructions.size();
 #endif /* EXEC_MODE == EXEC_MODE_INTERPRETED */
 
+#if RUN_TYPE == RUN_TYPE_SOLVE
 	dynfunc libFuncs[14];
 	for (uint8_t i = 0; i < 14; i++) {
 		std::string name("run_");
@@ -182,6 +210,15 @@ void DayRunner<24>::solve(std::ifstream input) {
 			<< std::endl;
 	std::cout << "The smallest valid serial number is " << part2 << '.'
 			<< std::endl;
+#elif RUN_TYPE == RUN_TYPE_EXECUTE
+	const long long int initial_regs[4] { 0 };
+	long long int registers[4];
+	run_program(instructions.data(), instructions.size(), initial_regs,
+			registers, input_digits, sizeof(input_digits) / sizeof(char));
+	std::cout << "The register values after running the program are w="
+			<< registers[0] << ", x=" << registers[1] << ", y=" << registers[2]
+			<< ", z=" << registers[3] << '.' << std::endl;
+#endif /* RUN_TYPE == RUN_TYPE_SOLVE */
 
 #if EXEC_MODE == EXEC_MODE_COMPILED
 	std::filesystem::remove(tmpLib);
@@ -380,13 +417,24 @@ std::vector<Instruction> static_eval(const std::vector<Instruction> &insts) {
 		}
 	}
 
+	// Set unused registers. Not setting them is dcrs job.
+	for (uint8_t i = 0; i < 4; i++) {
+		if (!reg_dirty[i]) {
+			result.push_back(Instruction(InstType::SET, i, true, reg_state[i]));
+		}
+	}
+
 	return result;
 }
 
 std::vector<Instruction> dead_code_removal(
 		const std::vector<Instruction> &insts) {
 	bool used[insts.size()] { false };
+#if RUN_TYPE == RUN_TYPE_SOLVE
 	bool reg_used[4] { false, false, false, true };
+#elif RUN_TYPE == RUN_TYPE_EXECUTE
+	bool reg_used[4] { true, true, true, true };
+#endif
 	for (size_t i = insts.size(); i > 0;) {
 		i--;
 		const Instruction inst = insts[i];
@@ -490,11 +538,18 @@ std::vector<Instruction> merge_duplicate(
 
 void run_program(const Instruction instsv[], const size_t instsc,
 		const long long int reg_vals[4], long long int *reg, const char inp) {
+	run_program(instsv, instsc, reg_vals, reg, &inp, 1);
+}
+
+void run_program(const Instruction instsv[], const size_t instsc,
+		const long long int reg_vals[4], long long int *reg, const char inpv[],
+		const size_t inpc) {
 	reg[0] = reg_vals[0];
 	reg[1] = reg_vals[1];
 	reg[2] = reg_vals[2];
 	reg[3] = reg_vals[3];
 
+	size_t inp = 0;
 	for (size_t i = 0; i < instsc; i++) {
 		const Instruction inst = instsv[i];
 		const int64_t in_b = inst.const_b ? inst.in_b : reg[inst.in_b];
@@ -502,7 +557,12 @@ void run_program(const Instruction instsv[], const size_t instsc,
 		case InstType::NOP:
 			break;
 		case InstType::INP:
-			reg[inst.reg_a] = inp;
+			if (inp >= inpc) {
+				std::cerr << "Trying to read input digit " << (inp + 1)
+						<< " when only " << inpc << " were given." << std::endl;
+				return;
+			}
+			reg[inst.reg_a] = inpv[inp++];
 			break;
 		case InstType::ADD:
 			reg[inst.reg_a] += in_b;
