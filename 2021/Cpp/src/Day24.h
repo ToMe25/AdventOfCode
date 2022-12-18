@@ -19,7 +19,7 @@
 /**
  * An enum representing the different types of instructions the ALU for this day can handle.
  */
-enum InstType {
+enum class InstType {
 	/**
 	 * No-op instruction. Does not do anything.
 	 */
@@ -53,7 +53,7 @@ enum InstType {
 	 */
 	EQL,
 	/**
-	 * Set a to 1 if a is not equals b, or 0 oterwise.
+	 * Set a to 1 if a is not equals b, or 0 otherwise.
 	 */
 	NEQ,
 	/**
@@ -61,6 +61,16 @@ enum InstType {
 	 */
 	SET
 };
+
+/**
+ * A map from an instruction type to its name.
+ */
+const std::unordered_map<InstType, const std::string> inst_type_names { {
+		InstType::NOP, "nop" }, { InstType::INP, "inp" },
+		{ InstType::ADD, "add" }, { InstType::SUB, "sub" }, { InstType::MUL,
+				"mul" }, { InstType::DIV, "div" }, { InstType::MOD, "mod" }, {
+				InstType::EQL, "eql" }, { InstType::NEQ, "neq" }, {
+				InstType::SET, "set" } };
 
 struct Instruction {
 	/**
@@ -87,7 +97,7 @@ struct Instruction {
 	 * Creates a null instruction. Not to be executed.
 	 */
 	Instruction() :
-			type(NOP), reg_a(0), const_b(true), in_b(0) {
+			type(InstType::NOP), reg_a(0), const_b(true), in_b(0) {
 	}
 
 	/**
@@ -114,6 +124,15 @@ typedef std::function<void (const long long int[4], long long int*, const char)>
  * @return	The given ostream.
  */
 std::ostream& operator <<(std::ostream &stream, const Instruction &inst);
+
+/**
+ * Writes the string representation(name) of a given instruction type to the ouput stream.
+ *
+ * @param stream	The output stream to write the instruction type to.
+ * @param type		The instruction name to write to the output stream.
+ * @return	The stream that was written to.
+ */
+std::ostream& operator <<(std::ostream &stream, const InstType &type);
 
 /**
  * Optimizes the given program to make it contain fewer instructions.

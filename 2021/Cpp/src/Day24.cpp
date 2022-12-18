@@ -15,6 +15,18 @@
 #include <thread>
 #include <vector>
 
+// The execution mode value used to make the assembly be interpreted.
+#define EXEC_MODE_INTERPRETED 1
+// The execution mode value used to make compile and run the assembly.
+#define EXEC_MODE_COMPILED 2
+
+// Whether the input assembly should be interpreted or compiled.
+#define EXEC_MODE EXEC_MODE_COMPILED
+
+#if EXEC_MODE != EXEC_MODE_INTERPRETED && EXEC_MODE != EXEC_MODE_COMPILED
+#error "Unknown execution mode."
+#endif
+
 template<>
 void DayRunner<24>::solve(std::ifstream input) {
 	std::vector<Instruction> instructions;
@@ -22,7 +34,17 @@ void DayRunner<24>::solve(std::ifstream input) {
 	std::string line;
 	while (std::getline(input, line)) {
 		InstType type = InstType::NOP;
+		bool err = false;
 		switch (line[0]) {
+		case 'n':
+			if (line[1] == 'o') {
+				type = InstType::NOP;
+			} else if (line[1] == 'e') {
+				type = InstType::NEQ;
+			} else {
+				err = true;
+			}
+			break;
 		case 'i':
 			type = InstType::INP;
 			break;
@@ -35,9 +57,7 @@ void DayRunner<24>::solve(std::ifstream input) {
 			} else if (line[1] == 'e') {
 				type = InstType::SET;
 			} else {
-				std::cerr << "Line \"" << line
-						<< "\" contained an invalid instruction type."
-						<< std::endl;
+				err = true;
 			}
 			break;
 		case 'm':
@@ -46,9 +66,7 @@ void DayRunner<24>::solve(std::ifstream input) {
 			} else if (line[1] == 'o') {
 				type = InstType::MOD;
 			} else {
-				std::cerr << "Line \"" << line
-						<< "\" contained an invalid instruction type."
-						<< std::endl;
+				err = true;
 			}
 			break;
 		case 'd':
@@ -58,19 +76,23 @@ void DayRunner<24>::solve(std::ifstream input) {
 			type = InstType::EQL;
 			break;
 		default:
-			std::cerr << "Line \"" << line
-					<< "\" contained an invalid instruction type." << std::endl;
+			err = true;
 		}
 
-		if (type == InstType::NOP) {
+		if (err) {
+			std::cerr << "Line \"" << line
+					<< "\" contained an invalid instruction type." << std::endl;
 			continue;
 		}
 
-		uint8_t reg_a = line[4] - 'w';
+		uint8_t reg_a = 0;
+		if (type != InstType::NOP) {
+			reg_a = line[4] - 'w';
+		}
 
 		int32_t in_b = 0;
 		bool const_b = true;
-		if (type != InstType::INP) {
+		if (type != InstType::NOP && type != InstType::INP) {
 			if (line[6] <= 'z' && line[6] >= 'w') {
 				const_b = false;
 				in_b = line[6] - 'w';
@@ -87,6 +109,7 @@ void DayRunner<24>::solve(std::ifstream input) {
 	instructions = merge_duplicate(instructions);
 	instructions = delay_input(instructions);
 
+#if EXEC_MODE == EXEC_MODE_COMPILED
 	std::filesystem::path tmpDir("tmp");
 	if (std::filesystem::exists(tmpDir)
 			&& !std::filesystem::is_directory(tmpDir)) {
@@ -119,27 +142,35 @@ void DayRunner<24>::solve(std::ifstream input) {
 		std::cerr << "Failed to load dynamically created library." << std::endl;
 		return;
 	}
+#endif /* EXEC_MODE == EXEC_MODE_COMPILED */
 
+#if EXEC_MODE == EXEC_MODE_INTERPRETED
 	size_t inps[15];
 	uint8_t in_i = 0;
 	for (size_t i = 0; i < instructions.size(); i++) {
-		if (instructions[i].type == INP) {
+		if (instructions[i].type == InstType::INP) {
 			inps[in_i++] = i;
 		}
 	}
 	inps[in_i] = instructions.size();
+#endif /* EXEC_MODE == EXEC_MODE_INTERPRETED */
 
 	dynfunc libFuncs[14];
 	for (uint8_t i = 0; i < 14; i++) {
 		std::string name("run_");
 		name.append(std::to_string(i));
+#if EXEC_MODE == EXEC_MODE_INTERPRETED
+		using namespace std::placeholders;
+		libFuncs[i] = (dynfunc) std::bind(run_program,
+				&instructions.data()[inps[i]], inps[i + 1] - inps[i], _1, _2,
+				_3);
+#elif EXEC_MODE == EXEC_MODE_COMPILED
 		libFuncs[i] = (dynfunc) (dynfunc_ptr) dlsym(lib, name.c_str());
-		/*using namespace std::placeholders;
-		libFuncs[i] = (dynfunc) std::bind(run_program, &instructions.data()[inps[i]], inps[i + 1] - inps[i], _1, _2, _3);*/
 		if (!libFuncs[i]) {
 			std::cerr << "Failed to load function " << name << '.' << std::endl;
 			return;
 		}
+#endif
 	}
 
 	int64_t part1 = find_first_valid(libFuncs, true);
@@ -152,6 +183,7 @@ void DayRunner<24>::solve(std::ifstream input) {
 	std::cout << "The smallest valid serial number is " << part2 << '.'
 			<< std::endl;
 
+#if EXEC_MODE == EXEC_MODE_COMPILED
 	std::filesystem::remove(tmpLib);
 	std::filesystem::path tmpO(tmpDir);
 	tmpO += std::filesystem::path::preferred_separator;
@@ -171,46 +203,13 @@ void DayRunner<24>::solve(std::ifstream input) {
 		std::cout << "Couldn't remove tmp directory because it wasn't empty."
 				<< std::endl;
 	}
+#endif /* EXEC_MODE == EXEC_MODE_COMPILED */
 }
 
 std::ostream& operator <<(std::ostream &stream, const Instruction &inst) {
-	switch (inst.type) {
-	case InstType::NOP:
-		stream << "nop";
-		break;
-	case InstType::INP:
-		stream << "inp ";
-		break;
-	case InstType::ADD:
-		stream << "add ";
-		break;
-	case InstType::SUB:
-		stream << "sub ";
-		break;
-	case InstType::MUL:
-		stream << "mul ";
-		break;
-	case InstType::DIV:
-		stream << "div ";
-		break;
-	case InstType::MOD:
-		stream << "mod ";
-		break;
-	case InstType::EQL:
-		stream << "eql ";
-		break;
-	case InstType::NEQ:
-		stream << "neq ";
-		break;
-	case InstType::SET:
-		stream << "set ";
-		break;
-	default:
-		stream << inst.type << ' ';
-	}
-
+	stream << inst.type;
 	if (inst.type != InstType::NOP) {
-		stream << (uint8_t) ('w' + inst.reg_a);
+		stream << ' ' << (uint8_t) ('w' + inst.reg_a);
 
 		if (inst.type != InstType::INP) {
 			stream << ' ';
@@ -221,6 +220,16 @@ std::ostream& operator <<(std::ostream &stream, const Instruction &inst) {
 			}
 		}
 	}
+	return stream;
+}
+
+std::ostream& operator <<(std::ostream &stream, const InstType &type) {
+	if (inst_type_names.count(type) != 0) {
+		stream << inst_type_names.at(type);
+	} else {
+		stream << "unknown instruction type " << (int) type;
+	}
+
 	return stream;
 }
 
@@ -241,6 +250,9 @@ std::vector<Instruction> static_eval(const std::vector<Instruction> &insts) {
 				// Remove multiply and divide instructions with one as a constant value.
 				// Since they never have an effect.
 				continue;
+			} else if (!inst.const_b && !reg_dirty[inst.in_b]
+					&& reg_state[inst.in_b] == 1) {
+				continue;
 			} else if (!reg_dirty[inst.reg_a] && reg_state[inst.reg_a] == 0) {
 				// Multiplying or dividing 0 by anything has no effect.
 				continue;
@@ -252,6 +264,9 @@ std::vector<Instruction> static_eval(const std::vector<Instruction> &insts) {
 		} else if (inst.type == InstType::ADD || inst.type == InstType::SUB) {
 			if (inst.const_b && inst.in_b == 0) {
 				// Remove add and subtract instructions with constant zero for the same reason.
+				continue;
+			} else if (!inst.const_b && !reg_dirty[inst.in_b]
+					&& reg_state[inst.in_b] == 0) {
 				continue;
 			}
 		}
@@ -282,22 +297,17 @@ std::vector<Instruction> static_eval(const std::vector<Instruction> &insts) {
 			}
 		}
 
-		// Replace double equals checks with single neq check.
-		if (inst.type == InstType::EQL) {
-			Instruction last = result.back();
-			if (inst.const_b && inst.in_b == 0 && last.type == InstType::EQL
-					&& inst.reg_a == last.reg_a) {
-				result.pop_back();
-				result.push_back(
-						Instruction(NEQ, inst.reg_a, last.const_b, last.in_b));
-				continue;
-			}
-		}
-
 		if (reg_dirty[inst.reg_a]) {
 			// Do not remove instructions using a dirty primary register.
 			// Unless they clean it.
-			result.push_back(inst);
+			if (inst.const_b || reg_dirty[inst.in_b]) {
+				result.push_back(inst);
+			} else {
+				// If the secondary input is not dirty and not constant, its register will not be set.
+				result.push_back(
+						Instruction(inst.type, inst.reg_a, true,
+								reg_state[inst.in_b]));
+			}
 			continue;
 		}
 
@@ -306,7 +316,7 @@ std::vector<Instruction> static_eval(const std::vector<Instruction> &insts) {
 			if (reg_state[inst.reg_a] != 0 || last_dirty[inst.reg_a]) {
 				if (inst.type != InstType::ADD || reg_state[inst.reg_a] != 0) {
 					result.push_back(
-							Instruction(SET, inst.reg_a, true,
+							Instruction(InstType::SET, inst.reg_a, true,
 									reg_state[inst.reg_a]));
 				}
 				last_dirty[inst.reg_a] = false;
@@ -316,7 +326,8 @@ std::vector<Instruction> static_eval(const std::vector<Instruction> &insts) {
 			if (inst.type == InstType::ADD && reg_state[inst.reg_a] == 0) {
 				// If added to 0 replace set and add with single set.
 				result.push_back(
-						Instruction(SET, inst.reg_a, false, inst.in_b));
+						Instruction(InstType::SET, inst.reg_a, false,
+								inst.in_b));
 			} else {
 				result.push_back(inst);
 			}
@@ -325,41 +336,41 @@ std::vector<Instruction> static_eval(const std::vector<Instruction> &insts) {
 
 		// Evaluate instructions when both their inputs are static.
 		switch (inst.type) {
-		case NOP:
+		case InstType::NOP:
 			break;
-		case INP:
+		case InstType::INP:
 			reg_dirty[inst.reg_a] = true;
 			result.push_back(inst);
 			break;
-		case ADD:
+		case InstType::ADD:
 			reg_state[inst.reg_a] +=
 					inst.const_b ? inst.in_b : reg_state[inst.in_b];
 			break;
-		case SUB:
+		case InstType::SUB:
 			reg_state[inst.reg_a] -=
 					inst.const_b ? inst.in_b : reg_state[inst.in_b];
 			break;
-		case MUL:
+		case InstType::MUL:
 			reg_state[inst.reg_a] *=
 					inst.const_b ? inst.in_b : reg_state[inst.in_b];
 			break;
-		case DIV:
+		case InstType::DIV:
 			reg_state[inst.reg_a] /=
 					inst.const_b ? inst.in_b : reg_state[inst.in_b];
 			break;
-		case MOD:
+		case InstType::MOD:
 			reg_state[inst.reg_a] %=
 					inst.const_b ? inst.in_b : reg_state[inst.in_b];
 			break;
-		case EQL:
+		case InstType::EQL:
 			reg_state[inst.reg_a] = reg_state[inst.reg_a]
 					== (inst.const_b ? inst.in_b : reg_state[inst.in_b]);
 			break;
-		case NEQ:
+		case InstType::NEQ:
 			reg_state[inst.reg_a] = reg_state[inst.reg_a]
 					!= (inst.const_b ? inst.in_b : reg_state[inst.in_b]);
 			break;
-		case SET:
+		case InstType::SET:
 			reg_state[inst.reg_a] =
 					inst.const_b ? inst.in_b : reg_state[inst.in_b];
 			break;
@@ -415,8 +426,8 @@ std::vector<Instruction> merge_duplicate(
 	for (size_t i = 0; i < insts.size(); i++) {
 		const Instruction inst = insts[i];
 
-		// Non constants can't be merged.
-		if (!inst.const_b) {
+		// Non constants can't be merged, except for the eql to neq merge.
+		if (!inst.const_b && inst.type != InstType::EQL) {
 			last_mergable[inst.reg_a] = -1;
 			last_mergable[inst.in_b] = -1;
 			result.push_back(inst);
@@ -424,8 +435,9 @@ std::vector<Instruction> merge_duplicate(
 		}
 
 		if (last_mergable[inst.reg_a] == -1) {
-			if (inst.type == ADD || inst.type == SUB || inst.type == MUL
-					|| inst.type == DIV) {
+			if (inst.type == InstType::ADD || inst.type == InstType::SUB
+					|| inst.type == InstType::MUL || inst.type == InstType::DIV
+					|| inst.type == InstType::EQL) {
 				last_mergable[inst.reg_a] = result.size();
 			} else {
 				last_mergable[inst.reg_a] = -1;
@@ -435,37 +447,49 @@ std::vector<Instruction> merge_duplicate(
 		}
 
 		const InstType lastType = result[last_mergable[inst.reg_a]].type;
-		if (inst.type == lastType || (inst.type == ADD && lastType == SUB)
-				|| (inst.type == SUB && lastType == ADD)) {
+		if (inst.type == lastType
+				|| (inst.type == InstType::ADD && lastType == InstType::SUB)
+				|| (inst.type == InstType::SUB && lastType == InstType::ADD)) {
 			switch (lastType) {
-			case ADD:
-				if (inst.type == ADD) {
+			case InstType::ADD:
+				if (inst.type == InstType::ADD) {
 					result[last_mergable[inst.reg_a]].in_b += inst.in_b;
 				} else {
 					result[last_mergable[inst.reg_a]].in_b -= inst.in_b;
 				}
 				break;
-			case SUB:
-				if (inst.type == SUB) {
+			case InstType::SUB:
+				if (inst.type == InstType::SUB) {
 					result[last_mergable[inst.reg_a]].in_b += inst.in_b;
 				} else {
 					result[last_mergable[inst.reg_a]].in_b -= inst.in_b;
 				}
 				break;
-			case MUL:
-			case DIV:
+			case InstType::MUL:
+			case InstType::DIV:
 				result[last_mergable[inst.reg_a]].in_b *= inst.in_b;
 				break;
+			case InstType::EQL:
+				if (inst.const_b && inst.in_b == 0) {
+					result[last_mergable[inst.reg_a]].type = InstType::NEQ;
+					last_mergable[inst.reg_a] = -1;
+				} else {
+					last_mergable[inst.reg_a] = result.size();
+					result.push_back(inst);
+				}
+				break;
 			}
+		} else {
+			last_mergable[inst.reg_a] = result.size();
+			result.push_back(inst);
 		}
 	}
 
 	return result;
 }
 
-void run_program(const Instruction instsv[],
-		const size_t instsc, const long long int reg_vals[4],
-		long long int *reg, const char inp) {
+void run_program(const Instruction instsv[], const size_t instsc,
+		const long long int reg_vals[4], long long int *reg, const char inp) {
 	reg[0] = reg_vals[0];
 	reg[1] = reg_vals[1];
 	reg[2] = reg_vals[2];
@@ -658,22 +682,25 @@ std::vector<Instruction> delay_input(const std::vector<Instruction> &insts) {
 
 	int64_t reg_inp[4] { -1, -1, -1, -1 };
 	for (const Instruction inst : insts) {
-		if (inst.type == INP) {
+		if (inst.type == InstType::INP) {
 			reg_inp[inst.reg_a] = result.size();
-		} else if (inst.type != NOP) {
+		} else if (inst.type != InstType::NOP) {
 			if (!inst.const_b && reg_inp[inst.in_b] >= 0
 					&& reg_inp[inst.in_b] < reg_inp[inst.reg_a]) {
-				result.push_back(Instruction(INP, inst.in_b, false, 0));
+				result.push_back(
+						Instruction(InstType::INP, inst.in_b, false, 0));
 				reg_inp[inst.in_b] = -1;
 			}
 
 			if (reg_inp[inst.reg_a] >= 0) {
-				result.push_back(Instruction(INP, inst.reg_a, false, 0));
+				result.push_back(
+						Instruction(InstType::INP, inst.reg_a, false, 0));
 				reg_inp[inst.reg_a] = -1;
 			}
 
 			if (!inst.const_b && reg_inp[inst.in_b] >= 0) {
-				result.push_back(Instruction(INP, inst.in_b, false, 0));
+				result.push_back(
+						Instruction(InstType::INP, inst.in_b, false, 0));
 				reg_inp[inst.in_b] = -1;
 			}
 			result.push_back(inst);
@@ -719,17 +746,19 @@ bool compile_instructions(const std::vector<Instruction> insts,
 			bool regs_checked[4] { false };
 			for (size_t j = i; j < insts.size(); j++) {
 				if (!regs_checked[insts[j].reg_a]) {
-					if (insts[j].type == INP || insts[j].type == SET) {
+					if (insts[j].type == InstType::INP
+							|| insts[j].type == InstType::SET) {
 						regs_used[insts[j].reg_a] = false;
 						regs_checked[insts[j].reg_a] = true;
-					} else if (insts[j].type != NOP) {
+					} else if (insts[j].type != InstType::NOP) {
 						regs_used[insts[j].reg_a] = true;
 						regs_checked[insts[j].reg_a] = true;
 					}
 				}
 
-				if (insts[j].type != NOP && insts[j].type != INP
-						&& !insts[j].const_b && !regs_checked[insts[j].in_b]) {
+				if (insts[j].type != InstType::NOP
+						&& insts[j].type != InstType::INP && !insts[j].const_b
+						&& !regs_checked[insts[j].in_b]) {
 					regs_used[insts[j].in_b] = true;
 					regs_checked[insts[j].in_b] = true;
 				}
@@ -763,12 +792,12 @@ bool compile_instructions(const std::vector<Instruction> insts,
 		}
 
 		switch (inst.type) {
-		case NOP:
+		case InstType::NOP:
 			break;
-		case INP:
+		case InstType::INP:
 			tmpCO << " = inp";
 			break;
-		case ADD:
+		case InstType::ADD:
 			tmpCO << " += ";
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
@@ -776,7 +805,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 				tmpCO << "reg[" << inst.in_b << ']';
 			}
 			break;
-		case SUB:
+		case InstType::SUB:
 			tmpCO << " -= ";
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
@@ -784,7 +813,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 				tmpCO << "reg[" << inst.in_b << ']';
 			}
 			break;
-		case MUL:
+		case InstType::MUL:
 			tmpCO << " *= ";
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
@@ -792,7 +821,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 				tmpCO << "reg[" << inst.in_b << ']';
 			}
 			break;
-		case DIV:
+		case InstType::DIV:
 			tmpCO << " /= ";
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
@@ -800,7 +829,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 				tmpCO << "reg[" << inst.in_b << ']';
 			}
 			break;
-		case MOD:
+		case InstType::MOD:
 			tmpCO << " %= ";
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
@@ -808,7 +837,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 				tmpCO << "reg[" << inst.in_b << ']';
 			}
 			break;
-		case EQL:
+		case InstType::EQL:
 			tmpCO << " = reg[" << (uint16_t) inst.reg_a << "] == ";
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
@@ -816,7 +845,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 				tmpCO << "reg[" << inst.in_b << ']';
 			}
 			break;
-		case NEQ:
+		case InstType::NEQ:
 			tmpCO << " = reg[" << (uint16_t) inst.reg_a << "] != ";
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
@@ -824,7 +853,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 				tmpCO << "reg[" << inst.in_b << ']';
 			}
 			break;
-		case SET:
+		case InstType::SET:
 			tmpCO << " = ";
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
