@@ -142,6 +142,11 @@ void DayRunner<24>::solve(std::ifstream input) {
 		instructions = delay_input(instructions);
 	}
 
+	std::cout << "Optimized assembly:" << std::endl;
+	for (const Instruction inst : instructions) {
+		std::cout << inst << std::endl;
+	}
+
 	std::filesystem::path tmpDir("tmp");
 	std::optional<std::filesystem::path> tmpLib = std::nullopt;
 	if (RUN_TYPE == SOLVE) {
@@ -478,17 +483,23 @@ std::vector<Instruction> merge_duplicate(
 				|| (inst.type == InstType::SUB && lastType == InstType::ADD)) {
 			switch (lastType) {
 			case InstType::ADD:
-				if (inst.type == InstType::ADD) {
-					result[last_mergable[inst.reg_a]].in_b += inst.in_b;
-				} else {
-					result[last_mergable[inst.reg_a]].in_b -= inst.in_b;
-				}
-				break;
 			case InstType::SUB:
-				if (inst.type == InstType::SUB) {
+				if (inst.type == lastType) {
 					result[last_mergable[inst.reg_a]].in_b += inst.in_b;
 				} else {
-					result[last_mergable[inst.reg_a]].in_b -= inst.in_b;
+					int32_t sum = result[last_mergable[inst.reg_a]].in_b;
+					if (lastType == InstType::SUB) {
+						sum *= -1;
+					}
+					sum += inst.type == InstType::ADD ? inst.in_b : -inst.in_b;
+
+					if (sum < 0) {
+						result[last_mergable[inst.reg_a]].type = InstType::SUB;
+						result[last_mergable[inst.reg_a]].in_b = -sum;
+					} else {
+						result[last_mergable[inst.reg_a]].type = InstType::ADD;
+						result[last_mergable[inst.reg_a]].in_b = sum;
+					}
 				}
 				break;
 			case InstType::MUL:
