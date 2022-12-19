@@ -260,7 +260,7 @@ std::vector<Instruction> static_eval(const std::vector<Instruction> &insts) {
 	// In this case dirty means interacted with input.
 	bool reg_dirty[4] { false };
 	bool last_dirty[4] { false };
-	int64_t reg_state[4] { 0 };
+	long long int reg_state[4] { 0 };
 	for (Instruction inst : insts) {
 		if (inst.type == InstType::NOP) {
 			// Remove all No-op instructions.
@@ -354,55 +354,19 @@ std::vector<Instruction> static_eval(const std::vector<Instruction> &insts) {
 			continue;
 		}
 
-		// Evaluate instructions when both their inputs are static.
-		switch (inst.type) {
-		case InstType::NOP:
-			break;
-		case InstType::INP:
+		// Input instructions dirty their register without requiring its previous value.
+		if (inst.type == InstType::INP) {
 			reg_dirty[inst.reg_a] = true;
 			result.push_back(inst);
-			break;
-		case InstType::ADD:
-			reg_state[inst.reg_a] +=
-					inst.const_b ? inst.in_b : reg_state[inst.in_b];
-			break;
-		case InstType::SUB:
-			reg_state[inst.reg_a] -=
-					inst.const_b ? inst.in_b : reg_state[inst.in_b];
-			break;
-		case InstType::MUL:
-			reg_state[inst.reg_a] *=
-					inst.const_b ? inst.in_b : reg_state[inst.in_b];
-			break;
-		case InstType::DIV:
-			reg_state[inst.reg_a] /=
-					inst.const_b ? inst.in_b : reg_state[inst.in_b];
-			break;
-		case InstType::MOD:
-			reg_state[inst.reg_a] %=
-					inst.const_b ? inst.in_b : reg_state[inst.in_b];
-			break;
-		case InstType::EQL:
-			reg_state[inst.reg_a] = reg_state[inst.reg_a]
-					== (inst.const_b ? inst.in_b : reg_state[inst.in_b]);
-			break;
-		case InstType::NEQ:
-			reg_state[inst.reg_a] = reg_state[inst.reg_a]
-					!= (inst.const_b ? inst.in_b : reg_state[inst.in_b]);
-			break;
-		case InstType::SET:
-			reg_state[inst.reg_a] =
-					inst.const_b ? inst.in_b : reg_state[inst.in_b];
-			break;
-		default:
-			std::cerr << "Received unknown instruction " << inst.type << '.'
-					<< std::endl;
 		}
+
+		// Evaluate instructions when both their inputs are static.
+		run_program(&inst, 1, reg_state, reg_state, NULL, 0);
 	}
 
 	// Set unused registers. Not setting them is dcrs job.
 	for (uint8_t i = 0; i < 4; i++) {
-		if (!reg_dirty[i]) {
+		if (!reg_dirty[i] && (last_dirty[i] || reg_state[i] != 0)) {
 			result.push_back(Instruction(InstType::SET, i, true, reg_state[i]));
 		}
 	}
