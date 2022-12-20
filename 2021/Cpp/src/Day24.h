@@ -114,7 +114,6 @@ struct Instruction {
 	}
 };
 
-typedef void (*dynfunc_ptr)(const long long int[4], long long int*, const char);
 typedef std::function<void(const long long int[4], long long int*, const char)> dynfunc;
 
 /**
@@ -176,19 +175,6 @@ std::vector<Instruction> delay_input(const std::vector<Instruction> &insts);
 
 /**
  * Executes the given set of instructions with the given input.
- * Can only handle a single INP instruction.
- *
- * @param instsv	The instructions to execute.
- * @param instsc	The number of instructions in instsv.
- * @param reg_vals	The initial register values.
- * @param reg		The registers to use while executing the instructions.
- * @param inp		The input digit.
- */
-void run_program(const Instruction instsv[], const size_t instsc,
-		const long long int reg_vals[4], long long int *reg, const char inp);
-
-/**
- * Executes the given set of instructions with the given input.
  *
  * @param instsv	The instructions to execute.
  * @param instsc	The number of instructions in instsv.
@@ -202,7 +188,7 @@ void run_program(const Instruction instsv[], const size_t instsc,
 		const size_t inpc);
 
 /**
- * Searches for the first valid serial number in a number block.
+ * The function to be run in separate threads to search for the first valid number.
  * Sets result to the first valid number found, or -1 if none was found.
  *
  * @param funcs		The functions executing the individual segments of the input.
@@ -211,18 +197,41 @@ void run_program(const Instruction instsv[], const size_t instsc,
  * @param stop		An atomic bool to be set to true to stop this thread.
  * @param highest	If true this method looks for the highest valid number, otherwise the lowest.
  */
-void find_first_valid_in_range(const dynfunc funcs[14],
+void find_first_runner_interpreted(const dynfunc funcs[14],
 		const std::array<uint8_t, 3> digits, std::atomic<int64_t> *result,
-		std::atomic<bool> *stop, bool highest);
+		std::atomic<bool> *stop, const bool highest);
+/**
+ * The function to be run in separate threads to search for the first valid number.
+ * Sets result to the first valid number found, or -1 if none was found.
+ *
+ * @param exe		The executable to be run to check a number segment.
+ * @param digits	The starting digits for the numbers to check.
+ * @param result	The pointer to write the first found number to.
+ * @param highest	If true this method looks for the highest valid number, otherwise the lowest.
+ */
+void find_first_runner_compiled(const std::filesystem::path exe,
+		const std::array<uint8_t, 3> digits, std::atomic<int64_t> *result,
+		const bool highest);
 
 /**
  * Multithreaded method searching for the first valid 14 digit number.
+ * Runs the instructions in the run_program interpreter.
  *
- * @param funcs		The functions executing the individual segments of the input.
+ * @param insts		The instructions to execute to validate a possible input number.
  * @param highest	If true this method looks for the highest valid number, otherwise the lowest.
  * @return	The highest valid number, or -1 if none was found.
  */
-int64_t find_first_valid(const dynfunc funcs[14], bool highest);
+int64_t find_first_valid_interpreted(const std::vector<Instruction> insts, const bool highest);
+
+/**
+ * Multithreaded method searching for the first valid 14 digit number.
+ * Runs the external program created by compile_instructions.
+ *
+ * @param highest	If true this method looks for the highest valid number, otherwise the lowest.
+ * @param exe		The executable to be run to check a number segment.
+ * @return	The highest valid number, or -1 if none was found.
+ */
+int64_t find_first_valid_compiled(const std::filesystem::path exe, const bool highest);
 
 /**
  * Compiles the given set of instructions to a native library in the given temporary directory.

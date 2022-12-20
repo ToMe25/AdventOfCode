@@ -7,7 +7,6 @@
 
 #include "Day24.h"
 #include <cmath>
-#include <dlfcn.h>
 #include <thread>
 
 enum ExecMode {
@@ -131,7 +130,8 @@ void DayRunner<24>::solve(std::ifstream input) {
 	}
 
 	if (RUN_TYPE == EXECUTE && EXEC_MODE == COMPILE) {
-		std::cerr << "Run type EXECUTE does not yet support compiled execution." << std::endl;
+		std::cerr << "Run type EXECUTE does not yet support compiled execution."
+				<< std::endl;
 		return;
 	}
 
@@ -142,71 +142,41 @@ void DayRunner<24>::solve(std::ifstream input) {
 		instructions = delay_input(instructions);
 	}
 
-	std::cout << "Optimized assembly:" << std::endl;
-	for (const Instruction inst : instructions) {
-		std::cout << inst << std::endl;
+	if (RUN_TYPE == SOLVE
+			&& std::count_if(instructions.begin(), instructions.end(),
+					[](const Instruction &inst) {
+						return inst.type == InstType::INP;
+					}) != 14) {
+		std::cerr << "The input did not contain 14 input instructions."
+				<< std::endl;
+		return;
 	}
 
 	std::filesystem::path tmpDir("tmp");
 	std::optional<std::filesystem::path> tmpLib = std::nullopt;
 	if (RUN_TYPE == SOLVE) {
-		void *lib = NULL;
-		size_t inps[15];
 		if (EXEC_MODE == COMPILE) {
 			tmpLib = create_temp_lib(instructions, tmpDir);
 			if (!tmpLib.has_value()) {
 				return;
 			}
+		}
 
-			lib = dlopen(tmpLib.value().c_str(), RTLD_NOW);
-			if (!lib) {
-				std::cerr << "Failed to load dynamically created library."
-						<< std::endl;
-				return;
-			}
+		int64_t part1 = -1;
+		if (EXEC_MODE == COMPILE) {
+			part1 = find_first_valid_compiled(tmpLib.value(), true);
 		} else if (EXEC_MODE == INTERPRETE) {
-			uint8_t in_i = 0;
-			for (size_t i = 0; i < instructions.size(); i++) {
-				if (instructions[i].type == InstType::INP) {
-					inps[in_i++] = i;
-				}
-			}
-			inps[in_i] = instructions.size();
-
-			if (in_i != 15) {
-				std::cerr << "Input does not have 14 input instructions."
-						<< std::endl;
-				return;
-			}
+			part1 = find_first_valid_interpreted(instructions, true);
 		}
-
-		dynfunc libFuncs[14];
-		for (uint8_t i = 0; i < 14; i++) {
-			std::string name("run_");
-			name.append(std::to_string(i));
-			if (EXEC_MODE == INTERPRETE) {
-				using namespace std::placeholders;
-				libFuncs[i] = (dynfunc) std::bind(
-						(void (*)(const Instruction*, const size_t,
-								const long long int*, long long int*,
-								const char)) run_program,
-						&instructions.data()[inps[i]], inps[i + 1] - inps[i],
-						_1, _2, _3);
-			} else if (EXEC_MODE == COMPILE) {
-				libFuncs[i] = (dynfunc) (dynfunc_ptr) dlsym(lib, name.c_str());
-				if (!libFuncs[i]) {
-					std::cerr << "Failed to load function " << name << '.'
-							<< std::endl;
-					return;
-				}
-			}
-		}
-
-		int64_t part1 = find_first_valid(libFuncs, true);
 		std::cout << "The biggest valid serial number is " << part1 << '.'
 				<< std::endl;
 
-		int64_t part2 = find_first_valid(libFuncs, false);
+		int64_t part2 = -1;
+		if (EXEC_MODE == COMPILE) {
+			part2 = find_first_valid_compiled(tmpLib.value(), false);
+		} else if (EXEC_MODE == INTERPRETE) {
+			part2 = find_first_valid_interpreted(instructions, false);
+		}
 		std::cout << "The biggest valid serial number is " << part1 << '.'
 				<< std::endl;
 		std::cout << "The smallest valid serial number is " << part2 << '.'
@@ -358,6 +328,7 @@ std::vector<Instruction> static_eval(const std::vector<Instruction> &insts) {
 		if (inst.type == InstType::INP) {
 			reg_dirty[inst.reg_a] = true;
 			result.push_back(inst);
+			continue;
 		}
 
 		// Evaluate instructions when both their inputs are static.
@@ -489,9 +460,37 @@ std::vector<Instruction> merge_duplicate(
 	return result;
 }
 
-void run_program(const Instruction instsv[], const size_t instsc,
-		const long long int reg_vals[4], long long int *reg, const char inp) {
-	run_program(instsv, instsc, reg_vals, reg, &inp, 1);
+std::vector<Instruction> delay_input(const std::vector<Instruction> &insts) {
+	std::vector<Instruction> result;
+
+	int64_t reg_inp[4] { -1, -1, -1, -1 };
+	for (const Instruction inst : insts) {
+		if (inst.type == InstType::INP) {
+			reg_inp[inst.reg_a] = result.size();
+		} else if (inst.type != InstType::NOP) {
+			if (!inst.const_b && reg_inp[inst.in_b] >= 0
+					&& reg_inp[inst.in_b] < reg_inp[inst.reg_a]) {
+				result.push_back(
+						Instruction(InstType::INP, inst.in_b, false, 0));
+				reg_inp[inst.in_b] = -1;
+			}
+
+			if (reg_inp[inst.reg_a] >= 0) {
+				result.push_back(
+						Instruction(InstType::INP, inst.reg_a, false, 0));
+				reg_inp[inst.reg_a] = -1;
+			}
+
+			if (!inst.const_b && reg_inp[inst.in_b] >= 0) {
+				result.push_back(
+						Instruction(InstType::INP, inst.in_b, false, 0));
+				reg_inp[inst.in_b] = -1;
+			}
+			result.push_back(inst);
+		}
+	}
+
+	return result;
 }
 
 void run_program(const Instruction instsv[], const size_t instsc,
@@ -548,9 +547,9 @@ void run_program(const Instruction instsv[], const size_t instsc,
 	}
 }
 
-void find_first_valid_in_range(const dynfunc funcs[14],
+void find_first_runner_interpreted(const dynfunc funcs[14],
 		const std::array<uint8_t, 3> digits, std::atomic<int64_t> *result,
-		std::atomic<bool> *stop, bool highest) {
+		std::atomic<bool> *stop, const bool highest) {
 	const uint16_t id = digits[0] * 100 + digits[1] * 10 + digits[2];
 	std::array<uint8_t, 14> num_in { digits[0], digits[1], digits[2], 9, 9, 9,
 			9, 9, 9, 9, 9, 9, 9, 9 };
@@ -635,7 +634,59 @@ void find_first_valid_in_range(const dynfunc funcs[14],
 	}
 }
 
-int64_t find_first_valid(const dynfunc funcs[14], bool highest) {
+void find_first_runner_compiled(const std::filesystem::path exe,
+		const std::array<uint8_t, 3> digits, std::atomic<int64_t> *result,
+		const bool highest) {
+	std::ostringstream cmd;
+	cmd << exe << ' ' << (uint16_t) digits[0] << ' ' << (uint16_t) digits[1]
+			<< ' ' << (uint16_t) digits[2] << ' '
+			<< (highest ? "true" : "false");
+	const int status = std::system(cmd.str().c_str());
+	if (status != 0) {
+		std::cout << "Worker " << (uint16_t) digits[0] << (uint16_t) digits[1]
+				<< (uint16_t) digits[2] << " failed with exit code " << status
+				<< '.' << std::endl;
+		*result = -1;
+		return;
+	}
+
+	std::filesystem::path tmpF = exe;
+	tmpF += digits[0] + '0';
+	tmpF += digits[1] + '0';
+	tmpF += digits[2] + '0';
+	std::ifstream tmpFI(tmpF);
+	long long int res;
+	tmpFI >> res;
+	*result = res;
+	tmpFI.close();
+	std::filesystem::remove(tmpF);
+}
+
+int64_t find_first_valid_interpreted(const std::vector<Instruction> insts,
+		const bool highest) {
+	size_t inps[15];
+	uint8_t in_i = 0;
+	for (size_t i = 0; i < insts.size(); i++) {
+		if (insts[i].type == InstType::INP) {
+			inps[in_i++] = i;
+		}
+	}
+	inps[in_i] = insts.size();
+
+	if (in_i != 14) {
+		std::cerr << "Input does not have 14 input instructions." << std::endl;
+		return -1;
+	}
+
+	dynfunc funcs[14];
+	for (size_t i = 0; i < in_i; i++) {
+		funcs[i] = [insts, inps, i](const long long int reg_vals[4],
+				long long int *reg, const char inp) {
+			run_program(&insts.data()[inps[i]], inps[i + 1] - inps[i], reg_vals,
+					reg, &inp, 1);
+		};
+	}
+
 	int64_t result = 0;
 	std::atomic<bool> stop = false;
 	std::atomic<int64_t> results[18] { 0 };
@@ -647,7 +698,7 @@ int64_t find_first_valid(const dynfunc funcs[14], bool highest) {
 					(uint8_t) ((i - 1) % 9 + 1), j };
 
 			threads[(i % 2) * 9 + j - 1] = std::thread(
-					find_first_valid_in_range, funcs, digits,
+					find_first_runner_interpreted, funcs, digits,
 					&results[(i % 2) * 9 + j - 1], &stop, highest);
 		}
 
@@ -690,37 +741,75 @@ int64_t find_first_valid(const dynfunc funcs[14], bool highest) {
 	return result == 0 ? -1 : result;
 }
 
-std::vector<Instruction> delay_input(const std::vector<Instruction> &insts) {
-	std::vector<Instruction> result;
+int64_t find_first_valid_compiled(const std::filesystem::path exe,
+		const bool highest) {
+	int64_t result = 0;
+	std::atomic<int64_t> results[18] { 0 };
+	std::thread threads[18];
+	for (uint8_t i = highest ? 81 : 1; highest ? (i > 0) : (i <= 81);
+			highest ? i-- : i++) {
+		if (result == 0) {
+			for (uint8_t j = 9; j > 0; j--) {
+				const std::array<uint8_t, 3> digits {
+						(uint8_t) ((i - 1) / 9 + 1),
+						(uint8_t) ((i - 1) % 9 + 1), j };
 
-	int64_t reg_inp[4] { -1, -1, -1, -1 };
-	for (const Instruction inst : insts) {
-		if (inst.type == InstType::INP) {
-			reg_inp[inst.reg_a] = result.size();
-		} else if (inst.type != InstType::NOP) {
-			if (!inst.const_b && reg_inp[inst.in_b] >= 0
-					&& reg_inp[inst.in_b] < reg_inp[inst.reg_a]) {
-				result.push_back(
-						Instruction(InstType::INP, inst.in_b, false, 0));
-				reg_inp[inst.in_b] = -1;
+				// Use value -2 to mark that the thread is still running.
+				results[(i % 2) * 9 + j - 1] = -2;
+				threads[(i % 2) * 9 + j - 1] = std::thread(
+						find_first_runner_compiled, exe, digits,
+						&results[(i % 2) * 9 + j - 1], highest);
+			}
+		}
+
+		if (highest && i == 81) {
+			continue;
+		} else if (!highest && i == 1) {
+			continue;
+		}
+
+		bool second = (i % 2) == 0;
+		for (int8_t j = (highest ? 8 : 0); highest ? (j >= 0) : (j < 9);
+				highest ? j-- : j++) {
+			if (threads[j + second * 9].joinable()) {
+				threads[j + second * 9].join();
 			}
 
-			if (reg_inp[inst.reg_a] >= 0) {
-				result.push_back(
-						Instruction(InstType::INP, inst.reg_a, false, 0));
-				reg_inp[inst.reg_a] = -1;
+			if (result == 0 && results[j + second * 9] != -1) {
+				result = results[j + second * 9];
+			}
+		}
+
+		for (int8_t j = (highest ? 8 : 0); highest ? (j >= 0) : (j < 9);
+				highest ? j-- : j++) {
+			// The thread is still running, we can't get its result.
+			if (results[j + (!second) * 9] == -2) {
+				break;
 			}
 
-			if (!inst.const_b && reg_inp[inst.in_b] >= 0) {
-				result.push_back(
-						Instruction(InstType::INP, inst.in_b, false, 0));
-				reg_inp[inst.in_b] = -1;
+			if (result == 0 && results[j + (!second) * 9] != -1) {
+				result = results[j + (!second) * 9];
+				break;
 			}
-			result.push_back(inst);
+		}
+
+		if (result != 0) {
+			break;
 		}
 	}
 
-	return result;
+	for (int8_t i = highest ? 17 : 0; highest ? (i >= 0) : (i < 18);
+			highest ? i-- : i++) {
+		if (threads[i].joinable()) {
+			threads[i].join();
+		}
+
+		if (result == 0 && results[i] != -1) {
+			result = results[i];
+		}
+	}
+
+	return result == 0 ? -1 : result;
 }
 
 bool compile_instructions(const std::vector<Instruction> insts,
@@ -740,20 +829,92 @@ bool compile_instructions(const std::vector<Instruction> insts,
 	}
 
 	std::ofstream tmpCO(tmpC);
-	const char method_return[] = "void run_";
-	const char method_params[] =
-			"(const long long int reg_vals[4], long long int *reg, const char inp) {";
+	tmpCO << "#include <stdio.h>" << std::endl;
+	tmpCO << "#include <stdlib.h>" << std::endl;
+	tmpCO << "#include <string.h>" << std::endl << std::endl;
+	tmpCO << "int main(const int argc, char *argv[]) {" << std::endl;
+	tmpCO << "    if (argc < 5) {" << std::endl;
+	tmpCO
+			<< "        printf(\"Error: This program requires three input digits and a boolean to operate.\\n\");"
+			<< std::endl;
+	tmpCO << "        printf(\"Format: DIGIT_1 DIGIT_2 DIGIT_3 REVERSE\\n\");"
+			<< std::endl;
+	tmpCO << "        return 1;" << std::endl;
+	tmpCO << "    }" << std::endl << std::endl;
+	tmpCO << "    unsigned char const_inputs[3];" << std::endl;
+	tmpCO << "    for (char i = 0; i < 3; i++) {" << std::endl;
+	tmpCO
+			<< "        if (argv[i + 1][0] < '0' || argv[i + 1][0] > '9' || strlen(argv[i + 1]) != 1) {"
+			<< std::endl;
+	tmpCO
+			<< "            printf(\"DIGIT_%d wasn't a digit. Was %s.\\n\", i, argv[i + 1]);"
+			<< std::endl;
+	tmpCO << "            return 1;" << std::endl;
+	tmpCO << "        }" << std::endl;
+	tmpCO << "        const_inputs[i] = argv[i + 1][0] - '0';" << std::endl;
+	tmpCO << "    }" << std::endl << std::endl;
+	tmpCO << "    for (long long int i = 0; i < strlen(argv[4]); i++) {"
+			<< std::endl;
+	tmpCO << "        if (argv[4][i] >= 'A' && argv[4][i] <= 'Z') {"
+			<< std::endl;
+	tmpCO << "            argv[4][i] += 32;" << std::endl;
+	tmpCO << "        }" << std::endl;
+	tmpCO << "    }" << std::endl << std::endl;
+	tmpCO
+			<< "    if (strcmp(argv[4], \"true\") != 0 && strcmp(argv[4], \"false\") != 0) {"
+			<< std::endl;
+	tmpCO
+			<< "        printf(\"REVERSE wasn't a valid boolean. Was \\\"%s\\\".\\n\", argv[4]);"
+			<< std::endl;
+	tmpCO << "        return 1;" << std::endl;
+	tmpCO << "    }" << std::endl;
+	tmpCO << "    const char reverse = strcmp(argv[4], \"true\") == 0;"
+			<< std::endl << std::endl;
+	tmpCO << "    char *ofp = (char*) malloc(strlen(argv[0]) + 4);"
+			<< std::endl;
+	tmpCO << "    strcpy(ofp, argv[0]);" << std::endl;
+	tmpCO << "    ofp[strlen(argv[0])] = const_inputs[0] + '0';" << std::endl;
+	tmpCO << "    ofp[strlen(argv[0]) + 1] = const_inputs[1] + '0';"
+			<< std::endl;
+	tmpCO << "    ofp[strlen(argv[0]) + 2] = const_inputs[2] + '0';"
+			<< std::endl;
+	tmpCO << "    ofp[strlen(argv[0]) + 3] = 0;" << std::endl;
+	tmpCO << "    FILE *of = fopen(ofp, \"w\");" << std::endl;
+	tmpCO << "    if (!of) {" << std::endl;
+	tmpCO
+			<< "        printf(\"Failed to open output file \\\"%s\\\".\\n\", ofp);"
+			<< std::endl;
+	tmpCO << "        return 2;" << std::endl;
+	tmpCO << "    }" << std::endl;
+	tmpCO << "    free(ofp);" << std::endl << std::endl;
+	tmpCO << "    long long int reg_h[4];" << std::endl << std::endl;
 
-	int16_t method_idx = -1;
+	const char loop_start[] =
+			"for (char I = reverse ? 9 : 1; reverse ? (I > 0) : (I < 10); reverse ? I-- : I++) {";
+
+	int16_t method_idx = 0;
 	for (size_t i = 0; i < insts.size(); i++) {
 		const Instruction inst = insts[i];
-		if (method_idx == -1
-				|| (method_idx > 0 && inst.type == InstType::INP)) {
-			if (method_idx > 0) {
-				tmpCO << '}' << std::endl << std::endl;
+
+		if (inst.type == InstType::INP) {
+			method_idx++;
+		}
+
+		if (method_idx > 3 && inst.type == InstType::INP) {
+			for (size_t i = 0; i < std::max(1, method_idx - 3); i++) {
+				tmpCO << "    ";
 			}
-			tmpCO << method_return << std::max((int16_t) 0, method_idx)
-					<< method_params << std::endl;
+			std::string loop(loop_start);
+			std::replace(loop.begin(), loop.end(), 'I',
+					(char) ('i' + method_idx - 4));
+			tmpCO << loop << std::endl;
+
+			for (size_t i = 0; i < std::max(1, method_idx - 2); i++) {
+				tmpCO << "    ";
+			}
+			tmpCO << "long long int reg_"
+					<< std::max('h', (char) ('i' + method_idx - 4)) << "[4];"
+					<< std::endl;
 
 			bool regs_used[4] { false };
 			bool regs_checked[4] { false };
@@ -784,38 +945,43 @@ bool compile_instructions(const std::vector<Instruction> insts,
 
 			for (uint16_t j = 0; j < 4; j++) {
 				if (regs_used[j]) {
-					tmpCO << "    reg[" << j;
-					if (method_idx > 0) {
-						tmpCO << "] = reg_vals[" << j << "];" << std::endl;
-					} else {
-						tmpCO << "] = 0;" << std::endl;
+					for (size_t i = 0; i < std::max(1, method_idx - 2); i++) {
+						tmpCO << "    ";
 					}
+					tmpCO << "reg_"
+							<< std::max('h', (char) ('i' + method_idx - 4))
+							<< '[' << j;
+					tmpCO << "] = reg_"
+							<< std::max('h', (char) ('i' + method_idx - 5))
+							<< '[' << j << "];" << std::endl;
 				}
 			}
-
-			method_idx++;
 		}
 
-		if (method_idx == 0 && inst.type == InstType::INP) {
-			method_idx++;
-		}
-
+		const char reg_idx = std::max('h', (char) ('i' + method_idx - 4));
 		if (inst.type != InstType::NOP) {
-			tmpCO << "    reg[" << (uint16_t) inst.reg_a << ']';
+			for (size_t i = 0; i < std::max(1, method_idx - 2); i++) {
+				tmpCO << "    ";
+			}
+			tmpCO << "reg_" << reg_idx << '[' << (uint16_t) inst.reg_a << ']';
 		}
 
 		switch (inst.type) {
 		case InstType::NOP:
 			break;
 		case InstType::INP:
-			tmpCO << " = inp";
+			if (method_idx < 4) {
+				tmpCO << " = const_inputs[" << method_idx - 1 << ']';
+			} else {
+				tmpCO << " = " << (char) ('i' + method_idx - 4);
+			}
 			break;
 		case InstType::ADD:
 			tmpCO << " += ";
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
 			} else {
-				tmpCO << "reg[" << inst.in_b << ']';
+				tmpCO << "reg_" << reg_idx << '[' << inst.in_b << ']';
 			}
 			break;
 		case InstType::SUB:
@@ -823,7 +989,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
 			} else {
-				tmpCO << "reg[" << inst.in_b << ']';
+				tmpCO << "reg_" << reg_idx << '[' << inst.in_b << ']';
 			}
 			break;
 		case InstType::MUL:
@@ -831,7 +997,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
 			} else {
-				tmpCO << "reg[" << inst.in_b << ']';
+				tmpCO << "reg_" << reg_idx << '[' << inst.in_b << ']';
 			}
 			break;
 		case InstType::DIV:
@@ -839,7 +1005,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
 			} else {
-				tmpCO << "reg[" << inst.in_b << ']';
+				tmpCO << "reg_" << reg_idx << '[' << inst.in_b << ']';
 			}
 			break;
 		case InstType::MOD:
@@ -847,23 +1013,25 @@ bool compile_instructions(const std::vector<Instruction> insts,
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
 			} else {
-				tmpCO << "reg[" << inst.in_b << ']';
+				tmpCO << "reg_" << reg_idx << '[' << inst.in_b << ']';
 			}
 			break;
 		case InstType::EQL:
-			tmpCO << " = reg[" << (uint16_t) inst.reg_a << "] == ";
+			tmpCO << " = reg_" << reg_idx << '[' << (uint16_t) inst.reg_a
+					<< "] == ";
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
 			} else {
-				tmpCO << "reg[" << inst.in_b << ']';
+				tmpCO << "reg_" << reg_idx << '[' << inst.in_b << ']';
 			}
 			break;
 		case InstType::NEQ:
-			tmpCO << " = reg[" << (uint16_t) inst.reg_a << "] != ";
+			tmpCO << " = reg_" << reg_idx << '[' << (uint16_t) inst.reg_a
+					<< "] != ";
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
 			} else {
-				tmpCO << "reg[" << inst.in_b << ']';
+				tmpCO << "reg_" << reg_idx << '[' << inst.in_b << ']';
 			}
 			break;
 		case InstType::SET:
@@ -871,7 +1039,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 			if (inst.const_b) {
 				tmpCO << inst.in_b;
 			} else {
-				tmpCO << "reg[" << inst.in_b << ']';
+				tmpCO << "reg_" << reg_idx << '[' << inst.in_b << ']';
 			}
 			break;
 		}
@@ -881,6 +1049,31 @@ bool compile_instructions(const std::vector<Instruction> insts,
 		}
 	}
 
+	tmpCO << std::endl;
+	tmpCO
+			<< "                                                if (reg_s[3] == 0) {"
+			<< std::endl;
+	tmpCO << "                                                    "
+			<< "printf(\"Worker %d%d%d found valid number: %d%d%d%d%d%d%d%d%d%d%d%d%d%d\\n\", "
+			<< "const_inputs[0], const_inputs[1], const_inputs[2], const_inputs[0], const_inputs[1], const_inputs[2], i, j, k, l, m, n, o, p, q, r, s);"
+			<< std::endl;
+	tmpCO << "                                                    "
+			<< "fprintf(of, \"%d%d%d%d%d%d%d%d%d%d%d%d%d%d\", "
+			<< "const_inputs[0], const_inputs[1], const_inputs[2], i, j, k, l, m, n, o, p, q, r, s);"
+			<< std::endl;
+	tmpCO << "                                                    return 0;"
+			<< std::endl;
+	for (uint8_t i = 12; i > 0; i--) {
+		for (uint8_t j = 0; j < i; j++) {
+			tmpCO << "    ";
+		}
+		tmpCO << '}' << std::endl;
+	}
+	tmpCO
+			<< "    printf(\"Worker %d%d%d couldn't find a valid number.\\n\", const_inputs[0], const_inputs[1], const_inputs[2]);"
+			<< std::endl;
+	tmpCO << "    fprintf(of, \"-1\");" << std::endl;
+	tmpCO << "    fclose(of);" << std::endl;
 	tmpCO << '}' << std::endl;
 	tmpCO.close();
 
@@ -902,8 +1095,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 	tmpMO << "PROJECT_ROOT = $(dir $(abspath $(lastword $(MAKEFILE_LIST))))"
 			<< std::endl;
 	tmpMO << "OBJS := $(PROJECT_ROOT)tmp.o" << std::endl;
-	tmpMO << "CFLAGS += -O3 -fPIC" << std::endl;
-	tmpMO << "LDFLAGS += -shared" << std::endl << std::endl;
+	tmpMO << "CFLAGS += -O3" << std::endl;
 	tmpMO << "$(PROJECT_ROOT)tmp: $(OBJS)" << std::endl;
 	tmpMO << "\t$(CC) $(LDFLAGS) -o $@ $^" << std::endl;
 	tmpMO << "$(PROJECT_ROOT)%.o: $(PROJECT_ROOT)%.c" << std::endl;
