@@ -50,7 +50,7 @@ const RunType RUN_TYPE = SOLVE;
 /**
  * The digits to use as input for the program.
  */
-const char INPUT_DIGITS[] = { 1, 2 };
+const char INPUT_DIGITS[] = { 5 };
 
 template<>
 void DayRunner<24>::solve(std::ifstream input) {
@@ -129,12 +129,6 @@ void DayRunner<24>::solve(std::ifstream input) {
 		instructions.push_back(Instruction(type, reg_a, const_b, in_b));
 	}
 
-	if (RUN_TYPE == EXECUTE && EXEC_MODE == COMPILE) {
-		std::cerr << "Run type EXECUTE does not yet support compiled execution."
-				<< std::endl;
-		return;
-	}
-
 	if (OPTIMIZE) {
 		instructions = static_eval(instructions);
 		instructions = dead_code_removal(instructions);
@@ -144,7 +138,7 @@ void DayRunner<24>::solve(std::ifstream input) {
 
 	if (RUN_TYPE == SOLVE
 			&& std::count_if(instructions.begin(), instructions.end(),
-					[](const Instruction &inst) {
+					[](const Instruction &inst) -> bool {
 						return inst.type == InstType::INP;
 					}) != 14) {
 		std::cerr << "The input did not contain 14 input instructions."
@@ -154,14 +148,14 @@ void DayRunner<24>::solve(std::ifstream input) {
 
 	std::filesystem::path tmpDir("tmp");
 	std::optional<std::filesystem::path> tmpLib = std::nullopt;
-	if (RUN_TYPE == SOLVE) {
-		if (EXEC_MODE == COMPILE) {
-			tmpLib = create_temp_lib(instructions, tmpDir);
-			if (!tmpLib.has_value()) {
-				return;
-			}
+	if (EXEC_MODE == COMPILE) {
+		tmpLib = create_temp_lib(instructions, tmpDir);
+		if (!tmpLib.has_value()) {
+			return;
 		}
+	}
 
+	if (RUN_TYPE == SOLVE) {
 		int64_t part1 = -1;
 		if (EXEC_MODE == COMPILE) {
 			part1 = find_first_valid_compiled(tmpLib.value(), true);
@@ -181,7 +175,7 @@ void DayRunner<24>::solve(std::ifstream input) {
 				<< std::endl;
 		std::cout << "The smallest valid serial number is " << part2 << '.'
 				<< std::endl;
-	} else if (RUN_TYPE == EXECUTE) {
+	} else if (RUN_TYPE == EXECUTE && EXEC_MODE == INTERPRETE) {
 		const long long int initial_regs[4] { 0 };
 		long long int registers[4];
 		run_program(instructions.data(), instructions.size(), initial_regs,
@@ -189,6 +183,18 @@ void DayRunner<24>::solve(std::ifstream input) {
 		std::cout << "The register values after running the program are w="
 				<< registers[0] << ", x=" << registers[1] << ", y="
 				<< registers[2] << ", z=" << registers[3] << '.' << std::endl;
+	} else if (RUN_TYPE == EXECUTE && EXEC_MODE == COMPILE) {
+		std::ostringstream cmd;
+		cmd << tmpLib.value();
+		for (size_t i = 0; i < sizeof(INPUT_DIGITS) / sizeof(char); i++) {
+			cmd << ' ' << (int16_t) INPUT_DIGITS[i];
+		}
+
+		const int status = std::system(cmd.str().c_str());
+		if (status != 0) {
+			std::cerr << "Compiled program failed with exit code " << status
+					<< '.' << std::endl;
+		}
 	}
 
 	if (EXEC_MODE == COMPILE) {
@@ -643,7 +649,7 @@ void find_first_runner_compiled(const std::filesystem::path exe,
 			<< (highest ? "true" : "false");
 	const int status = std::system(cmd.str().c_str());
 	if (status != 0) {
-		std::cout << "Worker " << (uint16_t) digits[0] << (uint16_t) digits[1]
+		std::cerr << "Worker " << (uint16_t) digits[0] << (uint16_t) digits[1]
 				<< (uint16_t) digits[2] << " failed with exit code " << status
 				<< '.' << std::endl;
 		*result = -1;
@@ -833,60 +839,88 @@ bool compile_instructions(const std::vector<Instruction> insts,
 	tmpCO << "#include <stdlib.h>" << std::endl;
 	tmpCO << "#include <string.h>" << std::endl << std::endl;
 	tmpCO << "int main(const int argc, char *argv[]) {" << std::endl;
-	tmpCO << "    if (argc < 5) {" << std::endl;
-	tmpCO
-			<< "        printf(\"Error: This program requires three input digits and a boolean to operate.\\n\");"
-			<< std::endl;
-	tmpCO << "        printf(\"Format: DIGIT_1 DIGIT_2 DIGIT_3 REVERSE\\n\");"
-			<< std::endl;
-	tmpCO << "        return 1;" << std::endl;
-	tmpCO << "    }" << std::endl << std::endl;
-	tmpCO << "    unsigned char const_inputs[3];" << std::endl;
-	tmpCO << "    for (char i = 0; i < 3; i++) {" << std::endl;
-	tmpCO
-			<< "        if (argv[i + 1][0] < '0' || argv[i + 1][0] > '9' || strlen(argv[i + 1]) != 1) {"
-			<< std::endl;
-	tmpCO
-			<< "            printf(\"DIGIT_%d wasn't a digit. Was %s.\\n\", i, argv[i + 1]);"
-			<< std::endl;
-	tmpCO << "            return 1;" << std::endl;
-	tmpCO << "        }" << std::endl;
-	tmpCO << "        const_inputs[i] = argv[i + 1][0] - '0';" << std::endl;
-	tmpCO << "    }" << std::endl << std::endl;
-	tmpCO << "    for (long long int i = 0; i < strlen(argv[4]); i++) {"
-			<< std::endl;
-	tmpCO << "        if (argv[4][i] >= 'A' && argv[4][i] <= 'Z') {"
-			<< std::endl;
-	tmpCO << "            argv[4][i] += 32;" << std::endl;
-	tmpCO << "        }" << std::endl;
-	tmpCO << "    }" << std::endl << std::endl;
-	tmpCO
-			<< "    if (strcmp(argv[4], \"true\") != 0 && strcmp(argv[4], \"false\") != 0) {"
-			<< std::endl;
-	tmpCO
-			<< "        printf(\"REVERSE wasn't a valid boolean. Was \\\"%s\\\".\\n\", argv[4]);"
-			<< std::endl;
-	tmpCO << "        return 1;" << std::endl;
-	tmpCO << "    }" << std::endl;
-	tmpCO << "    const char reverse = strcmp(argv[4], \"true\") == 0;"
-			<< std::endl << std::endl;
-	tmpCO << "    char *ofp = (char*) malloc(strlen(argv[0]) + 4);"
-			<< std::endl;
-	tmpCO << "    strcpy(ofp, argv[0]);" << std::endl;
-	tmpCO << "    ofp[strlen(argv[0])] = const_inputs[0] + '0';" << std::endl;
-	tmpCO << "    ofp[strlen(argv[0]) + 1] = const_inputs[1] + '0';"
-			<< std::endl;
-	tmpCO << "    ofp[strlen(argv[0]) + 2] = const_inputs[2] + '0';"
-			<< std::endl;
-	tmpCO << "    ofp[strlen(argv[0]) + 3] = 0;" << std::endl;
-	tmpCO << "    FILE *of = fopen(ofp, \"w\");" << std::endl;
-	tmpCO << "    if (!of) {" << std::endl;
-	tmpCO
-			<< "        printf(\"Failed to open output file \\\"%s\\\".\\n\", ofp);"
-			<< std::endl;
-	tmpCO << "        return 2;" << std::endl;
-	tmpCO << "    }" << std::endl;
-	tmpCO << "    free(ofp);" << std::endl << std::endl;
+	if (RUN_TYPE == SOLVE) {
+		tmpCO << "    if (argc < 5) {" << std::endl;
+		tmpCO
+				<< "        fprintf(stderr, \"Error: This program requires three input digits and a boolean to operate.\\n\");"
+				<< std::endl;
+		tmpCO
+				<< "        fprintf(stderr, \"Format: DIGIT_1 DIGIT_2 DIGIT_3 REVERSE\\n\");"
+				<< std::endl;
+		tmpCO << "        return 1;" << std::endl;
+		tmpCO << "    }" << std::endl << std::endl;
+		tmpCO << "    unsigned char const_inputs[3];" << std::endl;
+		tmpCO << "    for (char i = 0; i < 3; i++) {" << std::endl;
+		tmpCO
+				<< "        if (argv[i + 1][0] < '0' || argv[i + 1][0] > '9' || strlen(argv[i + 1]) != 1) {"
+				<< std::endl;
+		tmpCO
+				<< "            fprintf(stderr, \"DIGIT_%d wasn't a digit. Was %s.\\n\", i, argv[i + 1]);"
+				<< std::endl;
+		tmpCO << "            return 1;" << std::endl;
+		tmpCO << "        }" << std::endl;
+		tmpCO << "        const_inputs[i] = argv[i + 1][0] - '0';" << std::endl;
+		tmpCO << "    }" << std::endl << std::endl;
+		tmpCO << "    for (size_t i = 0; i < strlen(argv[4]); i++) {"
+				<< std::endl;
+		tmpCO << "        if (argv[4][i] >= 'A' && argv[4][i] <= 'Z') {"
+				<< std::endl;
+		tmpCO << "            argv[4][i] += 32;" << std::endl;
+		tmpCO << "        }" << std::endl;
+		tmpCO << "    }" << std::endl << std::endl;
+		tmpCO
+				<< "    if (strcmp(argv[4], \"true\") != 0 && strcmp(argv[4], \"false\") != 0) {"
+				<< std::endl;
+		tmpCO
+				<< "        fprintf(stderr, \"REVERSE wasn't a valid boolean. Was \\\"%s\\\".\\n\", argv[4]);"
+				<< std::endl;
+		tmpCO << "        return 1;" << std::endl;
+		tmpCO << "    }" << std::endl;
+		tmpCO << "    const char reverse = strcmp(argv[4], \"true\") == 0;"
+				<< std::endl << std::endl;
+		tmpCO << "    char *ofp = (char*) malloc(strlen(argv[0]) + 4);"
+				<< std::endl;
+		tmpCO << "    strcpy(ofp, argv[0]);" << std::endl;
+		tmpCO << "    ofp[strlen(argv[0])] = const_inputs[0] + '0';"
+				<< std::endl;
+		tmpCO << "    ofp[strlen(argv[0]) + 1] = const_inputs[1] + '0';"
+				<< std::endl;
+		tmpCO << "    ofp[strlen(argv[0]) + 2] = const_inputs[2] + '0';"
+				<< std::endl;
+		tmpCO << "    ofp[strlen(argv[0]) + 3] = 0;" << std::endl;
+		tmpCO << "    FILE *of = fopen(ofp, \"w\");" << std::endl;
+		tmpCO << "    if (!of) {" << std::endl;
+		tmpCO
+				<< "        fprintf(stderr, \"Failed to open output file \\\"%s\\\".\\n\", ofp);"
+				<< std::endl;
+		tmpCO << "        return 2;" << std::endl;
+		tmpCO << "    }" << std::endl;
+		tmpCO << "    free(ofp);" << std::endl << std::endl;
+	} else if (RUN_TYPE == EXECUTE) {
+		const size_t inpc = std::count_if(insts.begin(), insts.end(), [](const Instruction &inst) -> bool {
+			return inst.type == InstType::INP;
+		});
+		tmpCO << "    if (argc != " << inpc << " + 1) {" << std::endl;
+		tmpCO << "        fprintf(stderr, \"This program has " << inpc << " input instructions, so it requires " << inpc << " input numbers.\\n\");" << std::endl;
+		tmpCO << "        fprintf(stderr, \"However it was given %d.\\n\", argc - 1);" << std::endl;
+		tmpCO << "        return 1;" << std::endl;
+		tmpCO << "    }" << std::endl << std::endl;
+		tmpCO << "    char const_inputs[" << inpc << "];" << std::endl;
+		tmpCO << "    for (int i = 1; i < argc; i++) {" << std::endl;
+		tmpCO << "        for (size_t j = 0; j < strlen(argv[i]); j++) {" << std::endl;
+		tmpCO << "            if (argv[i][j] != '-' && (argv[i][j] < '0' || argv[i][j] > '9')) {" << std::endl;
+		tmpCO << "                fprintf(stderr, \"Input %d was not a valid number. Was \\\"%s\\\"\\n\", i, argv[i]);" << std::endl;
+		tmpCO << "                return 1;" << std::endl;
+		tmpCO << "            }" << std::endl;
+		tmpCO << "        }" << std::endl;
+		tmpCO << "        const int input = atoi(argv[i]);" << std::endl;
+		tmpCO << "        if (input < -128 || input > 127) {" << std::endl;
+		tmpCO << "            fprintf(stderr, \"Inputs are intended to be digits and required to be singed 8 bit numbers(-128 to 127).\\n\");" << std::endl;
+		tmpCO << "            fprintf(stderr, \"However input %d was %d.\\n\", i, input);" << std::endl;
+		tmpCO << "        }" << std::endl;
+		tmpCO << "        const_inputs[i - 1] = (char) input;" << std::endl;
+		tmpCO << "    }" << std::endl << std::endl;
+	}
 	tmpCO << "    long long int reg_h[4];" << std::endl << std::endl;
 
 	const char loop_start[] =
@@ -900,7 +934,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 			method_idx++;
 		}
 
-		if (method_idx > 3 && inst.type == InstType::INP) {
+		if (method_idx > 3 && inst.type == InstType::INP && RUN_TYPE == SOLVE) {
 			for (size_t i = 0; i < std::max(1, method_idx - 3); i++) {
 				tmpCO << "    ";
 			}
@@ -958,9 +992,13 @@ bool compile_instructions(const std::vector<Instruction> insts,
 			}
 		}
 
-		const char reg_idx = std::max('h', (char) ('i' + method_idx - 4));
+		const char reg_idx = RUN_TYPE == EXECUTE ? 'h' : std::max('h', (char) ('i' + method_idx - 4));
 		if (inst.type != InstType::NOP) {
-			for (size_t i = 0; i < std::max(1, method_idx - 2); i++) {
+			if (RUN_TYPE == SOLVE) {
+				for (size_t i = 0; i < std::max(1, method_idx - 2); i++) {
+					tmpCO << "    ";
+				}
+			} else {
 				tmpCO << "    ";
 			}
 			tmpCO << "reg_" << reg_idx << '[' << (uint16_t) inst.reg_a << ']';
@@ -970,10 +1008,10 @@ bool compile_instructions(const std::vector<Instruction> insts,
 		case InstType::NOP:
 			break;
 		case InstType::INP:
-			if (method_idx < 4) {
+			if (method_idx < 4 || RUN_TYPE == EXECUTE) {
 				tmpCO << " = const_inputs[" << method_idx - 1 << ']';
 			} else {
-				tmpCO << " = " << (char) ('i' + method_idx - 4);
+				tmpCO << " = " << reg_idx;
 			}
 			break;
 		case InstType::ADD:
@@ -1050,30 +1088,36 @@ bool compile_instructions(const std::vector<Instruction> insts,
 	}
 
 	tmpCO << std::endl;
-	tmpCO
-			<< "                                                if (reg_s[3] == 0) {"
-			<< std::endl;
-	tmpCO << "                                                    "
-			<< "printf(\"Worker %d%d%d found valid number: %d%d%d%d%d%d%d%d%d%d%d%d%d%d\\n\", "
-			<< "const_inputs[0], const_inputs[1], const_inputs[2], const_inputs[0], const_inputs[1], const_inputs[2], i, j, k, l, m, n, o, p, q, r, s);"
-			<< std::endl;
-	tmpCO << "                                                    "
-			<< "fprintf(of, \"%d%d%d%d%d%d%d%d%d%d%d%d%d%d\", "
-			<< "const_inputs[0], const_inputs[1], const_inputs[2], i, j, k, l, m, n, o, p, q, r, s);"
-			<< std::endl;
-	tmpCO << "                                                    return 0;"
-			<< std::endl;
-	for (uint8_t i = 12; i > 0; i--) {
-		for (uint8_t j = 0; j < i; j++) {
-			tmpCO << "    ";
+	if (RUN_TYPE == SOLVE) {
+		tmpCO
+				<< "                                                if (reg_s[3] == 0) {"
+				<< std::endl;
+		tmpCO << "                                                    "
+				<< "printf(\"Worker %d%d%d found valid number: %d%d%d%d%d%d%d%d%d%d%d%d%d%d\\n\", "
+				<< "const_inputs[0], const_inputs[1], const_inputs[2], const_inputs[0], const_inputs[1], const_inputs[2], i, j, k, l, m, n, o, p, q, r, s);"
+				<< std::endl;
+		tmpCO << "                                                    "
+				<< "fprintf(of, \"%d%d%d%d%d%d%d%d%d%d%d%d%d%d\", "
+				<< "const_inputs[0], const_inputs[1], const_inputs[2], i, j, k, l, m, n, o, p, q, r, s);"
+				<< std::endl;
+		tmpCO << "                                                    return 0;"
+				<< std::endl;
+		for (uint8_t i = 12; i > 0; i--) {
+			for (uint8_t j = 0; j < i; j++) {
+				tmpCO << "    ";
+			}
+			tmpCO << '}' << std::endl;
 		}
-		tmpCO << '}' << std::endl;
+		tmpCO
+				<< "    printf(\"Worker %d%d%d couldn't find a valid number.\\n\", const_inputs[0], const_inputs[1], const_inputs[2]);"
+				<< std::endl;
+		tmpCO << "    fprintf(of, \"-1\");" << std::endl;
+		tmpCO << "    fclose(of);" << std::endl;
+	} else if (RUN_TYPE == EXECUTE) {
+		tmpCO
+				<< "    printf(\"The register values after running the program are w=%lld, x=%lld, y=%lld, z=%lld.\\n\", "
+				<< "reg_h[0], reg_h[1], reg_h[2], reg_h[3]);" << std::endl;
 	}
-	tmpCO
-			<< "    printf(\"Worker %d%d%d couldn't find a valid number.\\n\", const_inputs[0], const_inputs[1], const_inputs[2]);"
-			<< std::endl;
-	tmpCO << "    fprintf(of, \"-1\");" << std::endl;
-	tmpCO << "    fclose(of);" << std::endl;
 	tmpCO << '}' << std::endl;
 	tmpCO.close();
 
