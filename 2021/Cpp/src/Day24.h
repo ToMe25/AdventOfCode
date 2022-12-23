@@ -155,14 +155,12 @@ std::vector<Instruction> dead_code_removal(
 		const std::vector<Instruction> &insts);
 
 /**
- * Merges sets of instructions using constants of the same type.
- * Only works with ADD, SUB, MUL, and DIV.
- * ADD and SUB can be mixed.
+ * Merges mixed add, sub, mul, and div instructions with constant secondary inputs on the same primary register.
  *
  * @param insts	The instructions to be optimized.
  * @return	The optimized instruction set.
  */
-std::vector<Instruction> merge_duplicate(const std::vector<Instruction> &insts);
+std::vector<Instruction> merge_maths(const std::vector<Instruction> &insts);
 
 /**
  * Moves INP instructions directly before the first instruction that uses the register they set.
@@ -172,6 +170,16 @@ std::vector<Instruction> merge_duplicate(const std::vector<Instruction> &insts);
  * @return	The reordered instruction set.
  */
 std::vector<Instruction> delay_input(const std::vector<Instruction> &insts);
+
+/**
+ * Merges the given instructions, if possible.
+ * Assumes all given instructions to be on the same primary register.
+ * Can merge either a bunch of mathematical instructions, or logical(eql) ones. Not both.
+ *
+ * @param insts	The instructions to merge.
+ * @return	The instructions after merging.
+ */
+std::vector<Instruction> merge_insts(const std::vector<Instruction> &insts);
 
 /**
  * Executes the given set of instructions with the given input.

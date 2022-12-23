@@ -58,6 +58,10 @@ void DayRunner<24>::solve(std::ifstream input) {
 
 	std::string line;
 	while (std::getline(input, line)) {
+		if (line.length() == 0) {
+			continue;
+		}
+
 		InstType type = InstType::NOP;
 		bool err = false;
 		switch (line[0]) {
@@ -131,9 +135,20 @@ void DayRunner<24>::solve(std::ifstream input) {
 
 	if (OPTIMIZE) {
 		instructions = static_eval(instructions);
+		instructions = merge_maths(instructions);
+		// Static evaluation needs to be run before and after merging instructions.
+		instructions = static_eval(instructions);
 		instructions = dead_code_removal(instructions);
-		instructions = merge_duplicate(instructions);
 		instructions = delay_input(instructions);
+	}
+
+	for (size_t i = 0; i < instructions.size(); i++) {
+		const Instruction inst = instructions[i];
+		if (inst.type == InstType::DIV && inst.const_b && inst.in_b == 0) {
+			std::cerr << "Error: Instruction " << (i + 1) << '(' << inst
+					<< ") causes a division by zero." << std::endl;
+			return;
+		}
 	}
 
 	if (RUN_TYPE == SOLVE
@@ -237,7 +252,27 @@ std::vector<Instruction> static_eval(const std::vector<Instruction> &insts) {
 	bool reg_dirty[4] { false };
 	bool last_dirty[4] { false };
 	long long int reg_state[4] { 0 };
-	for (Instruction inst : insts) {
+	for (size_t i = 0; i < insts.size(); i++) {
+		const Instruction inst = insts[i];
+		if (inst.type == InstType::DIV
+				&& ((inst.const_b && inst.in_b == 0)
+						|| (!inst.const_b && !reg_dirty[inst.in_b]
+								&& reg_state[inst.in_b] == 0))) {
+			// Print an error and treat the register as dirty if a division by zero occurs.
+			std::cerr << "Instruction " << (i + 1) << '(' << inst
+					<< ") causes a division by zero." << std::endl;
+			if (reg_state[inst.reg_a] != 0 || last_dirty[inst.reg_a]) {
+				if (reg_state[inst.reg_a] != 0) {
+					result.push_back(
+							Instruction(InstType::SET, inst.reg_a, true,
+									reg_state[inst.reg_a]));
+				}
+				last_dirty[inst.reg_a] = false;
+			}
+			result.push_back(Instruction(InstType::DIV, inst.reg_a, true, 0));
+			continue;
+		}
+
 		if (inst.type == InstType::NOP) {
 			// Remove all No-op instructions.
 			continue;
@@ -259,7 +294,7 @@ std::vector<Instruction> static_eval(const std::vector<Instruction> &insts) {
 			continue;
 		} else if (inst.type == InstType::ADD || inst.type == InstType::SUB) {
 			if (inst.const_b && inst.in_b == 0) {
-				// Remove add and subtract instructions with constant zero for the same reason.
+				// Remove add and subtract instructions with constant zero because they have no effect.
 				continue;
 			} else if (!inst.const_b && !reg_dirty[inst.in_b]
 					&& reg_state[inst.in_b] == 0) {
@@ -269,27 +304,27 @@ std::vector<Instruction> static_eval(const std::vector<Instruction> &insts) {
 
 		if (inst.type == InstType::SET && inst.const_b) {
 			// Setting a register to a const or a not dirty register cleans it.
+			last_dirty[inst.reg_a] |= reg_dirty[inst.reg_a];
 			reg_dirty[inst.reg_a] = false;
-			last_dirty[inst.reg_a] = true;
 		} else if (inst.type == InstType::MUL) {
 			// Multiplying a register by 0 cleans it.
 			if (inst.const_b && inst.in_b == 0) {
+				last_dirty[inst.reg_a] |= reg_dirty[inst.reg_a];
 				reg_dirty[inst.reg_a] = false;
-				last_dirty[inst.reg_a] = true;
 			} else if (!inst.const_b && !reg_dirty[inst.in_b]
 					&& reg_state[inst.in_b] == 0) {
+				last_dirty[inst.reg_a] |= reg_dirty[inst.reg_a];
 				reg_dirty[inst.reg_a] = false;
-				last_dirty[inst.reg_a] = true;
 			}
 		} else if (inst.type == InstType::MOD) {
-			// X modulo 1 is always 0, undirtying the register.
+			// X modulo 1 is always 0, cleaning the register.
 			if (inst.const_b && (inst.in_b == 1 || inst.in_b == -1)) {
+				last_dirty[inst.reg_a] |= reg_dirty[inst.reg_a];
 				reg_dirty[inst.reg_a] = false;
-				last_dirty[inst.reg_a] = true;
 			} else if (!inst.const_b && !reg_dirty[inst.in_b]
 					&& (reg_state[inst.in_b] == 1 || reg_state[inst.in_b] == -1)) {
+				last_dirty[inst.reg_a] |= reg_dirty[inst.reg_a];
 				reg_dirty[inst.reg_a] = false;
-				last_dirty[inst.reg_a] = true;
 			}
 		}
 
@@ -383,7 +418,8 @@ std::vector<Instruction> dead_code_removal(
 
 	std::vector<Instruction> result;
 	for (size_t i = 0; i < insts.size(); i++) {
-		if (used[i]) {
+		// Removing inputs would make later inputs use a different digit.
+		if (used[i] || insts[i].type == InstType::INP) {
 			result.push_back(insts[i]);
 		}
 	}
@@ -391,75 +427,65 @@ std::vector<Instruction> dead_code_removal(
 	return result;
 }
 
-std::vector<Instruction> merge_duplicate(
-		const std::vector<Instruction> &insts) {
+std::vector<Instruction> merge_maths(const std::vector<Instruction> &insts) {
 	std::vector<Instruction> result;
-	int64_t last_mergable[4] { -1, -1, -1, -1 };
+	std::vector<Instruction> mergable[4] { };
 	for (size_t i = 0; i < insts.size(); i++) {
 		const Instruction inst = insts[i];
+		bool can_merge = true;
+		bool is_bool = inst.type == InstType::EQL || inst.type == InstType::NEQ;
 
 		// Non constants can't be merged, except for the eql to neq merge.
-		if (!inst.const_b && inst.type != InstType::EQL) {
-			last_mergable[inst.reg_a] = -1;
-			last_mergable[inst.in_b] = -1;
-			result.push_back(inst);
-			continue;
-		}
-
-		if (last_mergable[inst.reg_a] == -1) {
-			if (inst.type == InstType::ADD || inst.type == InstType::SUB
-					|| inst.type == InstType::MUL || inst.type == InstType::DIV
-					|| inst.type == InstType::EQL) {
-				last_mergable[inst.reg_a] = result.size();
-			} else {
-				last_mergable[inst.reg_a] = -1;
+		if (!inst.const_b && !is_bool) {
+			can_merge = false;
+			if (mergable[inst.in_b].size() > 0) {
+				const std::vector<Instruction> merged = merge_insts(
+						mergable[inst.in_b]);
+				mergable[inst.in_b].clear();
+				result.insert(result.end(), merged.begin(), merged.end());
 			}
-			result.push_back(inst);
-			continue;
 		}
 
-		const InstType lastType = result[last_mergable[inst.reg_a]].type;
-		if (inst.type == lastType
-				|| (inst.type == InstType::ADD && lastType == InstType::SUB)
-				|| (inst.type == InstType::SUB && lastType == InstType::ADD)) {
-			switch (lastType) {
-			case InstType::ADD:
-			case InstType::SUB:
-				if (inst.type == lastType) {
-					result[last_mergable[inst.reg_a]].in_b += inst.in_b;
-				} else {
-					int32_t sum = result[last_mergable[inst.reg_a]].in_b;
-					if (lastType == InstType::SUB) {
-						sum *= -1;
-					}
-					sum += inst.type == InstType::ADD ? inst.in_b : -inst.in_b;
-
-					if (sum < 0) {
-						result[last_mergable[inst.reg_a]].type = InstType::SUB;
-						result[last_mergable[inst.reg_a]].in_b = -sum;
-					} else {
-						result[last_mergable[inst.reg_a]].type = InstType::ADD;
-						result[last_mergable[inst.reg_a]].in_b = sum;
-					}
-				}
-				break;
-			case InstType::MUL:
-			case InstType::DIV:
-				result[last_mergable[inst.reg_a]].in_b *= inst.in_b;
-				break;
-			case InstType::EQL:
-				if (inst.const_b && inst.in_b == 0) {
-					result[last_mergable[inst.reg_a]].type = InstType::NEQ;
-					last_mergable[inst.reg_a] = -1;
-				} else {
-					last_mergable[inst.reg_a] = result.size();
-					result.push_back(inst);
-				}
-				break;
+		if (can_merge
+				&& (inst.type == InstType::ADD || inst.type == InstType::SUB
+						|| inst.type == InstType::MUL
+						|| inst.type == InstType::DIV || is_bool)) {
+			if (mergable[inst.reg_a].size() == 0) {
+				mergable[inst.reg_a].push_back(inst);
+			} else if (is_bool
+					&& (mergable[inst.reg_a][0].type == InstType::EQL
+							|| mergable[inst.reg_a][0].type == InstType::NEQ)) {
+				mergable[inst.reg_a].push_back(inst);
+			} else if (!is_bool && mergable[inst.reg_a][0].type != InstType::EQL
+					&& mergable[inst.reg_a][0].type != InstType::NEQ) {
+				mergable[inst.reg_a].push_back(inst);
+			} else {
+				const std::vector<Instruction> merged = merge_insts(
+						mergable[inst.reg_a]);
+				mergable[inst.reg_a].clear();
+				result.insert(result.end(), merged.begin(), merged.end());
+				mergable[inst.reg_a].push_back(inst);
 			}
 		} else {
-			last_mergable[inst.reg_a] = result.size();
+			can_merge = false;
+		}
+
+		if (!can_merge) {
+			if (mergable[inst.reg_a].size() > 0) {
+				const std::vector<Instruction> merged = merge_insts(
+						mergable[inst.reg_a]);
+				mergable[inst.reg_a].clear();
+				result.insert(result.end(), merged.begin(), merged.end());
+			}
 			result.push_back(inst);
+		}
+	}
+
+	for (uint8_t i = 0; i < 4; i++) {
+		if (mergable[i].size() > 0) {
+			const std::vector<Instruction> merged = merge_insts(mergable[i]);
+			mergable[i].clear();
+			result.insert(result.end(), merged.begin(), merged.end());
 		}
 	}
 
@@ -494,6 +520,146 @@ std::vector<Instruction> delay_input(const std::vector<Instruction> &insts) {
 			}
 			result.push_back(inst);
 		}
+	}
+
+	return result;
+}
+
+std::vector<Instruction> merge_insts(const std::vector<Instruction> &insts) {
+	if (insts.size() < 2) {
+		return insts;
+	}
+
+	std::vector<Instruction> result;
+	if (insts[0].type == InstType::EQL || insts[0].type == InstType::NEQ) {
+		result.push_back(insts[0]);
+		for (size_t i = 1; i < insts.size(); i++) {
+			const Instruction inst = insts[i];
+			if (inst.type != InstType::EQL && inst.type != InstType::NEQ) {
+				std::cerr << "Can't merge EQL/NEQ other instructions."
+						<< std::endl;
+				return insts;
+			}
+
+			if (!inst.const_b) {
+				result.push_back(inst);
+			} else if (inst.type == InstType::EQL) {
+				const size_t last_idx = result.size() - 1;
+				if (result[last_idx].type == InstType::SET) {
+					result[last_idx].in_b = result[last_idx].in_b == inst.in_b;
+				} else {
+					if (inst.in_b == 0) {
+						result[last_idx].type =
+								insts[last_idx].type == InstType::EQL ?
+										InstType::NEQ : InstType::EQL;
+					} else if (inst.in_b != 1) {
+						result.clear();
+						result.push_back(
+								Instruction(InstType::SET, inst.reg_a, true,
+										0));
+					}
+				}
+			} else {
+				const size_t last_idx = result.size() - 1;
+				if (result[last_idx].type == InstType::SET) {
+					result[last_idx].in_b = result[last_idx].in_b != inst.in_b;
+				} else {
+					if (inst.in_b == 1) {
+						result[last_idx].type =
+								insts[last_idx].type == InstType::EQL ?
+										InstType::NEQ : InstType::EQL;
+					} else if (inst.in_b != 0) {
+						result.clear();
+						result.push_back(
+								Instruction(InstType::SET, inst.reg_a, true,
+										1));
+					}
+				}
+			}
+		}
+
+		return result;
+	}
+
+	std::vector<Instruction> temp;
+	temp = insts;
+	result.push_back(Instruction(InstType::MUL, insts[0].reg_a, true, 1));
+	for (size_t i = 0; i < temp.size(); i++) {
+		const Instruction inst = temp[i];
+		if (inst.type != InstType::ADD && inst.type != InstType::SUB
+				&& inst.type != InstType::MUL && inst.type != InstType::DIV) {
+			std::cerr
+					<< "Can't merge add/sub/mul/div instructions with other instructions."
+					<< std::endl;
+			return insts;
+		}
+
+		if (!inst.const_b) {
+			std::cerr
+					<< "Cannot merge add/sub/mul/div instructions with non constant secondary inputs."
+					<< std::endl;
+			return insts;
+		}
+
+		if (inst.type == InstType::MUL) {
+			for (size_t j = 0; j < i; j++) {
+				if (temp[j].type == InstType::ADD
+						|| temp[j].type == InstType::SUB) {
+					temp[j].in_b *= inst.in_b;
+				}
+			}
+			result[0].in_b *= inst.in_b;
+		}
+	}
+
+	result.push_back(Instruction(InstType::ADD, insts[0].reg_a, true, 0));
+	for (size_t i = 0; i < temp.size(); i++) {
+		if (temp[i].type == InstType::ADD) {
+			for (size_t j = 0; j < i; j++) {
+				if (temp[j].type == InstType::DIV) {
+					temp[i].in_b *= temp[j].in_b;
+				}
+			}
+			result[1].in_b += temp[i].in_b;
+		} else if (temp[i].type == InstType::SUB) {
+			for (size_t j = 0; j < i; j++) {
+				if (temp[j].type == InstType::DIV) {
+					temp[i].in_b *= temp[j].in_b;
+				}
+			}
+			result[1].in_b -= temp[i].in_b;
+		}
+	}
+
+	if (result[1].in_b < 0) {
+		result[1].type = InstType::SUB;
+		result[1].in_b *= -1;
+	}
+
+	result.push_back(Instruction(InstType::DIV, insts[0].reg_a, true, 1));
+	for (size_t i = 0; i < temp.size(); i++) {
+		const Instruction inst = temp[i];
+		if (inst.type == InstType::DIV) {
+			if (result[0].in_b % inst.in_b == 0
+					&& result[1].in_b % inst.in_b == 0) {
+				result[0].in_b /= inst.in_b;
+				result[1].in_b /= inst.in_b;
+			} else {
+				result[2].in_b *= inst.in_b;
+			}
+		}
+	}
+
+	if (result[2].in_b == 1) {
+		result.erase(result.begin() + 2);
+	}
+
+	if (result[1].in_b == 0) {
+		result.erase(result.begin() + 1);
+	}
+
+	if (result[0].in_b == 1) {
+		result.erase(result.begin());
 	}
 
 	return result;
@@ -897,26 +1063,40 @@ bool compile_instructions(const std::vector<Instruction> insts,
 		tmpCO << "    }" << std::endl;
 		tmpCO << "    free(ofp);" << std::endl << std::endl;
 	} else if (RUN_TYPE == EXECUTE) {
-		const size_t inpc = std::count_if(insts.begin(), insts.end(), [](const Instruction &inst) -> bool {
-			return inst.type == InstType::INP;
-		});
+		const size_t inpc = std::count_if(insts.begin(), insts.end(),
+				[](const Instruction &inst) -> bool {
+					return inst.type == InstType::INP;
+				});
 		tmpCO << "    if (argc != " << inpc << " + 1) {" << std::endl;
-		tmpCO << "        fprintf(stderr, \"This program has " << inpc << " input instructions, so it requires " << inpc << " input numbers.\\n\");" << std::endl;
-		tmpCO << "        fprintf(stderr, \"However it was given %d.\\n\", argc - 1);" << std::endl;
+		tmpCO << "        fprintf(stderr, \"This program has " << inpc
+				<< " input instructions, so it requires " << inpc
+				<< " input numbers.\\n\");" << std::endl;
+		tmpCO
+				<< "        fprintf(stderr, \"However it was given %d.\\n\", argc - 1);"
+				<< std::endl;
 		tmpCO << "        return 1;" << std::endl;
 		tmpCO << "    }" << std::endl << std::endl;
 		tmpCO << "    char const_inputs[" << inpc << "];" << std::endl;
 		tmpCO << "    for (int i = 1; i < argc; i++) {" << std::endl;
-		tmpCO << "        for (size_t j = 0; j < strlen(argv[i]); j++) {" << std::endl;
-		tmpCO << "            if (argv[i][j] != '-' && (argv[i][j] < '0' || argv[i][j] > '9')) {" << std::endl;
-		tmpCO << "                fprintf(stderr, \"Input %d was not a valid number. Was \\\"%s\\\"\\n\", i, argv[i]);" << std::endl;
+		tmpCO << "        for (size_t j = 0; j < strlen(argv[i]); j++) {"
+				<< std::endl;
+		tmpCO
+				<< "            if (argv[i][j] != '-' && (argv[i][j] < '0' || argv[i][j] > '9')) {"
+				<< std::endl;
+		tmpCO
+				<< "                fprintf(stderr, \"Input %d was not a valid number. Was \\\"%s\\\"\\n\", i, argv[i]);"
+				<< std::endl;
 		tmpCO << "                return 1;" << std::endl;
 		tmpCO << "            }" << std::endl;
 		tmpCO << "        }" << std::endl;
 		tmpCO << "        const int input = atoi(argv[i]);" << std::endl;
 		tmpCO << "        if (input < -128 || input > 127) {" << std::endl;
-		tmpCO << "            fprintf(stderr, \"Inputs are intended to be digits and required to be singed 8 bit numbers(-128 to 127).\\n\");" << std::endl;
-		tmpCO << "            fprintf(stderr, \"However input %d was %d.\\n\", i, input);" << std::endl;
+		tmpCO
+				<< "            fprintf(stderr, \"Inputs are intended to be digits and required to be singed 8 bit numbers(-128 to 127).\\n\");"
+				<< std::endl;
+		tmpCO
+				<< "            fprintf(stderr, \"However input %d was %d.\\n\", i, input);"
+				<< std::endl;
 		tmpCO << "        }" << std::endl;
 		tmpCO << "        const_inputs[i - 1] = (char) input;" << std::endl;
 		tmpCO << "    }" << std::endl << std::endl;
@@ -992,7 +1172,9 @@ bool compile_instructions(const std::vector<Instruction> insts,
 			}
 		}
 
-		const char reg_idx = RUN_TYPE == EXECUTE ? 'h' : std::max('h', (char) ('i' + method_idx - 4));
+		const char reg_idx =
+				RUN_TYPE == EXECUTE ?
+						'h' : std::max('h', (char) ('i' + method_idx - 4));
 		if (inst.type != InstType::NOP) {
 			if (RUN_TYPE == SOLVE) {
 				for (size_t i = 0; i < std::max(1, method_idx - 2); i++) {
