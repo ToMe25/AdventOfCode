@@ -6,6 +6,7 @@
  */
 
 #include "Day11.h"
+#include <algorithm>
 #include <cctype>
 
 aoc::Monkey::Monkey(const uint8_t id, const std::vector<uint64_t> start_items,

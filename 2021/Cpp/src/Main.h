@@ -9,6 +9,7 @@
 #define MAIN_H_
 
 #include <fstream>
+#include <string>
 #include <utility>
 
 /**

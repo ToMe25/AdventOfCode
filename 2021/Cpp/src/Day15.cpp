@@ -28,7 +28,7 @@ void DayRunner<15>::solve(std::ifstream input) {
 		y++;
 	}
 
-	Node goal = find_path(map);
+	Node goal = find_path<MAP_SIZE>(map);
 
 	std::cout << "The cost for the easiest path for part one has a cost of "
 			<< goal.cost_sum << '.' << std::endl;
@@ -49,7 +49,7 @@ void DayRunner<15>::solve(std::ifstream input) {
 		}
 	}
 
-	goal = find_path(map_2);
+	goal = find_path<MAP_SIZE * 5>(map_2);
 
 	std::cout << "The cost for the easiest path for part two has a cost of "
 			<< goal.cost_sum << '.' << std::endl;
@@ -75,7 +75,7 @@ Node find_path(Node map[Size][Size]) {
 
 		closed.insert(current);
 
-		for (Node *neighbor : get_neighbors(current, map)) {
+		for (Node *neighbor : get_neighbors<Size>(current, map)) {
 			if (closed.count(neighbor) == 0) {
 				uint16_t tentative = current->cost_sum + neighbor->cost;
 

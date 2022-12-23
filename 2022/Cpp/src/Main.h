@@ -11,6 +11,7 @@
 #include <functional>
 #include <fstream>
 #include <iostream>
+#include <string>
 
 /**
  * The main method that gets called when the program is executed.

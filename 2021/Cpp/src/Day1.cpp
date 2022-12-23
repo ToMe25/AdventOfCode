@@ -10,10 +10,10 @@
 
 template<>
 void DayRunner<1>::solve(std::ifstream input) {
-	uint increases = 0, sum_increases = 0;
-	uint depth = 0;
-	uint previous_depths[2] { 0 };
-	uint sum = 0, previous_sum = 0;
+	uint32_t increases = 0, sum_increases = 0;
+	uint32_t depth = 0;
+	uint32_t previous_depths[2] { 0 };
+	uint32_t sum = 0, previous_sum = 0;
 	while (input >> depth) {
 		if (previous_depths[0] != 0) {
 			if (depth > previous_depths[0]) {

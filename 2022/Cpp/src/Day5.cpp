@@ -17,7 +17,7 @@ std::pair<std::string, std::string> day5Combined(std::ifstream input) {
 		if (line.length() < 3) {
 			continue;
 		} else if (line.find('[') != std::string::npos) {
-			for (size_t i = 1; i < line.length() + 4; i += 4) {
+			for (size_t i = 1; i < line.length(); i += 4) {
 				if (!std::isalnum(line[i])) {
 					continue;
 				}

@@ -35,16 +35,18 @@ void DayRunner<7>::solve(std::ifstream input) {
 		distance += abs(nr - median);
 	}
 
-	std::cout << "The total fuel used for part 1 is " << distance << " units." << std::endl;
+	std::cout << "The total fuel used for part 1 is " << distance << " units."
+			<< std::endl;
 
 	average /= numbers.size();
 
 	distance = 0;
 	uint16_t dist;
 	for (int16_t nr : numbers) {
-		dist = abs(nr - average);
+		dist = abs((int32_t) (nr - average));
 		distance += (dist + 1) * dist / 2.0;
 	}
 
-	std::cout << "The total fuel used for part 2 is " << distance << " units." << std::endl;
+	std::cout << "The total fuel used for part 2 is " << distance << " units."
+			<< std::endl;
 }

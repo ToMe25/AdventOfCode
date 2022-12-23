@@ -6,6 +6,7 @@
  */
 
 #include "Day13.h"
+#include <algorithm>
 
 bool aoc::compare_lists(const std::string &first, const std::string &second) {
 	std::string::const_iterator lli = first.begin();

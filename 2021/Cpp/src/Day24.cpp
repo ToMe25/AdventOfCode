@@ -7,6 +7,7 @@
 
 #include "Day24.h"
 #include <cmath>
+#include <sstream>
 #include <thread>
 
 enum ExecMode {
@@ -162,10 +163,10 @@ void DayRunner<24>::solve(std::ifstream input) {
 	}
 
 	std::filesystem::path tmpDir("tmp");
-	std::optional<std::filesystem::path> tmpLib = std::nullopt;
+	std::optional<std::filesystem::path> tmpExe = std::nullopt;
 	if (EXEC_MODE == COMPILE) {
-		tmpLib = create_temp_lib(instructions, tmpDir);
-		if (!tmpLib.has_value()) {
+		tmpExe = create_temp_lib(instructions, tmpDir);
+		if (!tmpExe.has_value()) {
 			return;
 		}
 	}
@@ -173,7 +174,7 @@ void DayRunner<24>::solve(std::ifstream input) {
 	if (RUN_TYPE == SOLVE) {
 		int64_t part1 = -1;
 		if (EXEC_MODE == COMPILE) {
-			part1 = find_first_valid_compiled(tmpLib.value(), true);
+			part1 = find_first_valid_compiled(tmpExe.value(), true);
 		} else if (EXEC_MODE == INTERPRETE) {
 			part1 = find_first_valid_interpreted(instructions, true);
 		}
@@ -182,7 +183,7 @@ void DayRunner<24>::solve(std::ifstream input) {
 
 		int64_t part2 = -1;
 		if (EXEC_MODE == COMPILE) {
-			part2 = find_first_valid_compiled(tmpLib.value(), false);
+			part2 = find_first_valid_compiled(tmpExe.value(), false);
 		} else if (EXEC_MODE == INTERPRETE) {
 			part2 = find_first_valid_interpreted(instructions, false);
 		}
@@ -200,7 +201,7 @@ void DayRunner<24>::solve(std::ifstream input) {
 				<< registers[2] << ", z=" << registers[3] << '.' << std::endl;
 	} else if (RUN_TYPE == EXECUTE && EXEC_MODE == COMPILE) {
 		std::ostringstream cmd;
-		cmd << tmpLib.value();
+		cmd << tmpExe.value();
 		for (size_t i = 0; i < sizeof(INPUT_DIGITS) / sizeof(char); i++) {
 			cmd << ' ' << (int16_t) INPUT_DIGITS[i];
 		}
@@ -213,7 +214,7 @@ void DayRunner<24>::solve(std::ifstream input) {
 	}
 
 	if (EXEC_MODE == COMPILE) {
-		delete_temp(tmpDir, tmpLib.value());
+		delete_temp(tmpDir, tmpExe.value());
 	}
 }
 
@@ -388,7 +389,8 @@ std::vector<Instruction> static_eval(const std::vector<Instruction> &insts) {
 
 std::vector<Instruction> dead_code_removal(
 		const std::vector<Instruction> &insts) {
-	bool used[insts.size()] { false };
+	std::vector<bool> used;
+	used.resize(insts.size(), false);
 	bool reg_used[4] { false, false, false, true };
 	if (RUN_TYPE == EXECUTE) {
 		reg_used[0] = reg_used[1] = reg_used[2] = true;
@@ -1328,7 +1330,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 	tmpMO << "\t$(CC) -c $(CFLAGS) -o $@ $<" << std::endl;
 	tmpMO.close();
 
-	std::string cmd = std::string("make -f ").append(tmpM);
+	std::string cmd = std::string("make -f ").append(tmpM.generic_string());
 	std::cout << "Running \"" << cmd << "\"." << std::endl;
 	int status = std::system(cmd.c_str());
 	if (status != 0) {
@@ -1361,21 +1363,25 @@ std::optional<std::filesystem::path> create_temp_lib(
 		return std::nullopt;
 	}
 
-	std::filesystem::path tmpLib(tmpDir);
-	tmpLib += std::filesystem::path::preferred_separator;
-	tmpLib += "tmp";
-	if (!std::filesystem::exists(tmpLib)) {
-		std::cerr << "Make didn't create library " << tmpLib << '.'
-				<< std::endl;
+	std::filesystem::path tmpE(tmpDir);
+	tmpE += std::filesystem::path::preferred_separator;
+	tmpE += "tmp";
+	if (!std::filesystem::exists(tmpE)) {
+		std::filesystem::path tmpExe(tmpE);
+		tmpExe += ".exe";
+		if (std::filesystem::exists(tmpExe)) {
+			return std::optional<std::filesystem::path> { tmpExe };
+		}
+		std::cerr << "Make didn't create library " << tmpE << '.' << std::endl;
 		return std::nullopt;
 	}
 
-	return std::optional<std::filesystem::path> { tmpLib };
+	return std::optional<std::filesystem::path> { tmpE };
 }
 
 bool delete_temp(const std::filesystem::path tmpDir,
-		const std::filesystem::path tmpLib) {
-	std::filesystem::remove(tmpLib);
+		const std::filesystem::path tmpExe) {
+	std::filesystem::remove(tmpExe);
 	std::filesystem::path tmpO(tmpDir);
 	tmpO += std::filesystem::path::preferred_separator;
 	tmpO += "tmp.o";

@@ -10,11 +10,11 @@
 
 template<>
 void DayRunner<2>::solve(std::ifstream input) {
-	uint depth = 0;
-	uint horizontal = 0;
-	uint aim = 0;
+	uint32_t depth = 0;
+	uint32_t horizontal = 0;
+	uint32_t aim = 0;
 	std::string command;
-	uint value;
+	uint32_t value;
 	while (input >> command >> value) {
 		if (command == "forward") {
 			horizontal += value;
