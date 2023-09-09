@@ -6,6 +6,7 @@
  */
 
 #include "Day24.h"
+#include <climits>
 #include <cmath>
 #include <sstream>
 #include <thread>
@@ -51,7 +52,7 @@ const RunType RUN_TYPE = SOLVE;
 /**
  * The digits to use as input for the program.
  */
-const char INPUT_DIGITS[] = { 5 };
+const char INPUT_DIGITS[] = { 10 };
 
 template<>
 void DayRunner<24>::solve(std::ifstream input) {
@@ -502,6 +503,7 @@ std::vector<Instruction> delay_input(const std::vector<Instruction> &insts) {
 		if (inst.type == InstType::INP) {
 			reg_inp[inst.reg_a] = result.size();
 		} else if (inst.type != InstType::NOP) {
+			// FIXME earlier inputs on unrelated registers need to be inserted.
 			if (!inst.const_b && reg_inp[inst.in_b] >= 0
 					&& reg_inp[inst.in_b] < reg_inp[inst.reg_a]) {
 				result.push_back(
@@ -521,6 +523,23 @@ std::vector<Instruction> delay_input(const std::vector<Instruction> &insts) {
 				reg_inp[inst.in_b] = -1;
 			}
 			result.push_back(inst);
+		}
+	}
+
+	// Insert unused inputs.
+	for (uint8_t i = 0; i < 4; i++) {
+		int64_t min = LLONG_MAX;
+		int8_t min_reg = -1;
+		for (uint8_t j = 0; j < 4; j++) {
+			if (reg_inp[j] > -1 && reg_inp[j] < min) {
+				min = reg_inp[j];
+				min_reg = j;
+			}
+		}
+
+		if (min_reg > -1) {
+			result.push_back(Instruction(InstType::INP, min_reg, false, 0));
+			reg_inp[min_reg] = -1;
 		}
 	}
 
@@ -1099,6 +1118,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 		tmpCO
 				<< "            fprintf(stderr, \"However input %d was %d.\\n\", i, input);"
 				<< std::endl;
+		tmpCO << "            return 1;" << std::endl;
 		tmpCO << "        }" << std::endl;
 		tmpCO << "        const_inputs[i - 1] = (char) input;" << std::endl;
 		tmpCO << "    }" << std::endl << std::endl;
