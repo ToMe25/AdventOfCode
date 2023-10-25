@@ -1,5 +1,6 @@
 # Build
 build/
+x64/
 
 # Eclipse
 .cproject

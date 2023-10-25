@@ -168,14 +168,14 @@ std::ifstream aoc::getInputFileStream(const uint8_t day) {
 	input += fs::path::preferred_separator;
 	input += "input";
 	if (!fs::exists(input)) {
-		std::cerr << "Directory " << input.c_str() << " doesn't exist."
+		std::cerr << "Directory " << input.generic_string() << " doesn't exist."
 				<< std::endl;
 		exit(2);
 	}
 	input = fs::canonical(input);
 
 	if (!fs::is_directory(input)) {
-		std::cerr << "File " << input.c_str() << " is not a directory."
+		std::cerr << "File " << input.generic_string() << " is not a directory."
 				<< std::endl;
 		exit(2);
 	}
@@ -185,7 +185,7 @@ std::ifstream aoc::getInputFileStream(const uint8_t day) {
 	input += std::to_string(day);
 	input += ".txt";
 	if (!fs::exists(input) || !fs::is_regular_file(input)) {
-		std::cerr << "File " << input.c_str()
+		std::cerr << "File " << input.generic_string()
 				<< " doesn't exist or isn't a file." << std::endl;
 		exit(3);
 	}

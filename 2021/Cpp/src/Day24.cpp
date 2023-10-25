@@ -1360,50 +1360,30 @@ bool compile_instructions(const std::vector<Instruction> insts,
 	tmpCO.close();
 
 	std::string cmd = "";
-	switch (comp) {
-	case Compiler::MAKE: {
-		std::filesystem::path tmpM(tmpDir);
-		tmpM += std::filesystem::path::preferred_separator;
-		tmpM += "tmp.Makefile";
-
-		if (std::filesystem::exists(tmpM)
-				&& !std::filesystem::is_regular_file(tmpM)) {
-			std::cerr << tmpM << " exists but isn't a file." << std::endl;
-			return false;
-		} else if (std::filesystem::exists(tmpM)
-				&& !std::filesystem::remove(tmpM)) {
-			std::cerr << "Failed to remove " << tmpM << '.' << std::endl;
-			return false;
-		}
-
-		std::ofstream tmpMO(tmpM);
-		tmpMO << "PROJECT_ROOT = $(dir $(abspath $(lastword $(MAKEFILE_LIST))))"
-				<< std::endl;
-		tmpMO << "OBJS := $(PROJECT_ROOT)tmp.o" << std::endl;
-		tmpMO << "CFLAGS += -O3" << std::endl;
-		tmpMO << "$(PROJECT_ROOT)tmp: $(OBJS)" << std::endl;
-		tmpMO << "\t$(CC) $(LDFLAGS) -o $@ $^" << std::endl;
-		tmpMO << "$(PROJECT_ROOT)%.o: $(PROJECT_ROOT)%.c" << std::endl;
-		tmpMO << "\t$(CC) -c $(CFLAGS) -o $@ $<" << std::endl;
-		tmpMO.close();
-
-		cmd = std::string("make -f ").append(tmpM.generic_string());
-		break;
+	std::filesystem::path tmpE(tmpDir);
+	tmpE += std::filesystem::path::preferred_separator;
+	tmpE += "tmp";
+	// Always generate .exe files on windows.
+	if (std::filesystem::path::preferred_separator == '\\') {
+		tmpE += ".exe";
 	}
-	case Compiler::GCC: {
-		std::filesystem::path tmpE(tmpDir);
-		tmpE += std::filesystem::path::preferred_separator;
-		tmpE += "tmp";
+
+	switch (comp) {
+	case Compiler::GCC:
 		cmd = std::string("gcc -o ").append(tmpE.generic_string()).append(
 				" -O3 ").append(tmpC.generic_string());
 		break;
-	}
-	case Compiler::CLANG: {
-		std::filesystem::path tmpE(tmpDir);
-		tmpE += std::filesystem::path::preferred_separator;
-		tmpE += "tmp";
+	case Compiler::CLANG:
 		cmd = std::string("clang -o ").append(tmpE.generic_string()).append(
 				" -O3 ").append(tmpC.generic_string());
+		break;
+	case Compiler::CL: {
+		std::filesystem::path tmpO(tmpDir);
+		tmpO += std::filesystem::path::preferred_separator;
+		tmpO += "tmp.o";
+		cmd = std::string("cl /Fo: ").append(tmpO.generic_string()).append(
+				" /Fe: ").append(tmpE.generic_string()).append(" /O2 ").append(
+				tmpC.generic_string());
 		break;
 	}
 	default:
@@ -1427,15 +1407,23 @@ bool compile_instructions(const std::vector<Instruction> insts,
 
 Compiler detect_compiler() {
 	std::cout << "Searching for compiler to use..." << std::endl;
-	if (std::system("make -v > /dev/null 2> /dev/null") == 0) {
-		std::cout << "Found make. Generating Makefile" << std::endl;
-		return Compiler::MAKE;
-	} else if (std::system("gcc -v > /dev/null 2> /dev/null") == 0) {
+	std::string mute_str = "";
+	if (std::filesystem::exists("/dev/null")) {
+		mute_str = " > /dev/null 2> /dev/null";
+	} else {
+		mute_str = " > nul 2> nul";
+	}
+
+	if (std::system(std::string("gcc -v").append(mute_str).c_str()) == 0) {
 		std::cout << "Compiling using gcc." << std::endl;
 		return Compiler::GCC;
-	} else if (std::system("clang -v > /dev/null 2> /dev/null") == 0) {
+	} else if (std::system(std::string("clang -v").append(mute_str).c_str())
+			== 0) {
 		std::cout << "Compiling using clang." << std::endl;
 		return Compiler::CLANG;
+	} else if (std::system(std::string("cl").append(mute_str).c_str()) == 0) {
+		std::cout << "Compiling using cl." << std::endl;
+		return Compiler::CL;
 	} else {
 		std::cerr
 				<< "Couldn't find a supported compiler, falling back to interpreter."

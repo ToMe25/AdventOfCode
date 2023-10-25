@@ -121,11 +121,6 @@ typedef std::function<void(const long long int[4], long long int*, const char)> 
  */
 enum class Compiler {
 	/**
-	 * Use make to compile the instructions, and let make figure out the compiler.
-	 * If make is installed this program assumes make will find a C compiler it can use.
-	 */
-	MAKE,
-	/**
 	 * Use gcc to compile the instructions.
 	 */
 	GCC,
@@ -133,6 +128,10 @@ enum class Compiler {
 	 * Use clang to compile the instructions.
 	 */
 	CLANG,
+	/**
+	 * Use MSVC to compile the instructions.
+	 */
+	CL,
 	/**
 	 * No compiler was found, fall back to interpreted execution.
 	 */
