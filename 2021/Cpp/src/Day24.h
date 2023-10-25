@@ -117,6 +117,29 @@ struct Instruction {
 typedef std::function<void(const long long int[4], long long int*, const char)> dynfunc;
 
 /**
+ * An enum representing the compiler to be used.
+ */
+enum class Compiler {
+	/**
+	 * Use make to compile the instructions, and let make figure out the compiler.
+	 * If make is installed this program assumes make will find a C compiler it can use.
+	 */
+	MAKE,
+	/**
+	 * Use gcc to compile the instructions.
+	 */
+	GCC,
+	/**
+	 * Use clang to compile the instructions.
+	 */
+	CLANG,
+	/**
+	 * No compiler was found, fall back to interpreted execution.
+	 */
+	NONE
+};
+
+/**
  * Writes a string representation of the given instruction to the given output stream.
  *
  * @param stream	The ostream to write to.
@@ -229,7 +252,8 @@ void find_first_runner_compiled(const std::filesystem::path exe,
  * @param highest	If true this method looks for the highest valid number, otherwise the lowest.
  * @return	The highest valid number, or -1 if none was found.
  */
-int64_t find_first_valid_interpreted(const std::vector<Instruction> insts, const bool highest);
+int64_t find_first_valid_interpreted(const std::vector<Instruction> insts,
+		const bool highest);
 
 /**
  * Multithreaded method searching for the first valid 14 digit number.
@@ -239,7 +263,8 @@ int64_t find_first_valid_interpreted(const std::vector<Instruction> insts, const
  * @param exe		The executable to be run to check a number segment.
  * @return	The highest valid number, or -1 if none was found.
  */
-int64_t find_first_valid_compiled(const std::filesystem::path exe, const bool highest);
+int64_t find_first_valid_compiled(const std::filesystem::path exe,
+		const bool highest);
 
 /**
  * Compiles the given set of instructions to a native library in the given temporary directory.
@@ -247,21 +272,39 @@ int64_t find_first_valid_compiled(const std::filesystem::path exe, const bool hi
  *
  * @param insts		The instructions to compile to a native library.
  * @param tempDir	The directory in which to generate the code and compile the library.
+ * @param comp		The compiler to use to compile the instructions.
  * @return	Whether the compilation was successful.
  */
 bool compile_instructions(const std::vector<Instruction> insts,
-		const std::filesystem::path tmpDir);
+		const std::filesystem::path tmpDir, const Compiler comp);
+
+/**
+ * Finds the compiler to use.
+ * The order of preference is
+ *  1. make
+ *  2. gcc
+ *  3. clang.
+ *
+ * Other compilers aren't supported at this time.
+ * If make is found this program assumes that there is a c compiler that make can use.
+ * If none of these can be found this will return None.
+ *
+ * @return	The compiler to use to compile the instructions.
+ */
+Compiler detect_compiler();
 
 /**
  * Creates a temporary shared library from the given instructions in a temporary directory.
  *
  * @param instructions	The instructions to compile.
  * @param tmpDir		The temporary directory to create the library in.
+ * @param compiler		The compiler to use to create the temporary executable.
  * @return	The path of the library, if successful, or nothing otherwise.
  */
 std::optional<std::filesystem::path> create_temp_lib(
 		const std::vector<Instruction> instructions,
-		const std::filesystem::path tmpDir);
+		const std::filesystem::path tmpDir,
+		const Compiler compiler);
 
 /**
  * Deletes the temporary shared library and directory.
@@ -271,6 +314,7 @@ std::optional<std::filesystem::path> create_temp_lib(
  * @param tmpLib	The temporary shared library to delete.
  * @return	True if the directory was successfully deleted.
  */
-bool delete_temp(const std::filesystem::path tmpDir, const std::filesystem::path tmpLib);
+bool delete_temp(const std::filesystem::path tmpDir,
+		const std::filesystem::path tmpLib);
 
 #endif /* DAY24_H_ */

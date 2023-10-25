@@ -33,6 +33,21 @@ enum RunType {
 	EXECUTE
 };
 
+enum SolvePart {
+	/**
+	 * Only solves part 1, skips part 2.
+	 */
+	PART_1,
+	/**
+	 * Only solves part 2, skips part 1.
+	 */
+	PART_2,
+	/**
+	 * Solves both part 1 and part 2.
+	 */
+	BOTH
+};
+
 /**
  * Whether the input assembly should be interpreted or compiled.
  */
@@ -48,6 +63,12 @@ const bool OPTIMIZE = true;
  * Run type execute is not yet compatible with compiled execution.
  */
 const RunType RUN_TYPE = SOLVE;
+
+/**
+ * The challenge part to solve.
+ * Ignored in RUN_TYPE EXECUTE.
+ */
+const SolvePart SOLVE_PART = BOTH;
 
 /**
  * The digits to use as input for the program.
@@ -165,56 +186,69 @@ void DayRunner<24>::solve(std::ifstream input) {
 
 	std::filesystem::path tmpDir("tmp");
 	std::optional<std::filesystem::path> tmpExe = std::nullopt;
-	if (EXEC_MODE == COMPILE) {
-		tmpExe = create_temp_lib(instructions, tmpDir);
+	Compiler compiler = detect_compiler();
+	if (EXEC_MODE == COMPILE && compiler != Compiler::NONE) {
+		tmpExe = create_temp_lib(instructions, tmpDir, compiler);
 		if (!tmpExe.has_value()) {
-			return;
+			std::cerr
+					<< "Creating compiled executable failed. Falling back to interpreter."
+					<< std::endl;
 		}
 	}
 
 	if (RUN_TYPE == SOLVE) {
 		int64_t part1 = -1;
-		if (EXEC_MODE == COMPILE) {
-			part1 = find_first_valid_compiled(tmpExe.value(), true);
-		} else if (EXEC_MODE == INTERPRETE) {
-			part1 = find_first_valid_interpreted(instructions, true);
-		}
-		std::cout << "The biggest valid serial number is " << part1 << '.'
-				<< std::endl;
-
-		int64_t part2 = -1;
-		if (EXEC_MODE == COMPILE) {
-			part2 = find_first_valid_compiled(tmpExe.value(), false);
-		} else if (EXEC_MODE == INTERPRETE) {
-			part2 = find_first_valid_interpreted(instructions, false);
-		}
-		std::cout << "The biggest valid serial number is " << part1 << '.'
-				<< std::endl;
-		std::cout << "The smallest valid serial number is " << part2 << '.'
-				<< std::endl;
-	} else if (RUN_TYPE == EXECUTE && EXEC_MODE == INTERPRETE) {
-		const long long int initial_regs[4] { 0 };
-		long long int registers[4];
-		run_program(instructions.data(), instructions.size(), initial_regs,
-				registers, INPUT_DIGITS, sizeof(INPUT_DIGITS) / sizeof(char));
-		std::cout << "The register values after running the program are w="
-				<< registers[0] << ", x=" << registers[1] << ", y="
-				<< registers[2] << ", z=" << registers[3] << '.' << std::endl;
-	} else if (RUN_TYPE == EXECUTE && EXEC_MODE == COMPILE) {
-		std::ostringstream cmd;
-		cmd << tmpExe.value();
-		for (size_t i = 0; i < sizeof(INPUT_DIGITS) / sizeof(char); i++) {
-			cmd << ' ' << (int16_t) INPUT_DIGITS[i];
+		if (SOLVE_PART == PART_1 || SOLVE_PART == BOTH) {
+			if (EXEC_MODE == COMPILE && tmpExe.has_value()) {
+				part1 = find_first_valid_compiled(tmpExe.value(), true);
+			} else {
+				part1 = find_first_valid_interpreted(instructions, true);
+			}
+			std::cout << "The biggest valid serial number is " << part1 << '.'
+					<< std::endl;
 		}
 
-		const int status = std::system(cmd.str().c_str());
-		if (status != 0) {
-			std::cerr << "Compiled program failed with exit code " << status
-					<< '.' << std::endl;
+		if (SOLVE_PART == PART_2 || SOLVE_PART == BOTH) {
+			int64_t part2 = -1;
+			if (EXEC_MODE == COMPILE && tmpExe.has_value()) {
+				part2 = find_first_valid_compiled(tmpExe.value(), false);
+			} else {
+				part2 = find_first_valid_interpreted(instructions, false);
+			}
+			if (SOLVE_PART == BOTH) {
+				std::cout << "The biggest valid serial number is " << part1
+						<< '.' << std::endl;
+			}
+			std::cout << "The smallest valid serial number is " << part2 << '.'
+					<< std::endl;
+		}
+	} else if (RUN_TYPE == EXECUTE) {
+		if (EXEC_MODE == COMPILE && tmpExe.has_value()) {
+			std::ostringstream cmd;
+			cmd << tmpExe.value();
+			for (size_t i = 0; i < sizeof(INPUT_DIGITS) / sizeof(char); i++) {
+				cmd << ' ' << (int16_t) INPUT_DIGITS[i];
+			}
+
+			const int status = std::system(cmd.str().c_str());
+			if (status != 0) {
+				std::cerr << "Compiled program failed with exit code " << status
+						<< '.' << std::endl;
+			}
+		} else {
+			const long long int initial_regs[4] { 0 };
+			long long int registers[4];
+			run_program(instructions.data(), instructions.size(), initial_regs,
+					registers, INPUT_DIGITS,
+					sizeof(INPUT_DIGITS) / sizeof(char));
+			std::cout << "The register values after running the program are w="
+					<< registers[0] << ", x=" << registers[1] << ", y="
+					<< registers[2] << ", z=" << registers[3] << '.'
+					<< std::endl;
 		}
 	}
 
-	if (EXEC_MODE == COMPILE) {
+	if (EXEC_MODE == COMPILE && tmpExe.has_value()) {
 		delete_temp(tmpDir, tmpExe.value());
 	}
 }
@@ -1006,7 +1040,7 @@ int64_t find_first_valid_compiled(const std::filesystem::path exe,
 }
 
 bool compile_instructions(const std::vector<Instruction> insts,
-		const std::filesystem::path tmpDir) {
+		const std::filesystem::path tmpDir, const Compiler comp) {
 	std::filesystem::path tmpC(tmpDir);
 	tmpC += std::filesystem::path::preferred_separator;
 	tmpC += "tmp.c";
@@ -1325,48 +1359,94 @@ bool compile_instructions(const std::vector<Instruction> insts,
 	tmpCO << '}' << std::endl;
 	tmpCO.close();
 
-	std::filesystem::path tmpM(tmpDir);
-	tmpM += std::filesystem::path::preferred_separator;
-	tmpM += "tmp.Makefile";
+	std::string cmd = "";
+	switch (comp) {
+	case Compiler::MAKE: {
+		std::filesystem::path tmpM(tmpDir);
+		tmpM += std::filesystem::path::preferred_separator;
+		tmpM += "tmp.Makefile";
 
-	if (std::filesystem::exists(tmpM)
-			&& !std::filesystem::is_regular_file(tmpM)) {
-		std::cerr << tmpM << " exists but isn't a file." << std::endl;
-		return false;
-	} else if (std::filesystem::exists(tmpM)
-			&& !std::filesystem::remove(tmpM)) {
-		std::cerr << "Failed to remove " << tmpM << '.' << std::endl;
+		if (std::filesystem::exists(tmpM)
+				&& !std::filesystem::is_regular_file(tmpM)) {
+			std::cerr << tmpM << " exists but isn't a file." << std::endl;
+			return false;
+		} else if (std::filesystem::exists(tmpM)
+				&& !std::filesystem::remove(tmpM)) {
+			std::cerr << "Failed to remove " << tmpM << '.' << std::endl;
+			return false;
+		}
+
+		std::ofstream tmpMO(tmpM);
+		tmpMO << "PROJECT_ROOT = $(dir $(abspath $(lastword $(MAKEFILE_LIST))))"
+				<< std::endl;
+		tmpMO << "OBJS := $(PROJECT_ROOT)tmp.o" << std::endl;
+		tmpMO << "CFLAGS += -O3" << std::endl;
+		tmpMO << "$(PROJECT_ROOT)tmp: $(OBJS)" << std::endl;
+		tmpMO << "\t$(CC) $(LDFLAGS) -o $@ $^" << std::endl;
+		tmpMO << "$(PROJECT_ROOT)%.o: $(PROJECT_ROOT)%.c" << std::endl;
+		tmpMO << "\t$(CC) -c $(CFLAGS) -o $@ $<" << std::endl;
+		tmpMO.close();
+
+		cmd = std::string("make -f ").append(tmpM.generic_string());
+		break;
+	}
+	case Compiler::GCC: {
+		std::filesystem::path tmpE(tmpDir);
+		tmpE += std::filesystem::path::preferred_separator;
+		tmpE += "tmp";
+		cmd = std::string("gcc -o ").append(tmpE.generic_string()).append(
+				" -O3 ").append(tmpC.generic_string());
+		break;
+	}
+	case Compiler::CLANG: {
+		std::filesystem::path tmpE(tmpDir);
+		tmpE += std::filesystem::path::preferred_separator;
+		tmpE += "tmp";
+		cmd = std::string("clang -o ").append(tmpE.generic_string()).append(
+				" -O3 ").append(tmpC.generic_string());
+		break;
+	}
+	default:
+		std::cerr << "Received unknown compiler value " << (int) comp << '!'
+				<< std::endl;
 		return false;
 	}
 
-	std::ofstream tmpMO(tmpM);
-	tmpMO << "PROJECT_ROOT = $(dir $(abspath $(lastword $(MAKEFILE_LIST))))"
-			<< std::endl;
-	tmpMO << "OBJS := $(PROJECT_ROOT)tmp.o" << std::endl;
-	tmpMO << "CFLAGS += -O3" << std::endl;
-	tmpMO << "$(PROJECT_ROOT)tmp: $(OBJS)" << std::endl;
-	tmpMO << "\t$(CC) $(LDFLAGS) -o $@ $^" << std::endl;
-	tmpMO << "$(PROJECT_ROOT)%.o: $(PROJECT_ROOT)%.c" << std::endl;
-	tmpMO << "\t$(CC) -c $(CFLAGS) -o $@ $<" << std::endl;
-	tmpMO.close();
-
-	std::string cmd = std::string("make -f ").append(tmpM.generic_string());
 	std::cout << "Running \"" << cmd << "\"." << std::endl;
 	int status = std::system(cmd.c_str());
 	if (status != 0) {
-		std::cerr << "Make command failed with status code " << status << '.'
+		std::cerr << "Build command failed with status code " << status << '.'
 				<< std::endl;
 		return false;
 	} else {
-		std::cout << "Make finished." << std::endl;
+		std::cout << "Build finished." << std::endl;
 	}
 
 	return true;
 }
 
+Compiler detect_compiler() {
+	std::cout << "Searching for compiler to use..." << std::endl;
+	if (std::system("make -v > /dev/null 2> /dev/null") == 0) {
+		std::cout << "Found make. Generating Makefile" << std::endl;
+		return Compiler::MAKE;
+	} else if (std::system("gcc -v > /dev/null 2> /dev/null") == 0) {
+		std::cout << "Compiling using gcc." << std::endl;
+		return Compiler::GCC;
+	} else if (std::system("clang -v > /dev/null 2> /dev/null") == 0) {
+		std::cout << "Compiling using clang." << std::endl;
+		return Compiler::CLANG;
+	} else {
+		std::cerr
+				<< "Couldn't find a supported compiler, falling back to interpreter."
+				<< std::endl;
+		return Compiler::NONE;
+	}
+}
+
 std::optional<std::filesystem::path> create_temp_lib(
 		const std::vector<Instruction> instructions,
-		const std::filesystem::path tmpDir) {
+		const std::filesystem::path tmpDir, const Compiler compiler) {
 	if (std::filesystem::exists(tmpDir)
 			&& !std::filesystem::is_directory(tmpDir)) {
 		std::cerr << std::filesystem::canonical(tmpDir)
@@ -1379,7 +1459,7 @@ std::optional<std::filesystem::path> create_temp_lib(
 		return std::nullopt;
 	}
 
-	if (!compile_instructions(instructions, tmpDir)) {
+	if (!compile_instructions(instructions, tmpDir, compiler)) {
 		return std::nullopt;
 	}
 
