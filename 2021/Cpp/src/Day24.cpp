@@ -6,6 +6,7 @@
  */
 
 #include "Day24.h"
+#include <algorithm>
 #include <climits>
 #include <cmath>
 #include <sstream>
@@ -84,6 +85,11 @@ void DayRunner<24>::solve(std::ifstream input) {
 		if (line.length() == 0) {
 			continue;
 		}
+		std::transform(line.begin(), line.end(), line.begin(),
+				[](unsigned char c) {
+					return std::tolower(c);
+				}
+		);
 
 		InstType type = InstType::NOP;
 		bool err = false;
@@ -271,10 +277,22 @@ std::ostream& operator <<(std::ostream &stream, const Instruction &inst) {
 }
 
 std::ostream& operator <<(std::ostream &stream, const InstType &type) {
-	if (inst_type_names.count(type) != 0) {
-		stream << inst_type_names.at(type);
+	if ((int) type >= 0
+			&& (int) type < sizeof(instTypeNames) / sizeof(instTypeNames[0])) {
+		stream << instTypeNames[(unsigned int) type];
 	} else {
-		stream << "unknown instruction type " << (int) type;
+		stream << "unknown(" << (int) type << ')';
+	}
+
+	return stream;
+}
+
+std::ostream& operator <<(std::ostream &stream, const Compiler &comp) {
+	if ((int) comp >= 0
+			&& (int) comp < sizeof(compilerNames) / sizeof(compilerNames[0])) {
+		stream << compilerNames[(unsigned int) comp];
+	} else {
+		stream << "unknown(" << (int) comp << ')';
 	}
 
 	return stream;
@@ -1387,7 +1405,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 		break;
 	}
 	default:
-		std::cerr << "Received unknown compiler value " << (int) comp << '!'
+		std::cerr << "Received unknown compiler value " << comp << '!'
 				<< std::endl;
 		return false;
 	}

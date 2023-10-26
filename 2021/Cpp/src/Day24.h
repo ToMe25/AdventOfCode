@@ -18,60 +18,67 @@
 #include <vector>
 
 /**
+ * A macro to automatically generate an enum and a lookup table for the instruction types.
+ */
+#define InstTypes \
+	/** \
+	 * No-op instruction. Does not do anything. \
+	 */ \
+	Entry(NOP), \
+	/** \
+	 * Reads an input number and writes it to the register. \
+	 */ \
+	Entry(INP), \
+	/** \
+	 * Sets register a to the sum of register a and value or register b. \
+	 */ \
+	Entry(ADD), \
+	/** \
+	 * Sets register a to the difference between register a and value or register b. \
+	 */ \
+	Entry(SUB), \
+	/** \
+	 * Multiplies register a by input b. \
+	 */ \
+	Entry(MUL), \
+	/** \
+	 * Divides register a by input b. \
+	 */ \
+	Entry(DIV), \
+	/** \
+	 * Sets register a to the remainder of register a divided by input b. \
+	 */ \
+	Entry(MOD), \
+	/** \
+	 * Sets register a to 1 if a is equals to b, or 0 otherwise. \
+	 */ \
+	Entry(EQL), \
+	/** \
+	 * Sets register a to 1 if a is not equals to b, or 0 otherwise. \
+	 */ \
+	Entry(NEQ), \
+	/** \
+	 * Sets register a to input b. \
+	 */ \
+	Entry(SET)
+
+/**
  * An enum representing the different types of instructions the ALU for this day can handle.
  */
 enum class InstType {
-	/**
-	 * No-op instruction. Does not do anything.
-	 */
-	NOP,
-	/**
-	 * Read an input number and write it to the register.
-	 */
-	INP,
-	/**
-	 * Adds input b to register a.
-	 */
-	ADD,
-	/**
-	 * Subtract b from a.
-	 */
-	SUB,
-	/**
-	 * Multiplies register a by input b.
-	 */
-	MUL,
-	/**
-	 * Divides register a by input b.
-	 */
-	DIV,
-	/**
-	 * Sets register a to a mod b.
-	 */
-	MOD,
-	/**
-	 * Set a to 1 if a == b, or 0 otherwise.
-	 */
-	EQL,
-	/**
-	 * Set a to 1 if a is not equals b, or 0 otherwise.
-	 */
-	NEQ,
-	/**
-	 * Set a to b.
-	 */
-	SET
+#define Entry(a) a
+	InstTypes
+#undef Entry
 };
 
 /**
- * A map from an instruction type to its name.
+ * An automatically generated lookup table for the names of the supported instructions.
  */
-const std::unordered_map<InstType, const std::string> inst_type_names { {
-		InstType::NOP, "nop" }, { InstType::INP, "inp" },
-		{ InstType::ADD, "add" }, { InstType::SUB, "sub" }, { InstType::MUL,
-				"mul" }, { InstType::DIV, "div" }, { InstType::MOD, "mod" }, {
-				InstType::EQL, "eql" }, { InstType::NEQ, "neq" }, {
-				InstType::SET, "set" } };
+static const char *instTypeNames[] {
+#define Entry(a) #a
+		InstTypes
+#undef Entry
+};
 
 struct Instruction {
 	/**
@@ -114,29 +121,49 @@ struct Instruction {
 	}
 };
 
-typedef std::function<void(const long long int[4], long long int*, const char)> dynfunc;
+/**
+ * A macro to automatically generate an enum and a lookup table for the compilers to use.
+ */
+#define Compilers \
+	/** \
+	 * Use gcc to compile the instructions. \
+	 */ \
+	Entry(GCC), \
+	/** \
+	 * Use clang to compile the instructions. \
+	 */ \
+	Entry(CLANG), \
+	/** \
+	 * Use MSVC/cl to compile the instructions. \
+	 */ \
+	Entry(CL), \
+	/** \
+	 * No compiler was found, fall back to interpreted execution. \
+	 */ \
+	Entry(NONE)
 
 /**
  * An enum representing the compiler to be used.
  */
 enum class Compiler {
-	/**
-	 * Use gcc to compile the instructions.
-	 */
-	GCC,
-	/**
-	 * Use clang to compile the instructions.
-	 */
-	CLANG,
-	/**
-	 * Use MSVC to compile the instructions.
-	 */
-	CL,
-	/**
-	 * No compiler was found, fall back to interpreted execution.
-	 */
-	NONE
+#define Entry(a) a
+	Compilers
+#undef Entry
 };
+
+/**
+ * An automatically generated lookup table for the names of the supported compilers.
+ */
+static const char *compilerNames[] {
+#define Entry(a) #a
+		Compilers
+#undef Entry
+};
+
+/**
+ * A function object representing a dynamic function executing a part of the input.
+ */
+typedef std::function<void(const long long int[4], long long int*, const char)> dynfunc;
 
 /**
  * Writes a string representation of the given instruction to the given output stream.
@@ -148,13 +175,22 @@ enum class Compiler {
 std::ostream& operator <<(std::ostream &stream, const Instruction &inst);
 
 /**
- * Writes the string representation(name) of a given instruction type to the ouput stream.
+ * Writes the string representation(name) of a given instruction type to the output stream.
  *
- * @param stream	The output stream to write the instruction type to.
+ * @param stream	The output stream to write to.
  * @param type		The instruction name to write to the output stream.
  * @return	The stream that was written to.
  */
 std::ostream& operator <<(std::ostream &stream, const InstType &type);
+
+/**
+ * Writes the string representation(name) of a given compiler to the output stream.
+ *
+ * @param stream	The output stream to write to.
+ * @param comp		The compiler to write the name of to the output stream.
+ * @return	The stream that was written to.
+ */
+std::ostream& operator <<(std::ostream &stream, const Compiler &comp);
 
 /**
  * Optimizes the given program to make it contain fewer instructions.
@@ -302,8 +338,7 @@ Compiler detect_compiler();
  */
 std::optional<std::filesystem::path> create_temp_lib(
 		const std::vector<Instruction> instructions,
-		const std::filesystem::path tmpDir,
-		const Compiler compiler);
+		const std::filesystem::path tmpDir, const Compiler compiler);
 
 /**
  * Deletes the temporary shared library and directory.
