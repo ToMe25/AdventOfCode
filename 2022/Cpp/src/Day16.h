@@ -25,7 +25,7 @@ private:
 	/**
 	 * The name of this valve.
 	 */
-	std::string name;
+	std::string_view name;
 
 	/**
 	 * The flow rate this valve allows when opened.
@@ -59,9 +59,10 @@ public:
 	 * @param opened		The time at which this valve was opened. Irrelevant if the valve is closed.
 	 * @param connections	A vector containing the indices of the valves this valve is connected to.
 	 */
-	valve(const size_t index, const std::string name, const uint8_t flow_rate,
-			const bool open = false, const uint64_t opened = 0,
-			std::vector<size_t> connections = std::vector<size_t>());
+	valve(const size_t index, const std::string_view name,
+			const uint8_t flow_rate, const bool open = false,
+			const uint64_t opened = 0, std::vector<size_t> connections =
+					std::vector<size_t>());
 
 	/**
 	 * A copy constructor.
@@ -71,12 +72,19 @@ public:
 	valve(const valve &valve);
 
 	/**
-	 * Copy assignment operator.
+	 * A move constructor.
+	 *
+	 * @param valve	The valve to move the values from.
+	 */
+	valve(valve &&valve) noexcept;
+
+	/**
+	 * An assignment operator.
 	 *
 	 * @param valve	The valve to set this valve to.
 	 * @return	The modified valve.
 	 */
-	valve& operator=(const valve &valve);
+	valve& operator=(valve valve) noexcept;
 
 	/**
 	 * Gets the index of this valve.
@@ -90,7 +98,7 @@ public:
 	 *
 	 * @return	The name given to this valve.
 	 */
-	const std::string get_name() const;
+	const std::string_view& get_name() const;
 
 	/**
 	 * Checks whether this valve is currently open.
@@ -145,6 +153,14 @@ public:
 	 * @return	The stream the valve was written to.
 	 */
 	friend std::ostream& operator<<(std::ostream &stream, const valve &valve);
+
+	/**
+	 * Swaps the given two valve instances.
+	 *
+	 * @param first		The first of the two valves to swap.
+	 * @param second	The second of the two values to swap.
+	 */
+	friend void swap(valve &first, valve &second) noexcept;
 };
 
 /**
@@ -157,7 +173,16 @@ public:
 std::ostream& operator<<(std::ostream &stream, const valve &valve);
 
 /**
+ * Swaps the given two valve instances.
+ *
+ * @param first		The first of the two valves to swap.
+ * @param second	The second of the two values to swap.
+ */
+void swap(valve &first, valve &second) noexcept;
+
+/**
  * An object representing the current state of a set of valves and connections.
+ * Not internally const to allow assignment, but basically immutable.
  */
 class state {
 private:
@@ -208,12 +233,19 @@ public:
 	state(const state &state);
 
 	/**
-	 * A copy assignment operator.
+	 * A move constructor.
+	 *
+	 * @param state	The state to move.
+	 */
+	state(state &&state) noexcept;
+
+	/**
+	 * An assignment operator.
 	 *
 	 * @param state	The state to set this state to.
 	 * @return the modified state.
 	 */
-	state& operator=(const state &state);
+	state& operator=(state state) noexcept;
 
 	/**
 	 * Creates a new state that represents this state when one unit of time passed.
@@ -222,6 +254,14 @@ public:
 	 * @return	The updated state.
 	 */
 	state update() const;
+
+	/**
+	 * Creates a new state that represents this state after a given amount of time passed.
+	 * Updates released pressure.
+	 *
+	 * @return	The updated state.
+	 */
+	state add_time(const uint64_t time) const;
 
 	/**
 	 * Gets the current rate at which pressure is released.
@@ -316,7 +356,8 @@ public:
 	 * @return	The newly created state.
 	 */
 	state add_valve(const std::string name, const uint8_t flow_rate,
-			const bool open, const uint64_t opened, std::vector<size_t> &connections) const;
+			const bool open, const uint64_t opened,
+			std::vector<size_t> &connections) const;
 
 	/**
 	 * Checks whether the valve at the given index is open.
@@ -365,7 +406,16 @@ public:
 	 * @param state		The state to write to the given output stream.
 	 * @return	The modified stream object.
 	 */
-	friend std::ostream& operator<<(std::ostream &stream, const aoc::state &state);
+	friend std::ostream& operator<<(std::ostream &stream,
+			const aoc::state &state);
+
+	/**
+	 * Swaps the given two state instances.
+	 *
+	 * @param first		The first of the two states to swap.
+	 * @param second	The second of the two states to swap.
+	 */
+	friend void swap(state &first, state &second) noexcept;
 };
 
 /**
@@ -376,6 +426,14 @@ public:
  * @return	The modified stream object.
  */
 std::ostream& operator<<(std::ostream &stream, const aoc::state &state);
+
+/**
+ * Swaps the given two state instances.
+ *
+ * @param first		The first of the two states to swap.
+ * @param second	The second of the two states to swap.
+ */
+void swap(state &first, state &second) noexcept;
 }
 
 #endif /* DAY16_H_ */
