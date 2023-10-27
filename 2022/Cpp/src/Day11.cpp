@@ -14,18 +14,18 @@ aoc::Monkey::Monkey(const uint8_t id, const std::vector<uint64_t> start_items,
 		const uint8_t operation_second, const bool relief_mod,
 		const uint32_t relief_divisor, const uint8_t test_divisor,
 		Monkey *true_target, Monkey *false_target) :
-		id(id), items(start_items), op_mul(operation_multiply), op_const(
-				operation_const), op_sec(operation_second), rel_mod(relief_mod), rel_div(
-				relief_divisor), test_div(test_divisor), true_tgt(true_target), false_tgt(
-				false_target) {
+		id(id), op_mul(operation_multiply), op_const(operation_const), op_sec(
+				operation_second), rel_mod(relief_mod), rel_div(relief_divisor), test_div(
+				test_divisor), true_tgt(true_target), false_tgt(false_target), items(
+				start_items) {
 }
 
 aoc::Monkey::Monkey(const Monkey &monkey) :
-		id(monkey.id), items(monkey.items), op_mul(monkey.op_mul), op_const(
-				monkey.op_const), op_sec(monkey.op_sec), rel_mod(
-				monkey.rel_mod), rel_div(monkey.rel_div), test_div(
-				monkey.test_div), true_tgt(monkey.true_tgt), false_tgt(
-				monkey.false_tgt) {
+		id(monkey.id), op_mul(monkey.op_mul), op_const(monkey.op_const), op_sec(
+				monkey.op_sec), rel_mod(monkey.rel_mod), rel_div(
+				monkey.rel_div), test_div(monkey.test_div), true_tgt(
+				monkey.true_tgt), false_tgt(monkey.false_tgt), items(
+				monkey.items) {
 }
 
 void aoc::Monkey::set_targets(Monkey *true_target, Monkey *false_target) {
@@ -86,12 +86,12 @@ void aoc::Monkey::turn() {
 std::vector<aoc::Monkey> aoc::parse_monkeys(std::vector<std::string> lines) {
 	std::vector<aoc::Monkey> monkeys;
 	std::vector<std::pair<uint8_t, uint8_t>> targets;
-	uint8_t id;
+	uint8_t id = 0;
 	std::vector<uint64_t> items;
-	bool operation_multiply;
+	bool operation_multiply = false;
 	// -1 to use old value.
-	int8_t operation_second;
-	uint8_t test_divisor;
+	int8_t operation_second = 0;
+	uint8_t test_divisor = 0;
 	//Which of the 5 lines of a monkey definition are we parsing
 	uint8_t ln = 0;
 	for (std::string line : lines) {

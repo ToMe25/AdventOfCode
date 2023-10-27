@@ -7,6 +7,9 @@ TARGET_EXEC := $(BUILD_DIR)Cpp
 
 BUILD_MODE ?= run
 
+CXXFLAGS += -std=c++17
+CFLAGS += -pedantic -Wall
+
 ifeq ($(BUILD_MODE),debug)
 CFLAGS += -g
 BUILD_DIR := $(BUILD_DIR)debug/
