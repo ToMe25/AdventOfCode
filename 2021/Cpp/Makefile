@@ -25,7 +25,7 @@ endif
 SRCS := $(abspath $(wildcard $(addsuffix /*.cpp ,$(SRC_DIRS))))
 SRCS += $(abspath $(wildcard $(addsuffix /*.c ,$(SRC_DIRS))))
 OBJS := $(subst $(PROJECT_ROOT),,$(SRCS))
-OBJS := $(addprefix $(BUILD_DIR),$(OBJS))
+OBJS := $(abspath $(addprefix $(BUILD_DIR),$(OBJS)))
 OBJS := $(subst .cpp,.o,$(OBJS))
 OBJS := $(subst .c,.o,$(OBJS))
 DEPS := $(subst .o,.d,$(OBJS))
