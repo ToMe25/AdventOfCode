@@ -42,12 +42,13 @@ bool aoc::sensor::covers_position(const int64_t x, const int64_t y) const {
 
 void aoc::sensor::add_covered_on_y(std::unordered_set<int64_t> &positions,
 		const int64_t pos_y, const bool empty) const {
-	const int64_t dist_y = abs(this->pos_y - pos_y);
+	const uint64_t dist_y = abs(this->pos_y - pos_y);
 	if (dist_y > distance) {
 		return;
 	}
 
-	for (int64_t x = pos_x - (int64_t) distance + dist_y; x <= pos_x + (int64_t) distance - dist_y; x++) {
+	for (int64_t x = (int64_t) (pos_x - distance + dist_y);
+			x <= (int64_t) (pos_x + distance - dist_y); x++) {
 		if (!empty || beacon_y != pos_y || beacon_x != x) {
 			positions.insert(x);
 		}
@@ -77,18 +78,22 @@ std::string day15part1(std::ifstream input) {
 		size_t start_pos = 12;
 		size_t end_pos = line.find(',', start_pos);
 		std::pair<int64_t, int64_t> sensor_pos;
-		sensor_pos.first = std::stoi(line.substr(start_pos, end_pos - start_pos));
+		sensor_pos.first = std::stoi(
+				line.substr(start_pos, end_pos - start_pos));
 		start_pos = end_pos + 4;
 		end_pos = line.find(':', start_pos);
-		sensor_pos.second = std::stoi(line.substr(start_pos, end_pos - start_pos));
+		sensor_pos.second = std::stoi(
+				line.substr(start_pos, end_pos - start_pos));
 
 		start_pos = end_pos + 25;
 		end_pos = line.find(',', start_pos);
 		std::pair<int64_t, int64_t> beacon_pos;
-		beacon_pos.first = std::stoi(line.substr(start_pos, end_pos - start_pos));
+		beacon_pos.first = std::stoi(
+				line.substr(start_pos, end_pos - start_pos));
 		start_pos = end_pos + 4;
 		end_pos = line.length();
-		beacon_pos.second = std::stoi(line.substr(start_pos, end_pos - start_pos));
+		beacon_pos.second = std::stoi(
+				line.substr(start_pos, end_pos - start_pos));
 		sensors.push_back(aoc::sensor(sensor_pos, beacon_pos));
 	}
 
@@ -112,25 +117,29 @@ std::string day15part2(std::ifstream input) {
 		size_t start_pos = 12;
 		size_t end_pos = line.find(',', start_pos);
 		std::pair<int64_t, int64_t> sensor_pos;
-		sensor_pos.first = std::stoi(line.substr(start_pos, end_pos - start_pos));
+		sensor_pos.first = std::stoi(
+				line.substr(start_pos, end_pos - start_pos));
 		start_pos = end_pos + 4;
 		end_pos = line.find(':', start_pos);
-		sensor_pos.second = std::stoi(line.substr(start_pos, end_pos - start_pos));
+		sensor_pos.second = std::stoi(
+				line.substr(start_pos, end_pos - start_pos));
 
 		start_pos = end_pos + 25;
 		end_pos = line.find(',', start_pos);
 		std::pair<int64_t, int64_t> beacon_pos;
-		beacon_pos.first = std::stoi(line.substr(start_pos, end_pos - start_pos));
+		beacon_pos.first = std::stoi(
+				line.substr(start_pos, end_pos - start_pos));
 		start_pos = end_pos + 4;
 		end_pos = line.length();
-		beacon_pos.second = std::stoi(line.substr(start_pos, end_pos - start_pos));
+		beacon_pos.second = std::stoi(
+				line.substr(start_pos, end_pos - start_pos));
 		sensors.push_back(aoc::sensor(sensor_pos, beacon_pos));
 	}
 
 	int64_t x = 0;
 	int64_t y = 0;
 	bool covered = true;
-	for (;y <= max_pos; y++) {
+	for (; y <= max_pos; y++) {
 		while (x <= max_pos) {
 			covered = false;
 			for (const aoc::sensor &s : sensors) {
