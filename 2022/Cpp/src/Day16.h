@@ -46,23 +46,34 @@ private:
 	/**
 	 * The indices of connected valves.
 	 */
-	std::vector<size_t> connections;
+	size_t *connections;
+
+	/**
+	 * The number of connected valves.
+	 */
+	size_t num_connections;
 
 public:
 	/**
+	 * Creates a new empty valve object with the index 0.
+	 */
+	valve() noexcept;
+
+	/**
 	 * Creates a new valve object representing the given valve state.
 	 *
-	 * @param index			The index of this valve.
-	 * @param name			The name given to this valve.
-	 * @param flow_rate		The pressure reduction this valve allows when it is open.
-	 * @param open			Whether or nor the valve is open.
-	 * @param opened		The time at which this valve was opened. Irrelevant if the valve is closed.
-	 * @param connections	A vector containing the indices of the valves this valve is connected to.
+	 * @param index				The index of this valve.
+	 * @param name				The name given to this valve.
+	 * @param flow_rate			The pressure reduction this valve allows when it is open.
+	 * @param open				Whether or nor the valve is open.
+	 * @param opened			The time at which this valve was opened. Irrelevant if the valve is closed.
+	 * @param connections		A pointer to an array of the indices of the connected valves. May be NULL. Will be copied.
+	 * @param num_connectsions	The number of connected valves, aka the size of the connections array.
 	 */
 	valve(const size_t index, const std::string_view name,
 			const uint8_t flow_rate, const bool open = false,
-			const uint64_t opened = 0, std::vector<size_t> connections =
-					std::vector<size_t>());
+			const uint64_t opened = 0, const size_t *connections = NULL,
+			const size_t num_connections = 0);
 
 	/**
 	 * A copy constructor.
@@ -77,6 +88,11 @@ public:
 	 * @param valve	The valve to move the values from.
 	 */
 	valve(valve &&valve) noexcept;
+
+	/**
+	 * A destructor, deleting the connections array.
+	 */
+	virtual ~valve();
 
 	/**
 	 * An assignment operator.
@@ -132,9 +148,23 @@ public:
 	/**
 	 * Get the indices of all the valves this valve is connected to.
 	 *
-	 * @return	The vector containing the valves this valve is connected to.
+	 * @return	A vector containing the valves this valve is connected to.
 	 */
-	const std::vector<size_t>& get_connections() const;
+	const std::vector<size_t> get_connections() const;
+
+	/**
+	 * Returns a pointer to the underlying connections array.
+	 *
+	 * @return	A pointer to the underlying array of connections.
+	 */
+	const size_t* get_connections_ptr() const;
+
+	/**
+	 * Get the number of valves this valve is connected to.
+	 *
+	 * @return	The number of valves this valve is connected to.
+	 */
+	size_t get_connections_count() const;
 
 	/**
 	 * Creates a copy of this valve with an added connection;
@@ -187,11 +217,6 @@ void swap(valve &first, valve &second) noexcept;
 class state {
 private:
 	/**
-	 * A vector containing all the valves to be tracked.
-	 */
-	std::vector<valve> valves;
-
-	/**
 	 * The current rate at which pressure is released.
 	 */
 	uint64_t flow_rate;
@@ -211,19 +236,30 @@ private:
 	 */
 	size_t position;
 
+	/**
+	 * All the valves to be tracked.
+	 */
+	valve *valves;
+
+	/**
+	 * The number of valves to be tracked.
+	 */
+	size_t num_valves;
+
 public:
 	/**
 	 * Creates a new state object with the given properties
 	 *
-	 * @param valves	The vector of valves to use to store the valve states.
-	 * @param flow_rate	The rate at which pressure is currently released.
-	 * @param time		The current point in time represented by this state.
-	 * @param released	The amount of pressure released so far.
-	 * @param position	The current position of the person controlling the valves.
+	 * @param flow_rate		The rate at which pressure is currently released.
+	 * @param time			The current point in time represented by this state.
+	 * @param released		The amount of pressure released so far.
+	 * @param position		The current position of the person controlling the valves.
+	 * @param valves		An array of valves to track. May be NULL. Will be copied.
+	 * @param num_valves	The number of valves to track.
 	 */
-	state(std::vector<valve> valves, const uint64_t flow_rate = 0,
+	state(const uint64_t flow_rate = 0,
 			const uint64_t time = 0, const uint64_t released = 0,
-			const size_t position = 0);
+			const size_t position = 0, const valve *valves = NULL, const size_t num_valves = 0);
 
 	/**
 	 * A copy constructor.
@@ -238,6 +274,11 @@ public:
 	 * @param state	The state to move.
 	 */
 	state(state &&state) noexcept;
+
+	/**
+	 * A destructor deleting the underlying valves array.
+	 */
+	virtual ~state();
 
 	/**
 	 * An assignment operator.
@@ -389,7 +430,7 @@ public:
 	 * @param idx	The index of the valve to check.
 	 * @return The connections vector of the given valve.
 	 */
-	const std::vector<size_t>& get_valve_connections(const size_t idx) const;
+	const std::vector<size_t> get_valve_connections(const size_t idx) const;
 
 	/**
 	 * Calculates the distance from the current position to the given target position.
