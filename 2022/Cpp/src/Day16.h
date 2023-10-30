@@ -360,7 +360,7 @@ public:
 	 *
 	 * @param agent	The index of the agent whose position to get.
 	 * @return	The current position of the person controlling the valves.
-	 * @throws std::out_of_range	If agent above the limit of the positions array.
+	 * @throws std::out_of_range	If agent is above the limit of the positions array.
 	 */
 	size_t get_position(const size_t agent) const;
 
@@ -370,9 +370,30 @@ public:
 	 * @param agent		The index of the agent whose position to set.
 	 * @param position	The new position to use.
 	 * @return	The new state object with the changed position.
-	 * @throws std::out_of_range	If agent above the limit of the positions array.
+	 * @throws std::out_of_range	If agent is above the limit of the positions array,
+	 * 								or position is above the limit of the valves array.
 	 */
 	state set_position(const size_t agent, const size_t position) const;
+
+	/**
+	 * Gets the target position of the given agent.
+	 *
+	 * @param agent	The index of the agent whose target position to get.
+	 * @return	The target position of the given agent.
+	 * @throws std::out_of_range	If agent is above the limit of the targets array.
+	 */
+	size_t get_target(const size_t agent) const;
+
+	/**
+	 * Sets the target position of the given agent.
+	 *
+	 * @param agent	The index of the agent whose target position to set.
+	 * @param position	The target position for the agent.
+	 * @return	The new state object with the changed target position.
+	 * @throws std::out_of_range	If agent is above the limit of the targets array.
+	 * 								or position is above the limit of the valves array.
+	 */
+	state set_target(const size_t agent, const size_t position) const;
 
 	/**
 	 * Gets the number of valves stored in this state.
@@ -512,6 +533,18 @@ std::ostream& operator<<(std::ostream &stream, const aoc::state &state);
  * @param second	The second of the two states to swap.
  */
 void swap(state &first, state &second) noexcept;
+
+/**
+ * Tests the max amount of pressure that can be released in the given amount of time.
+ *
+ * @param valves		The valve structure to be used.
+ * @param start_pos		The starting position of all the agents.
+ * @param time			The time for which to test.
+ * @param num_agents	The number of agents that can open valves.
+ * @return	The max amount of pressure that can be released.
+ */
+uint64_t get_max_released(std::vector<valve> valves, size_t start_pos,
+		size_t time, size_t num_agents);
 }
 
 #endif /* DAY16_H_ */
