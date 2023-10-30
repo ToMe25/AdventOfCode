@@ -75,7 +75,7 @@ uint64_t aoc::valve::get_opened() const {
 }
 
 aoc::valve aoc::valve::open(const uint64_t time) const {
-	return aoc::valve(index, name, flow_rate, true, time, connections,
+	return valve(index, name, flow_rate, true, time, connections,
 			num_connections);
 }
 
@@ -139,30 +139,45 @@ void aoc::swap(valve &first, valve &second) noexcept {
 }
 
 aoc::state::state(const uint64_t flow_rate, const uint64_t time,
-		const uint64_t released, const size_t position, const valve *valves,
-		const size_t num_valves) :
-		flow_rate(flow_rate), time(time), released(released), position(
-				position), valves(
+		const uint64_t released, const valve *valves, const size_t num_valves,
+		const size_t *positions, const size_t *targets, const size_t num_agents) :
+		flow_rate(flow_rate), time(time), released(released), valves(
 				num_valves > 0 ? new valve[num_valves] : NULL), num_valves(
-				num_valves) {
+				num_valves), positions(
+				num_agents > 0 ? new size_t[num_agents] : NULL), targets(
+				num_agents > 0 ? new size_t[num_agents] : NULL), num_agents(
+				num_agents) {
 	if (num_valves > 0) {
 		std::copy(valves, valves + num_valves, this->valves);
+	}
+
+	if (num_agents > 0) {
+		std::copy(positions, positions + num_agents, this->positions);
+		std::copy(targets, targets + num_agents, this->targets);
 	}
 }
 
 aoc::state::state(const state &state) :
-		flow_rate(state.flow_rate), time(state.time), released(state.released), position(
-				state.position), valves(
+		flow_rate(state.flow_rate), time(state.time), released(state.released), valves(
 				state.num_valves > 0 ? new valve[state.num_valves] : NULL), num_valves(
-				state.num_valves) {
+				state.num_valves), positions(
+				state.num_agents > 0 ? new size_t[state.num_agents] : NULL), targets(
+				state.num_agents > 0 ? new size_t[state.num_agents] : NULL), num_agents(
+				state.num_agents) {
 	if (num_valves > 0) {
 		std::copy(state.valves, state.valves + state.num_valves, valves);
+	}
+
+	if (num_agents > 0) {
+		std::copy(state.positions, state.positions + state.num_agents,
+				positions);
+		std::copy(state.targets, state.targets + state.num_agents, targets);
 	}
 }
 
 aoc::state::state(state &&state) noexcept :
-		flow_rate(0), time(0), released(0), position(0), valves(NULL), num_valves(
-				0) {
+		flow_rate(0), time(0), released(0), valves(NULL), num_valves(0), positions(
+		NULL), targets(NULL), num_agents(0) {
 	using std::swap;
 
 	swap(*this, state);
@@ -170,6 +185,8 @@ aoc::state::state(state &&state) noexcept :
 
 aoc::state::~state() {
 	delete[] valves;
+	delete[] positions;
+	delete[] targets;
 }
 
 aoc::state& aoc::state::operator=(state state) noexcept {
@@ -184,8 +201,8 @@ aoc::state aoc::state::update() const {
 }
 
 aoc::state aoc::state::add_time(const uint64_t time) const {
-	return aoc::state(flow_rate, this->time + time, released + flow_rate * time,
-			position, valves, num_valves);
+	return state(flow_rate, this->time + time, released + flow_rate * time,
+			valves, num_valves, positions, targets, num_agents);
 }
 
 uint64_t aoc::state::get_flow_rate() const {
@@ -193,12 +210,13 @@ uint64_t aoc::state::get_flow_rate() const {
 }
 
 aoc::state aoc::state::set_flow_rate(const uint64_t flow_rate) const {
-	return aoc::state(flow_rate, time, released, position, valves, num_valves);
+	return state(flow_rate, time, released, valves, num_valves, positions,
+			targets, num_agents);
 }
 
 aoc::state aoc::state::add_flow_rate(const uint64_t flow_rate) const {
-	return aoc::state(this->flow_rate + flow_rate, time, released, position,
-			valves, num_valves);
+	return state(this->flow_rate + flow_rate, time, released, valves,
+			num_valves, positions, targets, num_agents);
 }
 
 uint64_t aoc::state::get_time() const {
@@ -209,12 +227,21 @@ uint64_t aoc::state::get_released() const {
 	return released;
 }
 
-size_t aoc::state::get_position() const {
-	return position;
+size_t aoc::state::get_position(const size_t agent) const {
+	if (agent >= num_agents) {
+		throw std::out_of_range("Agent index out of range.");
+	}
+	return positions[agent];
 }
 
-aoc::state aoc::state::set_position(const size_t position) const {
-	return aoc::state(flow_rate, time, released, position, valves, num_valves);
+aoc::state aoc::state::set_position(const size_t agent,
+		const size_t position) const {
+	if (agent >= num_agents) {
+		throw std::out_of_range("Agent index out of range.");
+	}
+	state new_state(*this);
+	new_state.positions[agent] = position;
+	return new_state;
 }
 
 size_t aoc::state::get_size() const {
@@ -226,11 +253,28 @@ const std::vector<aoc::valve> aoc::state::get_valves() const {
 }
 
 const aoc::valve& aoc::state::get_valve(const size_t index) const {
+	if (index >= num_valves) {
+		throw std::out_of_range("Valve index out of range.");
+	}
 	return valves[index];
 }
 
 aoc::state aoc::state::set_valve(valve &valve) const {
-	state new_state(*this);
+	if (valve.get_index() > num_valves) {
+		throw std::out_of_range("Valve index out of range.");
+	}
+
+	state new_state(flow_rate, time, released, NULL, 0, positions, targets,
+			num_agents);
+	if (valve.get_index() == num_valves) {
+		new_state.valves = new aoc::valve[num_valves + 1];
+		new_state.num_valves = num_valves + 1;
+	} else {
+		new_state.valves = new aoc::valve[num_valves];
+		new_state.num_valves = num_valves;
+	}
+
+	std::copy(valves, valves + num_valves, new_state.valves);
 	new_state.valves[valve.get_index()] = valve;
 	return new_state;
 }
@@ -238,52 +282,75 @@ aoc::state aoc::state::set_valve(valve &valve) const {
 aoc::state aoc::state::add_valve(const std::string name,
 		const uint8_t flow_rate, const bool open, const uint64_t opened,
 		std::vector<size_t> &connections) const {
-	state new_state(this->flow_rate, time, released, position, NULL, 0);
+	state new_state(this->flow_rate, time, released, NULL, 0, positions,
+			targets, num_agents);
 	new_state.valves = new valve[num_valves + 1];
+	new_state.num_valves = num_valves + 1;
 	std::copy(valves, valves + num_valves, new_state.valves);
 	new_state.valves[num_valves] = valve(new_state.num_valves, name, flow_rate,
 			open, opened, connections.data(), connections.size());
-	new_state.num_valves = num_valves + 1;
 	return new_state;
 }
 
-bool aoc::state::valve_open(const size_t idx) const {
-	return valves[idx].is_open();
+bool aoc::state::valve_open(const size_t index) const {
+	if (index >= num_valves) {
+		throw std::out_of_range("Valve index out of range.");
+	}
+
+	return valves[index].is_open();
 }
 
-aoc::state aoc::state::open_valve(const size_t idx) const {
+aoc::state aoc::state::open_valve(const size_t index) const {
+	if (index >= num_valves) {
+		throw std::out_of_range("Valve index out of range.");
+	}
+
 	state new_state(*this);
-	new_state.valves[idx] = new_state.valves[idx].open(time);
-	if (!valves[idx].is_open()) {
-		new_state.flow_rate += valves[idx].get_flow_rate();
+	if (!valves[index].is_open()) {
+		new_state.valves[index] = new_state.valves[index].open(time);
+		new_state.flow_rate += valves[index].get_flow_rate();
 	}
 	return new_state;
 }
 
-uint8_t aoc::state::get_valve_flow_rate(const size_t idx) const {
-	return valves[idx].get_flow_rate();
+uint8_t aoc::state::get_valve_flow_rate(const size_t index) const {
+	if (index >= num_valves) {
+		throw std::out_of_range("Valve index out of range.");
+	}
+
+	return valves[index].get_flow_rate();
 }
 
 const std::vector<size_t> aoc::state::get_valve_connections(
-		const size_t idx) const {
-	return valves[idx].get_connections();
+		const size_t index) const {
+	if (index >= num_valves) {
+		throw std::out_of_range("Valve index out of range.");
+	}
+
+	return valves[index].get_connections();
 }
 
-size_t aoc::state::get_distance_to(const size_t target) const {
-	if (target == position) {
+size_t aoc::state::get_distance(const size_t from, const size_t to) const {
+	if (from >= num_valves) {
+		throw std::out_of_range("Start index out of range.");
+	}
+	if (to >= num_valves) {
+		throw std::out_of_range("End index out of range.");
+	}
+
+	if (from == to) {
 		return 0;
 	}
 
 	std::map<size_t, size_t> known_distances;
-	known_distances[position] = 0;
+	known_distances[from] = 0;
 	std::vector<size_t> stack;
-	stack.push_back(position);
+	stack.push_back(from);
 	while (stack.size() > 0) {
 		const size_t pos = stack.back();
 		stack.pop_back();
 		const size_t distance = known_distances[pos];
-		if (known_distances.count(target) == 1
-				&& distance >= known_distances[target]) {
+		if (known_distances.count(to) == 1 && distance >= known_distances[to]) {
 			continue;
 		}
 
@@ -300,19 +367,32 @@ size_t aoc::state::get_distance_to(const size_t target) const {
 		}
 	}
 
-	return known_distances[target];
+	return known_distances[to];
 }
 
 std::ostream& aoc::operator<<(std::ostream &stream, const aoc::state &state) {
 	stream << "state[total flow rate=" << state.flow_rate;
 	stream << ", time=" << state.time;
 	stream << ", released=" << state.released;
-	stream << ", position=" << state.position;
 	stream << ", valves=[";
 	for (size_t i = 0; i < state.num_valves; i++) {
 		stream << state.valves[i];
 		if (i < state.num_valves - 1) {
 			stream << ", ";
+		}
+	}
+	stream << "], agents=[";
+	for (size_t i = 0; i < state.num_agents; i++) {
+		stream << "agent[index=";
+		stream << i;
+		stream << ", position=";
+		stream << state.positions[i];
+		stream << ", target=";
+		stream << state.targets[i];
+		if (i < state.num_agents - 1) {
+			stream << "], ";
+		} else {
+			stream << ']';
 		}
 	}
 	stream << "]]";
@@ -324,10 +404,12 @@ void aoc::swap(state &first, state &second) noexcept {
 
 	swap(first.flow_rate, second.flow_rate);
 	swap(first.time, second.time);
-	swap(first.position, second.position);
 	swap(first.released, second.released);
 	swap(first.valves, second.valves);
 	swap(first.num_valves, second.num_valves);
+	swap(first.positions, second.positions);
+	swap(first.targets, second.targets);
+	swap(first.num_agents, second.num_agents);
 }
 
 std::string day16part1(std::ifstream input) {
@@ -362,8 +444,10 @@ std::string day16part1(std::ifstream input) {
 		}
 	}
 
-	aoc::state initial_state(0, 0, 0, name_to_idx["AA"], start_valves.data(),
-			start_valves.size());
+	size_t initial_targets[] { 0 };
+
+	aoc::state initial_state(0, 0, 0, start_valves.data(), start_valves.size(),
+			&name_to_idx["AA"], initial_targets, 1);
 
 	std::vector<aoc::state> stack;
 	stack.push_back(initial_state);
@@ -393,7 +477,8 @@ std::string day16part1(std::ifstream input) {
 
 		for (const size_t val : closed_valves) {
 			aoc::state new_state(current_state);
-			const size_t dist = current_state.get_distance_to(val);
+			const size_t dist = current_state.get_distance(
+					current_state.get_position(0), val);
 			if (current_state.get_time() < 30) {
 				new_state = new_state.add_time(
 						std::min(dist + 1, 30 - current_state.get_time()));
@@ -406,7 +491,7 @@ std::string day16part1(std::ifstream input) {
 			}
 
 			new_state = new_state.open_valve(val);
-			new_state = new_state.set_position(val);
+			new_state = new_state.set_position(0, val);
 			if (new_state.get_time() == 30) {
 				if (max_released.get_released() < new_state.get_released()) {
 					max_released = new_state;

@@ -232,11 +232,6 @@ private:
 	uint64_t released;
 
 	/**
-	 * The index of the valve at which the controller is right now.
-	 */
-	size_t position;
-
-	/**
 	 * All the valves to be tracked.
 	 */
 	valve *valves;
@@ -246,6 +241,22 @@ private:
 	 */
 	size_t num_valves;
 
+	/**
+	 * The positions of the agents changing the valve states.
+	 */
+	size_t *positions;
+
+	/**
+	 * The target positions of the agents changing the valve states.
+	 */
+	size_t *targets;
+
+	/**
+	 * The number of agents capable of changing the valve states.
+	 * The size of positions and targets.
+	 */
+	size_t num_agents;
+
 public:
 	/**
 	 * Creates a new state object with the given properties
@@ -253,13 +264,16 @@ public:
 	 * @param flow_rate		The rate at which pressure is currently released.
 	 * @param time			The current point in time represented by this state.
 	 * @param released		The amount of pressure released so far.
-	 * @param position		The current position of the person controlling the valves.
 	 * @param valves		An array of valves to track. May be NULL. Will be copied.
 	 * @param num_valves	The number of valves to track.
+	 * @param positions		An array of agent positions. May be NULL. Will be copied.
+	 * @param targets		An array of agent target positions. May be NULL. Will be copied.
+	 * @param num_agents	The size of both positions and targets.
 	 */
-	state(const uint64_t flow_rate = 0,
-			const uint64_t time = 0, const uint64_t released = 0,
-			const size_t position = 0, const valve *valves = NULL, const size_t num_valves = 0);
+	state(const uint64_t flow_rate = 0, const uint64_t time = 0,
+			const uint64_t released = 0, const valve *valves = NULL,
+			const size_t num_valves = 0, const size_t *positions = NULL,
+			const size_t *targets = NULL, const size_t num_agents = 0);
 
 	/**
 	 * A copy constructor.
@@ -344,17 +358,21 @@ public:
 	/**
 	 * Gets the index of the valve at which the person controlling the valves is currently at.
 	 *
+	 * @param agent	The index of the agent whose position to get.
 	 * @return	The current position of the person controlling the valves.
+	 * @throws std::out_of_range	If agent above the limit of the positions array.
 	 */
-	size_t get_position() const;
+	size_t get_position(const size_t agent) const;
 
 	/**
 	 * Creates a new state object in which the position of the controller is the given position.
 	 *
+	 * @param agent		The index of the agent whose position to set.
 	 * @param position	The new position to use.
 	 * @return	The new state object with the changed position.
+	 * @throws std::out_of_range	If agent above the limit of the positions array.
 	 */
-	state set_position(const size_t position) const;
+	state set_position(const size_t agent, const size_t position) const;
 
 	/**
 	 * Gets the number of valves stored in this state.
@@ -375,14 +393,17 @@ public:
 	 *
 	 * @param index	The index of the valve to get.
 	 * @return	The valve at the given index.
+	 * @throws std::out_of_range	If index is greater than the biggest existing valve index.
 	 */
 	const valve& get_valve(const size_t index) const;
 
 	/**
 	 * Creates a new state with the valve at the index of the given valve is replaced with the given valve.
+	 * If valve is equals to the size of the valves array, it is added to the and instead.
 	 *
 	 * @param valve	The new valve to use.
 	 * @return	The new modified state.
+	 * @throws std::out_of_range	If the index of valve is more than the size of the valves array.
 	 */
 	state set_valve(valve &valve) const;
 
@@ -403,42 +424,58 @@ public:
 	/**
 	 * Checks whether the valve at the given index is open.
 	 *
-	 * @param idx	The index of the valve to check.
+	 * @param index	The index of the valve to check.
 	 * @return	True if the valve is open.
+	 * @throws std::out_of_range	If index is outside the valves array.
 	 */
-	bool valve_open(const size_t idx) const;
+	bool valve_open(const size_t index) const;
 
 	/**
 	 * Creates a copy of this state with the valve at the given index opened.
+	 * Returns an unmodified copy if the valve is already open.
 	 *
-	 * @param idx	The index of the valve to open.
-	 * @return	The new modified state,
+	 * @param index	The index of the valve to open.
+	 * @return	The new modified state.
+	 * @throws std::out_of_range	If index is outside the valves array.
 	 */
-	state open_valve(const size_t idx) const;
+	state open_valve(const size_t index) const;
 
 	/**
 	 * Checks the flow rate of the valve at the given index.
 	 *
-	 * @param idx	The index of the valve to check.
+	 * @param index	The index of the valve to check.
 	 * @return	The flow rate the given valve allows when it is open.
+	 * @throws std::out_of_range	If index is outside the valves array.
 	 */
-	uint8_t get_valve_flow_rate(const size_t idx) const;
+	uint8_t get_valve_flow_rate(const size_t index) const;
 
 	/**
 	 * Gets the indices of the valves the valve at the given index is connected to.
 	 *
-	 * @param idx	The index of the valve to check.
+	 * @param index	The index of the valve to check.
 	 * @return The connections vector of the given valve.
+	 * @throws std::out_of_range	If index is outside the valves array.
 	 */
-	const std::vector<size_t> get_valve_connections(const size_t idx) const;
+	const std::vector<size_t> get_valve_connections(const size_t index) const;
 
 	/**
-	 * Calculates the distance from the current position to the given target position.
+	 * Calculates the distance between the two given positions.
 	 *
-	 * @param target	The index of the valve to move to.
-	 * @return	The distance from the current position to the given target position.
+	 * @param from	The position from which to start.
+	 * @param to	The position to which to find the distance.
+	 * @return	The distance from "from" to "to".
+	 * @throws std::out_of_range	If from or to is outside of the valves array.
 	 */
-	size_t get_distance_to(const size_t target) const;
+	size_t get_distance(const size_t from, const size_t to) const;
+
+	/**
+	 * Calculates the distance from the current position of the given agent to its target position.
+	 *
+	 * @param agent	The index of the agent to calculate the distance for.
+	 * @return	The distance from the current position to the given target position.
+	 * @throws std::out_of_range	If the agent index is outside the positions array.
+	 */
+	size_t get_distance_to_target(const size_t agent) const;
 
 	/**
 	 * Writes the given state to the given output stream.
