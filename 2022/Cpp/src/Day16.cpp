@@ -7,6 +7,7 @@
 
 #include "Day16.h"
 #include <map>
+#include <unordered_set>
 
 aoc::valve::valve() noexcept :
 		index(0), name(), flow_rate(0), state(false), opened(0), connections(
@@ -56,6 +57,30 @@ aoc::valve& aoc::valve::operator=(valve valve) noexcept {
 
 	swap(*this, valve);
 	return *this;
+}
+
+bool aoc::valve::operator==(const valve &other) const {
+	if (index != other.index || flow_rate != other.flow_rate
+			|| state != other.state || opened != other.opened
+			|| num_connections != other.num_connections) {
+		return false;
+	}
+
+	if (name != other.name) {
+		return false;
+	}
+
+	for (size_t i = 0; i < num_connections; i++) {
+		if (connections[i] != other.connections[i]) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool aoc::valve::operator!=(const valve &other) const {
+	return !this->operator ==(other);
 }
 
 size_t aoc::valve::get_index() const {
@@ -146,14 +171,24 @@ aoc::state::state(const uint64_t flow_rate, const uint64_t time,
 				num_valves), positions(
 				num_agents > 0 ? new size_t[num_agents] : NULL), targets(
 				num_agents > 0 ? new size_t[num_agents] : NULL), num_agents(
-				num_agents) {
+				num_agents), distances(
+				num_agents > 0 ? new size_t[num_agents] : NULL), traveled(
+				num_agents > 0 ? new size_t[num_agents] { 0 } : NULL) {
 	if (num_valves > 0) {
 		std::copy(valves, valves + num_valves, this->valves);
 	}
 
 	if (num_agents > 0) {
 		std::copy(positions, positions + num_agents, this->positions);
-		std::copy(targets, targets + num_agents, this->targets);
+		if (targets != NULL) {
+			std::copy(targets, targets + num_agents, this->targets);
+		} else {
+			std::copy(positions, positions + num_agents, this->targets);
+		}
+
+		for (size_t i = 0; i < num_agents; i++) {
+			distances[i] = get_distance(positions[i], targets[i]);
+		}
 	}
 }
 
@@ -163,7 +198,9 @@ aoc::state::state(const state &state) :
 				state.num_valves), positions(
 				state.num_agents > 0 ? new size_t[state.num_agents] : NULL), targets(
 				state.num_agents > 0 ? new size_t[state.num_agents] : NULL), num_agents(
-				state.num_agents) {
+				state.num_agents), distances(
+				state.num_agents > 0 ? new size_t[state.num_agents] : NULL), traveled(
+				state.num_agents > 0 ? new size_t[state.num_agents] : NULL) {
 	if (num_valves > 0) {
 		std::copy(state.valves, state.valves + state.num_valves, valves);
 	}
@@ -172,12 +209,15 @@ aoc::state::state(const state &state) :
 		std::copy(state.positions, state.positions + state.num_agents,
 				positions);
 		std::copy(state.targets, state.targets + state.num_agents, targets);
+		std::copy(state.distances, state.distances + state.num_agents,
+				distances);
+		std::copy(state.traveled, state.traveled + state.num_agents, traveled);
 	}
 }
 
 aoc::state::state(state &&state) noexcept :
 		flow_rate(0), time(0), released(0), valves(NULL), num_valves(0), positions(
-		NULL), targets(NULL), num_agents(0) {
+		NULL), targets(NULL), num_agents(0), distances(NULL), traveled(NULL) {
 	using std::swap;
 
 	swap(*this, state);
@@ -187,6 +227,8 @@ aoc::state::~state() {
 	delete[] valves;
 	delete[] positions;
 	delete[] targets;
+	delete[] distances;
+	delete[] traveled;
 }
 
 aoc::state& aoc::state::operator=(state state) noexcept {
@@ -196,13 +238,73 @@ aoc::state& aoc::state::operator=(state state) noexcept {
 	return *this;
 }
 
+bool aoc::state::operator==(const state &other) const {
+	if (flow_rate != other.flow_rate || time != other.time
+			|| released != other.released || num_valves != other.num_valves
+			|| num_agents != other.num_agents) {
+		return false;
+	}
+
+	for (size_t i = 0; i < num_valves; i++) {
+		if (valves[i] != other.valves[i]) {
+			return false;
+		}
+	}
+
+	for (size_t i = 0; i < num_agents; i++) {
+		if (positions[i] != other.positions[i] || targets[i] != other.targets[i]
+				|| distances[i] != other.distances[i]
+				|| traveled[i] != other.traveled[i]) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool aoc::state::operator!=(const state &other) const {
+	return !this->operator ==(other);
+}
+
 aoc::state aoc::state::update() const {
 	return add_time(1);
 }
 
 aoc::state aoc::state::add_time(const uint64_t time) const {
-	return state(flow_rate, this->time + time, released + flow_rate * time,
-			valves, num_valves, positions, targets, num_agents);
+	state new_state(*this);
+	if (time == 0) {
+		return new_state;
+	}
+
+	new_state.time += time;
+	new_state.released += new_state.flow_rate * time;
+	for (size_t agent = 0; agent < new_state.num_agents; agent++) {
+		if (new_state.traveled[agent] + time < new_state.distances[agent]) {
+			new_state.traveled[agent] = std::min(new_state.distances[agent],
+					new_state.traveled[agent] + time);
+		} else {
+			if (!valve_open(new_state.targets[agent])
+					&& new_state.traveled[agent] + time
+							> new_state.distances[agent]) {
+				new_state = new_state.open_valve(new_state.targets[agent]);
+			}
+			new_state = new_state.set_position(agent, new_state.targets[agent]);
+		}
+	}
+	return new_state;
+}
+
+aoc::state aoc::state::run_to_nex_target(const uint64_t max_time) const {
+	uint64_t time = max_time;
+	for (size_t agent = 0; agent < num_agents; agent++) {
+		if (distances[agent] == traveled[agent] || max_time == 0) {
+			return state(*this);
+		}
+		if (distances[agent] - traveled[agent] < time - 1) {
+			time = distances[agent] - traveled[agent] + 1;
+		}
+	}
+	return add_time(time);
 }
 
 uint64_t aoc::state::get_flow_rate() const {
@@ -210,13 +312,15 @@ uint64_t aoc::state::get_flow_rate() const {
 }
 
 aoc::state aoc::state::set_flow_rate(const uint64_t flow_rate) const {
-	return state(flow_rate, time, released, valves, num_valves, positions,
-			targets, num_agents);
+	state new_state(*this);
+	new_state.flow_rate = flow_rate;
+	return new_state;
 }
 
 aoc::state aoc::state::add_flow_rate(const uint64_t flow_rate) const {
-	return state(this->flow_rate + flow_rate, time, released, valves,
-			num_valves, positions, targets, num_agents);
+	state new_state(*this);
+	new_state.flow_rate += flow_rate;
+	return new_state;
 }
 
 uint64_t aoc::state::get_time() const {
@@ -245,6 +349,9 @@ aoc::state aoc::state::set_position(const size_t agent,
 
 	state new_state(*this);
 	new_state.positions[agent] = position;
+	new_state.distances[agent] = get_distance(new_state.positions[agent],
+			position);
+	new_state.traveled[agent] = 0;
 	return new_state;
 }
 
@@ -266,15 +373,25 @@ aoc::state aoc::state::set_target(const size_t agent,
 
 	state new_state(*this);
 	new_state.targets[agent] = position;
+	new_state.distances[agent] = get_distance(new_state.positions[agent],
+			position);
 	return new_state;
 }
 
+size_t aoc::state::get_agents_count() const {
+	return num_agents;
+}
+
 size_t aoc::state::get_size() const {
-	return num_valves;
+	return get_valves_count();
 }
 
 const std::vector<aoc::valve> aoc::state::get_valves() const {
 	return std::vector<aoc::valve>(valves, valves + num_valves);
+}
+
+size_t aoc::state::get_valves_count() const {
+	return num_valves;
 }
 
 const aoc::valve& aoc::state::get_valve(const size_t index) const {
@@ -289,8 +406,7 @@ aoc::state aoc::state::set_valve(valve &valve) const {
 		throw std::out_of_range("Valve index out of range.");
 	}
 
-	state new_state(flow_rate, time, released, NULL, 0, positions, targets,
-			num_agents);
+	state new_state(*this);
 	if (valve.get_index() == num_valves) {
 		new_state.valves = new aoc::valve[num_valves + 1];
 		new_state.num_valves = num_valves + 1;
@@ -307,8 +423,7 @@ aoc::state aoc::state::set_valve(valve &valve) const {
 aoc::state aoc::state::add_valve(const std::string name,
 		const uint8_t flow_rate, const bool open, const uint64_t opened,
 		std::vector<size_t> &connections) const {
-	state new_state(this->flow_rate, time, released, NULL, 0, positions,
-			targets, num_agents);
+	state new_state(*this);
 	new_state.valves = new valve[num_valves + 1];
 	new_state.num_valves = num_valves + 1;
 	std::copy(valves, valves + num_valves, new_state.valves);
@@ -331,9 +446,9 @@ aoc::state aoc::state::open_valve(const size_t index) const {
 	}
 
 	state new_state(*this);
-	if (!valves[index].is_open()) {
+	if (!new_state.valves[index].is_open()) {
 		new_state.valves[index] = new_state.valves[index].open(time);
-		new_state.flow_rate += valves[index].get_flow_rate();
+		new_state.flow_rate += new_state.valves[index].get_flow_rate();
 	}
 	return new_state;
 }
@@ -400,21 +515,14 @@ size_t aoc::state::get_distance_to_target(const size_t agent) const {
 		throw std::out_of_range("Agent index out of range.");
 	}
 
-	return get_distance(positions[agent], targets[agent]);
+	return distances[agent];
 }
 
 std::ostream& aoc::operator<<(std::ostream &stream, const aoc::state &state) {
 	stream << "state[total flow rate=" << state.flow_rate;
 	stream << ", time=" << state.time;
 	stream << ", released=" << state.released;
-	stream << ", valves=[";
-	for (size_t i = 0; i < state.num_valves; i++) {
-		stream << state.valves[i];
-		if (i < state.num_valves - 1) {
-			stream << ", ";
-		}
-	}
-	stream << "], agents=[";
+	stream << ", agents=[";
 	for (size_t i = 0; i < state.num_agents; i++) {
 		stream << "agent[index=";
 		stream << i;
@@ -422,10 +530,21 @@ std::ostream& aoc::operator<<(std::ostream &stream, const aoc::state &state) {
 		stream << state.positions[i];
 		stream << ", target=";
 		stream << state.targets[i];
+		stream << ", distance=";
+		stream << state.distances[i];
+		stream << ", traveled=";
+		stream << state.traveled[i];
 		if (i < state.num_agents - 1) {
 			stream << "], ";
 		} else {
 			stream << ']';
+		}
+	}
+	stream << "], valves=[";
+	for (size_t i = 0; i < state.num_valves; i++) {
+		stream << state.valves[i];
+		if (i < state.num_valves - 1) {
+			stream << ", ";
 		}
 	}
 	stream << "]]";
@@ -443,6 +562,8 @@ void aoc::swap(state &first, state &second) noexcept {
 	swap(first.positions, second.positions);
 	swap(first.targets, second.targets);
 	swap(first.num_agents, second.num_agents);
+	swap(first.distances, second.distances);
+	swap(first.traveled, second.traveled);
 }
 
 uint64_t aoc::get_max_released(std::vector<valve> valves, size_t start_pos,
@@ -457,15 +578,20 @@ uint64_t aoc::get_max_released(std::vector<valve> valves, size_t start_pos,
 
 	std::vector<state> stack;
 	stack.push_back(initial_state);
+	std::unordered_set<state> checked;
 	state max_released;
 	while (stack.size() > 0) {
 		const state current_state = stack.back();
 		stack.pop_back();
+		checked.insert(current_state);
 		std::vector<size_t> closed_valves;
+		std::vector<uint64_t> closed_flow_rates;
 		for (size_t i = 0; i < current_state.get_size(); i++) {
 			if (!current_state.valve_open(i)
 					&& current_state.get_valve_flow_rate(i) > 0) {
 				closed_valves.push_back(i);
+				closed_flow_rates.push_back(
+						current_state.get_valve_flow_rate(i));
 			}
 		}
 
@@ -481,12 +607,43 @@ uint64_t aoc::get_max_released(std::vector<valve> valves, size_t start_pos,
 			continue;
 		}
 
-		for (const size_t val : closed_valves) {
-			state new_state = current_state.set_target(0, val);
-			const size_t dist = new_state.get_distance_to_target(0);
-			if (current_state.get_time() < time) {
-				new_state = new_state.add_time(
-						std::min(dist + 1, time - current_state.get_time()));
+		// Ignore states that cannot be better than the current best.
+		std::sort(closed_flow_rates.begin(), closed_flow_rates.end());
+		size_t mrel = current_state.get_released()
+				+ current_state.get_flow_rate()
+						* (time - current_state.get_time());
+		for (size_t i = 0;
+				i < time - current_state.get_time()
+						&& i < closed_flow_rates.size(); i++) {
+			mrel += closed_flow_rates[i]
+					* (time - current_state.get_time() - i);
+		}
+		if (mrel < max_released.get_released()) {
+			continue;
+		}
+
+		std::vector<state> new_states;
+		new_states.push_back(current_state);
+		for (size_t agent = 0; agent < current_state.get_agents_count();
+				agent++) {
+			if (current_state.get_position(agent)
+					!= current_state.get_target(agent)) {
+				continue;
+			}
+
+			for (state st : std::vector<state>(new_states)) {
+				new_states.erase(
+						std::find(new_states.begin(), new_states.end(), st));
+				for (const size_t val : closed_valves) {
+					new_states.push_back(st.set_target(agent, val));
+				}
+			}
+		}
+
+		for (state new_state : new_states) {
+			if (new_state.get_time() < time) {
+				new_state = new_state.run_to_nex_target(
+						time - new_state.get_time());
 				if (new_state.get_time() == time) {
 					if (max_released.get_released()
 							< new_state.get_released()) {
@@ -495,13 +652,13 @@ uint64_t aoc::get_max_released(std::vector<valve> valves, size_t start_pos,
 				}
 			}
 
-			new_state = new_state.open_valve(val);
-			new_state = new_state.set_position(0, val);
 			if (new_state.get_time() == time) {
 				if (max_released.get_released() < new_state.get_released()) {
 					max_released = new_state;
 				}
-			} else if (new_state.get_time() < time) {
+			} else if (new_state.get_time() < time
+					&& std::count(stack.begin(), stack.end(), new_state) == 0
+					&& checked.count(new_state) == 0) {
 				stack.push_back(std::move(new_state));
 			}
 		}
@@ -510,7 +667,40 @@ uint64_t aoc::get_max_released(std::vector<valve> valves, size_t start_pos,
 	return max_released.get_released();
 }
 
-std::string day16part1(std::ifstream input) {
+size_t std::hash<aoc::valve>::operator()(const aoc::valve &valve) const noexcept {
+	size_t result = 1;
+	result = result * 31 + hash<size_t>()(valve.index);
+	result = result * 31 + hash<string_view>()(valve.name);
+	result = result * 31 + hash<uint8_t>()(valve.flow_rate);
+	result = result * 31 + hash<bool>()(valve.state);
+	result = result * 31 + hash<uint64_t>()(valve.opened);
+	for (size_t i = 0; i < valve.num_connections; i++) {
+		result = result * 31 + hash<size_t>()(valve.connections[i]);
+	}
+	result = result * 31 + hash<size_t>()(valve.num_connections);
+	return result;
+}
+
+size_t std::hash<aoc::state>::operator()(const aoc::state &state) const noexcept {
+	size_t result = 1;
+	result = result * 31 + hash<uint64_t>()(state.flow_rate);
+	result = result * 31 + hash<uint64_t>()(state.time);
+	result = result * 31 + hash<uint64_t>()(state.released);
+	for (size_t i = 0; i < state.num_valves; i++) {
+		result = result * 31 + hash<aoc::valve>()(state.valves[i]);
+	}
+	result = result * 31 + hash<size_t>()(state.num_valves);
+	for (size_t i = 0; i < state.num_agents; i++) {
+		result = result * 31 + hash<size_t>()(state.positions[i]);
+		result = result * 31 + hash<size_t>()(state.targets[i]);
+		result = result * 31 + hash<size_t>()(state.distances[i]);
+		result = result * 31 + hash<size_t>()(state.traveled[i]);
+	}
+	result = result * 31 + hash<size_t>()(state.num_agents);
+	return result;
+}
+
+std::pair<std::string, std::string> day16comb(std::ifstream input) {
 	std::vector<aoc::valve> start_valves;
 	std::map<std::string, size_t> name_to_idx;
 	std::vector<std::vector<std::string>> connections;
@@ -542,8 +732,11 @@ std::string day16part1(std::ifstream input) {
 		}
 	}
 
-	return std::to_string(
-			aoc::get_max_released(start_valves, name_to_idx["AA"], 30, 1));
+	uint64_t part1 = aoc::get_max_released(start_valves, name_to_idx["AA"], 30,
+			1);
+	uint64_t part2 = aoc::get_max_released(start_valves, name_to_idx["AA"], 26,
+			2);
+	return {std::to_string(part1), std::to_string(part2)};
 }
 
-bool d16p1 = aoc::registerPart1(16, &day16part1);
+bool d16c = aoc::registerCombined(16, &day16comb);

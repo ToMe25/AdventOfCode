@@ -103,6 +103,22 @@ public:
 	valve& operator=(valve valve) noexcept;
 
 	/**
+	 * A comparison operator comparing this valve to the given other valve.
+	 *
+	 * @param other	The valve to compare this valve with.
+	 * @return	True if the valves are equal, false otherwise.
+	 */
+	bool operator==(const valve &other) const;
+
+	/**
+	 * A comparison operator comparing this valve to the given other valve.
+	 *
+	 * @param other	The valve to compare this valve with.
+	 * @return	False if the valves are equal, true otherwise.
+	 */
+	bool operator !=(const valve &other) const;
+
+	/**
 	 * Gets the index of this valve.
 	 *
 	 * @return	This valves index.
@@ -191,6 +207,11 @@ public:
 	 * @param second	The second of the two values to swap.
 	 */
 	friend void swap(valve &first, valve &second) noexcept;
+
+	/**
+	 * The struct housing the function generating a hash for a valve object.
+	 */
+	friend struct std::hash<valve>;
 };
 
 /**
@@ -257,6 +278,18 @@ private:
 	 */
 	size_t num_agents;
 
+	/**
+	 * The agents distance from their position to their target position.
+	 * Automatically updated, do not touch.
+	 */
+	size_t *distances;
+
+	/**
+	 * The distance the agents already traveled from their position towards their target position.
+	 * Automatically updated, do not touch.
+	 */
+	size_t *traveled;
+
 public:
 	/**
 	 * Creates a new state object with the given properties
@@ -303,6 +336,22 @@ public:
 	state& operator=(state state) noexcept;
 
 	/**
+	 * An equality check operator.
+	 *
+	 * @param other	The state to compare this state with.
+	 * @return	True if the states are equal, false otherwise.
+	 */
+	bool operator==(const state &other) const;
+
+	/**
+	 * An inequality check operator.
+	 *
+	 * @param other	The state to compare this state with.
+	 * @return	False if the states are equal, true otherwise.
+	 */
+	bool operator!=(const state &other) const;
+
+	/**
 	 * Creates a new state that represents this state when one unit of time passed.
 	 * Updates released pressure.
 	 *
@@ -312,11 +361,21 @@ public:
 
 	/**
 	 * Creates a new state that represents this state after a given amount of time passed.
-	 * Updates released pressure.
+	 * Updates the released pressure, and moves all agents one step closer to their current target.
+	 * Also opens the target valve, if there is time left for that.
 	 *
-	 * @return	The updated state.
+	 * @return	The new modified state.
 	 */
 	state add_time(const uint64_t time) const;
+
+	/**
+	 * Adds the amount of time necessary for the first agent to reach his target and open the valve.
+	 * Unless that would be more than max_time, in which case only max_time is added.
+	 *
+	 * @param max_time	The max amount of time to add to the new state.
+	 * @return	The new modified state.
+	 */
+	state run_to_nex_target(const uint64_t max_time) const;
 
 	/**
 	 * Gets the current rate at which pressure is released.
@@ -366,6 +425,7 @@ public:
 
 	/**
 	 * Creates a new state object in which the position of the controller is the given position.
+	 * Resets the traveled distance, and recalculates the distance to the target.
 	 *
 	 * @param agent		The index of the agent whose position to set.
 	 * @param position	The new position to use.
@@ -386,6 +446,7 @@ public:
 
 	/**
 	 * Sets the target position of the given agent.
+	 * Also recalculates the distance to the target.
 	 *
 	 * @param agent	The index of the agent whose target position to set.
 	 * @param position	The target position for the agent.
@@ -394,6 +455,13 @@ public:
 	 * 								or position is above the limit of the valves array.
 	 */
 	state set_target(const size_t agent, const size_t position) const;
+
+	/**
+	 * Returns the number of agents tracked by this state object.
+	 *
+	 * @return	The number of agents.
+	 */
+	size_t get_agents_count() const;
 
 	/**
 	 * Gets the number of valves stored in this state.
@@ -408,6 +476,13 @@ public:
 	 * @return	The vector containing the valve objects.
 	 */
 	const std::vector<valve> get_valves() const;
+
+	/**
+	 * Gets the number of valves stored in this state.
+	 *
+	 * @return	The number of tracked valve states.
+	 */
+	size_t get_valves_count() const;
 
 	/**
 	 * Get the valve at the given index.
@@ -490,7 +565,7 @@ public:
 	size_t get_distance(const size_t from, const size_t to) const;
 
 	/**
-	 * Calculates the distance from the current position of the given agent to its target position.
+	 * Gets the distance from the current position of the given agent to its target position.
 	 *
 	 * @param agent	The index of the agent to calculate the distance for.
 	 * @return	The distance from the current position to the given target position.
@@ -515,6 +590,11 @@ public:
 	 * @param second	The second of the two states to swap.
 	 */
 	friend void swap(state &first, state &second) noexcept;
+
+	/**
+	 * The struct housing the function generating a hash for a valve object.
+	 */
+	friend struct std::hash<state>;
 };
 
 /**
@@ -545,6 +625,36 @@ void swap(state &first, state &second) noexcept;
  */
 uint64_t get_max_released(std::vector<valve> valves, size_t start_pos,
 		size_t time, size_t num_agents);
+}
+
+namespace std {
+/**
+ * The struct housing the function generating a hash for a valve object.
+ */
+template<>
+struct hash<aoc::valve> {
+	/**
+	 * Calculates a hash value representing the given valve.
+	 *
+	 * @param valve	The valve to hash.
+	 * @return	The hash for the given valve.
+	 */
+	size_t operator()(const aoc::valve &valve) const noexcept;
+};
+
+/**
+ * The struct housing the function generating a hash for a state object.
+ */
+template<>
+struct hash<aoc::state> {
+	/**
+	 * Calculates a hash value representing the given state.
+	 *
+	 * @param state	The state to hash.
+	 * @return	The hash for the given state.
+	 */
+	size_t operator()(const aoc::state &state) const noexcept;
+};
 }
 
 #endif /* DAY16_H_ */
