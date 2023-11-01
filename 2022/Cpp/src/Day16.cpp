@@ -10,15 +10,17 @@
 #include <unordered_set>
 
 aoc::valve::valve() noexcept :
-		index(0), name(), flow_rate(0), state(false), opened(0), connections(
-		NULL), num_connections(0) {
+		index(0), name(NULL), name_len(0), flow_rate(0), state(false), opened(
+				0), connections(NULL), num_connections(0) {
 
 }
 
 aoc::valve::valve(const size_t index, const std::string_view name,
 		const uint8_t flow_rate, const bool open, const uint64_t opened,
 		const size_t *connections, const size_t num_connections) :
-		index(index), name(name), flow_rate(flow_rate), state(open), opened(
+		index(index), name(
+				name.length() > 0 ? new char[name.length() + 1] : NULL), name_len(
+				name.length()), flow_rate(flow_rate), state(open), opened(
 				opened), connections(
 				num_connections > 0 ? new size_t[num_connections] : NULL), num_connections(
 				num_connections) {
@@ -26,11 +28,17 @@ aoc::valve::valve(const size_t index, const std::string_view name,
 		std::copy(connections, connections + num_connections,
 				this->connections);
 	}
+	if (name.length() > 0) {
+		name.copy(this->name, name.length());
+		this->name[name_len] = 0;
+	}
 }
 
 aoc::valve::valve(const valve &valve) :
-		index(valve.index), name(valve.name), flow_rate(valve.flow_rate), state(
-				valve.state), opened(valve.opened), connections(
+		index(valve.index), name(
+				valve.name_len > 0 ? new char[valve.name_len + 1] : NULL), name_len(
+				valve.name_len), flow_rate(valve.flow_rate), state(valve.state), opened(
+				valve.opened), connections(
 				valve.num_connections > 0 ?
 						new size_t[valve.num_connections] : NULL), num_connections(
 				valve.num_connections) {
@@ -38,11 +46,14 @@ aoc::valve::valve(const valve &valve) :
 		std::copy(valve.connections, valve.connections + valve.num_connections,
 				connections);
 	}
+	if (name_len > 0) {
+		std::copy(valve.name, valve.name + valve.name_len + 1, name);
+	}
 }
 
 aoc::valve::valve(valve &&valve) noexcept :
-		index(0), name(), flow_rate(0), state(false), opened(0), connections(
-		NULL), num_connections(0) {
+		index(0), name(NULL), name_len(0), flow_rate(0), state(false), opened(
+				0), connections(NULL), num_connections(0) {
 	using std::swap;
 
 	swap(*this, valve);
@@ -66,7 +77,7 @@ bool aoc::valve::operator==(const valve &other) const {
 		return false;
 	}
 
-	if (name != other.name) {
+	if (get_name() != other.get_name()) {
 		return false;
 	}
 
@@ -87,8 +98,8 @@ size_t aoc::valve::get_index() const {
 	return index;
 }
 
-const std::string_view& aoc::valve::get_name() const {
-	return name;
+const std::string_view aoc::valve::get_name() const {
+	return std::string_view(name, name_len);
 }
 
 bool aoc::valve::is_open() const {
@@ -100,7 +111,7 @@ uint64_t aoc::valve::get_opened() const {
 }
 
 aoc::valve aoc::valve::open(const uint64_t time) const {
-	return valve(index, name, flow_rate, true, time, connections,
+	return valve(index, get_name(), flow_rate, true, time, connections,
 			num_connections);
 }
 
@@ -125,7 +136,7 @@ aoc::valve aoc::valve::add_connection(const size_t index) const {
 		return valve(*this);
 	}
 
-	valve new_valve(this->index, name, flow_rate, state, opened, NULL, 0);
+	valve new_valve(this->index, get_name(), flow_rate, state, opened, NULL, 0);
 	new_valve.connections = new size_t[num_connections + 1];
 	std::copy(connections, connections + num_connections,
 			new_valve.connections);
@@ -136,7 +147,7 @@ aoc::valve aoc::valve::add_connection(const size_t index) const {
 
 std::ostream& aoc::operator<<(std::ostream &stream, const aoc::valve &valve) {
 	stream << "valve[index=" << valve.index;
-	stream << ", name=" << valve.name;
+	stream << ", name=" << valve.get_name();
 	stream << ", flow rate=" << (uint16_t) valve.flow_rate;
 	stream << ", state=" << (valve.state ? "open" : "closed");
 	stream << ", opening time=" << valve.opened;
@@ -156,6 +167,7 @@ void aoc::swap(valve &first, valve &second) noexcept {
 
 	swap(first.index, second.index);
 	swap(first.name, second.name);
+	swap(first.name_len, second.name_len);
 	swap(first.flow_rate, second.flow_rate);
 	swap(first.state, second.state);
 	swap(first.opened, second.opened);
@@ -280,8 +292,7 @@ aoc::state aoc::state::add_time(const uint64_t time) const {
 	new_state.released += new_state.flow_rate * time;
 	for (size_t agent = 0; agent < new_state.num_agents; agent++) {
 		if (new_state.traveled[agent] + time < new_state.distances[agent]) {
-			new_state.traveled[agent] = std::min(new_state.distances[agent],
-					new_state.traveled[agent] + time);
+			new_state.traveled[agent] = new_state.traveled[agent] + time;
 		} else {
 			if (!valve_open(new_state.targets[agent])
 					&& new_state.traveled[agent] + time
@@ -295,11 +306,17 @@ aoc::state aoc::state::add_time(const uint64_t time) const {
 }
 
 aoc::state aoc::state::run_to_nex_target(const uint64_t max_time) const {
+	if (max_time == 0) {
+		return state(*this);
+	}
+
 	uint64_t time = max_time;
 	for (size_t agent = 0; agent < num_agents; agent++) {
-		if (distances[agent] == traveled[agent] || max_time == 0) {
+		if (positions[agent] == targets[agent]
+				&& valves[positions[agent]].is_open()) {
 			return state(*this);
 		}
+
 		if (distances[agent] - traveled[agent] < time - 1) {
 			time = distances[agent] - traveled[agent] + 1;
 		}
@@ -613,10 +630,10 @@ uint64_t aoc::get_max_released(std::vector<valve> valves, size_t start_pos,
 				+ current_state.get_flow_rate()
 						* (time - current_state.get_time());
 		for (size_t i = 0;
-				i < time - current_state.get_time()
+				i * 2 + 1 < time - current_state.get_time()
 						&& i < closed_flow_rates.size(); i++) {
 			mrel += closed_flow_rates[i]
-					* (time - current_state.get_time() - i);
+					* (time - current_state.get_time() - i * 2 - 1);
 		}
 		if (mrel < max_released.get_released()) {
 			continue;
@@ -627,7 +644,11 @@ uint64_t aoc::get_max_released(std::vector<valve> valves, size_t start_pos,
 		for (size_t agent = 0; agent < current_state.get_agents_count();
 				agent++) {
 			if (current_state.get_position(agent)
-					!= current_state.get_target(agent)) {
+					!= current_state.get_target(agent)
+					|| (!current_state.valve_open(
+							current_state.get_position(agent))
+							&& current_state.get_valve_flow_rate(
+									current_state.get_position(agent)) > 0)) {
 				continue;
 			}
 
@@ -670,7 +691,7 @@ uint64_t aoc::get_max_released(std::vector<valve> valves, size_t start_pos,
 size_t std::hash<aoc::valve>::operator()(const aoc::valve &valve) const noexcept {
 	size_t result = 1;
 	result = result * 31 + hash<size_t>()(valve.index);
-	result = result * 31 + hash<string_view>()(valve.name);
+	result = result * 31 + hash<string_view>()(valve.get_name());
 	result = result * 31 + hash<uint8_t>()(valve.flow_rate);
 	result = result * 31 + hash<bool>()(valve.state);
 	result = result * 31 + hash<uint64_t>()(valve.opened);

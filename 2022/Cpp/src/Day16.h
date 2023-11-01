@@ -25,7 +25,12 @@ private:
 	/**
 	 * The name of this valve.
 	 */
-	std::string_view name;
+	char *name;
+
+	/**
+	 * The number of characters in the name of this valve. Not including the NUL terminator.
+	 */
+	size_t name_len;
 
 	/**
 	 * The flow rate this valve allows when opened.
@@ -116,7 +121,7 @@ public:
 	 * @param other	The valve to compare this valve with.
 	 * @return	False if the valves are equal, true otherwise.
 	 */
-	bool operator !=(const valve &other) const;
+	bool operator!=(const valve &other) const;
 
 	/**
 	 * Gets the index of this valve.
@@ -130,7 +135,7 @@ public:
 	 *
 	 * @return	The name given to this valve.
 	 */
-	const std::string_view& get_name() const;
+	const std::string_view get_name() const;
 
 	/**
 	 * Checks whether this valve is currently open.
