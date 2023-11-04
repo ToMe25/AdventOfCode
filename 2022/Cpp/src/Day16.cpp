@@ -61,6 +61,7 @@ aoc::valve::valve(valve &&valve) noexcept :
 
 aoc::valve::~valve() {
 	delete[] connections;
+	delete[] name;
 }
 
 aoc::valve& aoc::valve::operator=(valve valve) noexcept {
