@@ -579,6 +579,14 @@ public:
 	size_t get_distance_to_target(const size_t agent) const;
 
 	/**
+	 * Prints this state to the given output straem.
+	 *
+	 * @param stream	The ostream to write this state to.
+	 * @param multiline	Whether to write this state in a multiline format, rather than a single line.
+	 */
+	void print_to(std::ostream &stream, const bool multiline = false) const;
+
+	/**
 	 * Writes the given state to the given output stream.
 	 *
 	 * @param stream	The stream to write to state to.
