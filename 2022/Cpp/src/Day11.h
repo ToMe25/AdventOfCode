@@ -11,6 +11,9 @@
 #include "Main.h"
 
 namespace aoc {
+/**
+ * An object representing a Monkey from the input data.
+ */
 class Monkey {
 private:
 	/**
@@ -115,8 +118,8 @@ public:
 	/**
 	 * Sets how the worry value should be reduced after a monkey inspected an item.
 	 *
-	 * @param relief_mod			Whether the worry reduction should be a modulo operation instead of a division.
-	 * @param relief_divisor		The divisor for the worry reduction operation.
+	 * @param relief_mod		Whether the worry reduction should be a modulo operation instead of a division.
+	 * @param relief_divisor	The divisor for the worry reduction operation.
 	 */
 	void set_relief(const bool relief_mod, const uint32_t relief_divisor);
 

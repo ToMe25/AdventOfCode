@@ -21,6 +21,7 @@ namespace aoc {
  * @param current_cost		The cost required to reach the current position.
  * @param end_cost			The minimum cost known to reach the target. Set to -1 if the end was not yet reached.
  * @param new_pos			The position to potentially check next.
+ * @return	Whether the given position should be checked.
  */
 bool check_position(const std::vector<std::vector<uint8_t>> &heights,
 		const std::map<std::pair<uint8_t, uint8_t>, uint16_t> &costs,

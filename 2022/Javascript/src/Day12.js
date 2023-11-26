@@ -8,6 +8,17 @@ function pairToStr(pair) {
 	return pair.first + ':' + pair.second
 }
 
+/**
+ * Checks whether the given new position should be checked.
+ *
+ * @param heights        The current height map.
+ * @param costs          The cheapest cost to reach each position.
+ * @param current_height The height of the current position.
+ * @param current_cost   The cost required to reach the current position.
+ * @param end_cost       The minimum cost known to reach the target. Set to -1 if the end was not yet reached.
+ * @param new_pos        The position to potentially check next.
+ * @return Whether the given position should be checked.
+ */
 function check_position(heights, costs, current_height, current_cost,
 	end_cost, new_pos) {
 	if (heights[new_pos.second][new_pos.first] < current_height - 1) {
