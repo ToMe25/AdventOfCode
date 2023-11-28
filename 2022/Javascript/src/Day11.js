@@ -83,6 +83,7 @@ class Monkey {
 	 *
 	 * @param true_target  The target monkey for items for which the test succeeds.
 	 * @param false_target The target monkey for items for which the test fails.
+	 * @throws {TypeError} If true_target or false_target isn't a Monkey.
 	 */
 	set_targets(true_target, false_target) {
 		if (true_target != undefined && !(true_target instanceof Monkey)) {

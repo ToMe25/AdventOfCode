@@ -433,7 +433,7 @@ public:
 	 * Resets the traveled distance, and recalculates the distance to the target.
 	 *
 	 * @param agent		The index of the agent whose position to set.
-	 * @param position	The new position to use.
+	 * @param position	The new position for the agent.
 	 * @return	The new state object with the changed position.
 	 * @throws std::out_of_range	If agent is above the limit of the positions array,
 	 * 								or position is above the limit of the valves array.
@@ -441,7 +441,7 @@ public:
 	state set_position(const size_t agent, const size_t position) const;
 
 	/**
-	 * Gets the target position of the given agent.
+	 * Gets the index of the target valve of the person controlling the valves.
 	 *
 	 * @param agent	The index of the agent whose target position to get.
 	 * @return	The target position of the given agent.
@@ -450,7 +450,7 @@ public:
 	size_t get_target(const size_t agent) const;
 
 	/**
-	 * Sets the target position of the given agent.
+	 * Creates a new state object in which the target position of the given agent is the given position.
 	 * Also recalculates the distance to the target.
 	 *
 	 * @param agent	The index of the agent whose target position to set.
@@ -542,7 +542,7 @@ public:
 	state open_valve(const size_t index) const;
 
 	/**
-	 * Checks the flow rate of the valve at the given index.
+	 * Gets the flow rate of the valve at the given index.
 	 *
 	 * @param index	The index of the valve to check.
 	 * @return	The flow rate the given valve allows when it is open.

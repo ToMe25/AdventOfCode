@@ -295,7 +295,7 @@ aoc::state aoc::state::add_time(const uint64_t time) const {
 		const size_t remaining_travel = new_state.distances[agent]
 				- new_state.traveled[agent];
 		if (time < remaining_travel) {
-			new_state.traveled[agent] = new_state.traveled[agent] + time;
+			new_state.traveled[agent] += time;
 		} else {
 			const size_t target = new_state.targets[agent];
 			if (!new_state.valve_open(target) && remaining_travel < time) {
@@ -309,7 +309,8 @@ aoc::state aoc::state::add_time(const uint64_t time) const {
 				new_state.released += new_valve_flow_rate
 						* (new_state.time - open_time);
 			}
-			new_state = new_state.set_position(agent, target);
+			new_state.positions[agent] = target;
+			new_state.distances[agent] = new_state.traveled[agent] = 0;
 		}
 	}
 	return new_state;
@@ -711,7 +712,7 @@ uint64_t aoc::get_max_released(std::vector<valve> valves, size_t start_pos,
 						std::find(new_states.begin(), new_states.end(), st));
 				for (const size_t val : closed_valves) {
 					bool found = false;
-					for (size_t i = 0; i < num_agents; i++) {
+					for (size_t i = 0; i < st.get_agents_count(); i++) {
 						if (st.get_target(i) == val) {
 							found = true;
 							break;
@@ -728,10 +729,9 @@ uint64_t aoc::get_max_released(std::vector<valve> valves, size_t start_pos,
 			if (new_state.get_time() < time) {
 				new_state = new_state.run_to_nex_target(
 						time - new_state.get_time());
-				if (new_state.get_time() == time) {
-					if (max_released < new_state.get_released()) {
-						max_released = new_state.get_released();
-					}
+				if (new_state.get_time() == time
+						&& new_state.get_released() > max_released) {
+					max_released = new_state.get_released();
 				}
 			}
 
