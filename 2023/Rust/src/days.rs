@@ -58,6 +58,7 @@ pub fn init() {
     let vec: Vec<RwLock<Option<Box<dyn Fn() -> Box<dyn DayRunner> + Send + Sync>>>> =
         (0..25).map(|_| RwLock::new(None)).collect();
     let _ = DAY_RUNNERS.set(vec);
+    let _ = register_day_runner(1, day1::Day1Runner::new);
 }
 
 /// A runner solving a specific day of the [Advent of Code](https://adventofcode.com/).
@@ -255,3 +256,6 @@ where
 }
 
 // TODO add unit tests.
+
+// Below are the mods for each day.
+mod day1;
