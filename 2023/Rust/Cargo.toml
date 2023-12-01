@@ -1,0 +1,11 @@
+[package]
+name = "rust_aoc_2023"
+version = "0.1.0"
+edition = "2021"
+description = "My Advent of Code 2023 solutions in Rust."
+repository = "https://github.com/ToMe25/AdventOfCode/tree/master/2023/Rust"
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
