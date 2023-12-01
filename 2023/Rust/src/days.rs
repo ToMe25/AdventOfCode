@@ -40,36 +40,6 @@ use self::day1::Day1Runner;
 static DAY_RUNNERS: RwLock<Vec<Option<Box<dyn Fn() -> Box<dyn DayRunner> + Send + Sync>>>> =
     RwLock::new(Vec::new());
 
-/// Initializes the internal runners list.
-///
-/// Initializes the interal data structure storing the constructors for each days runner.  
-/// Has to be called before the first [get_day_runner] call.  
-/// Currently also registers all the already implemented days.
-///
-/// Will automatically be called by the first [register_day_runner] call.  
-/// Calling this function a second time wont do anything.
-///
-/// TODO If possible, find a way for runners to register themselves.
-///
-/// # Panics
-///
-/// This function panics if the internal [RwLock] is poisoned.
-///
-/// # Examples
-///
-/// There is only realy one use-case for this function:
-/// ```
-/// use rust_aoc_2023::days;
-///
-/// days::init();
-/// ```
-pub fn init() {
-    if DAY_RUNNERS.read().unwrap().is_empty() {
-        DAY_RUNNERS.write().unwrap().extend((0..25).map(|_| None));
-        register_day_runner(1, Day1Runner::new);
-    }
-}
-
 /// A runner solving a specific day of the [Advent of Code](https://adventofcode.com/).
 ///
 /// Each struct implementing this is supposed to be responsible for solving a single of the advent of code.  
@@ -119,7 +89,7 @@ pub trait DayRunner {
     /// Unlike [Self::init] however it is not allowed to mutate the runner.  
     ///
     /// This function should return the text representation of the part 1 solution for that day.  
-    /// It is allowed to return None, first for not yet implemented parts,
+    /// It is allowed to return `None`, first for not yet implemented parts,
     /// and second for the rare cases in which the output has to be directly printed to allow easy reading.
     ///
     /// # Errors
@@ -135,7 +105,7 @@ pub trait DayRunner {
     /// Unlike [Self::init] however it is not allowed to mutate the runner.  
     ///
     /// This function should return the text representation of the part 1 solution for that day.  
-    /// It is allowed to return None, first for not yet implemented parts,
+    /// It is allowed to return `None`, first for not yet implemented parts,
     /// and second for the rare cases in which the output has to be directly printed to allow easy reading.
     ///
     /// # Errors
@@ -143,6 +113,36 @@ pub trait DayRunner {
     /// Depending on the implementation, this method is allowed to return arbitrary types of errors.
     fn part2(&self) -> Result<Option<String>, Box<dyn Error>> {
         Ok(None)
+    }
+}
+
+/// Initializes the internal runners list.
+///
+/// Initializes the interal data structure storing the constructors for each days runner.  
+/// Has to be called before the first [get_day_runner] call.  
+/// Currently also registers all the already implemented days.
+///
+/// Will automatically be called by the first [register_day_runner] call.  
+/// Calling this function a second time wont do anything.
+///
+/// TODO If possible, find a way for runners to register themselves.
+///
+/// # Panics
+///
+/// This function panics if the internal [RwLock] is poisoned.
+///
+/// # Examples
+///
+/// There is only realy one use-case for this function:
+/// ```
+/// use rust_aoc_2023::days;
+///
+/// days::init();
+/// ```
+pub fn init() {
+    if DAY_RUNNERS.read().unwrap().is_empty() {
+        DAY_RUNNERS.write().unwrap().extend((0..25).map(|_| None));
+        register_day_runner(1, Day1Runner::new);
     }
 }
 

@@ -1,15 +1,43 @@
 pub mod argparser {
+	//! Commandline argument handler.
+	//!
+	//! This module contains the code for parsing the commandline arguments,
+	//! and a struct to handle the parsed arguments.
+	//!
+	//! Since this is a specific purpose parser, it is not possible to add more arguments to parse
+	//! without modifying [Arguments].
+	//!
+	//! # Examples
+	//!
+	//! The default use of this module is to parse the args from [env::args](std::env::args).
+	//! ```
+	//! use std::env;
+    //! use rust_aoc_2023::argparser::Arguments;
+    //!
+    //! let args = Arguments::parse(env::args());
+    //! ```
+    //!
+    //! However it is also possible to parse arguments from other sources:
+    //! ```
+    //! use rust_aoc_2023::argparser::Arguments;
+    //!
+    //! // The first argument will be ignored.
+    //! let argstrs = ["", "--time", "--day", "17"];
+    //! let args = Arguments::parse(argstrs.iter().map(|str| str.to_string())).unwrap();
+    //!
+    //! assert_eq!(args, Arguments {days: vec![17], time: true, help: false});
+    //! ```
     use std::error::Error;
     use std::fmt;
 
     /// Represents all the values given using command line arguments.
     ///
     /// An instance of Arguments stores all the configuration caused by all the given argument strings.  
-    /// Use [Self::parse] to create an arguments instance from a string iterator.
+    /// Use [parse](Self::parse) to create an arguments instance from a string iterator.
     ///
     /// # Examples
     ///
-    /// The most common use case for this is to create an Arguments instance from [env::args()](std::env::args()).
+    /// The most common use case for this is to create an Arguments instance from [env::args](std::env::args).
     /// ```
     /// use std::env;
     /// use rust_aoc_2023::argparser::Arguments;
@@ -30,7 +58,7 @@ pub mod argparser {
         /// and returns an arguments instance containing whether to print the help text,
         /// whether to time day executions, and which days to execute.
         ///
-        /// The first result of the iterator will be ignored, since that would be the program path with [env::args()](std::env::args()).
+        /// The first result of the iterator will be ignored, since that would be the program path with [env::args](std::env::args).
         ///
         /// # Errors
         ///
@@ -199,7 +227,8 @@ pub mod argparser {
 use std::env;
 use std::io;
 use std::path::PathBuf;
-use std::time::Duration;
+use std::process;
+use std::time::{Duration, Instant};
 
 /// Gets the absolute path of the input file for the given day.
 ///
@@ -312,6 +341,137 @@ pub fn print_help() {
     println!(" -d --day <DAY(S)>   Specifies one or more days to run. Multiple days can be specified using START-END. Can be used more than once.");
     println!(" -t --time           Measures and prints the execution time of each part of each executed day.");
     println!(" -h --help           Prints this help text and exits.");
+}
+
+/// Solve a sequence of days.
+///
+/// This function executes a sequence of [DayRunners](days::DayRunner).  
+/// The days will be run in the order the iterator returns them.
+///
+/// Currently the function prints an error message if something goes wrong.  
+/// It also terminates the program if an error occures while trying to get a runner for a day.  
+/// TODO implment better error handling.
+///
+/// An error message will be printed to the log for every day that couldn't be found.
+///
+/// Setting time to `true` will cause this function to print log messages about the execution times.  
+/// One such message will be called for the init, part1, and part2 methods of each day.  
+/// In addition one message will be printed containing the total execution time of all days.
+///
+/// # Panics
+///
+/// This function panics if it receives a day that is 0 or greater than 25.  
+/// It also panics if [days::init] wasn't called before this function.  
+/// Note that [days::init] is automatically called by [days::register_day_runner].
+///
+/// # Examples
+///
+/// Running days from a u8 slice:
+/// ```
+/// use rust_aoc_2023;
+/// use rust_aoc_2023::days;
+/// 
+/// days::init();
+/// rust_aoc_2023::run_days([1, 7, 5].iter(), false);
+/// ```
+///
+/// Timing day executions:
+/// ```
+/// # use rust_aoc_2023;
+/// # use rust_aoc_2023::days;
+/// #
+/// # days::init();
+/// rust_aoc_2023::run_days([7, 9, 1].iter(), true);
+/// ```
+pub fn run_days<'a, I: Iterator<Item = &'a u8>>(days: I, time: bool) {
+	// TODO move code executing a single day to its own function
+    let start = Instant::now();
+    for day in days {
+    	if *day == 0 || *day > 25 {
+    		panic!("Received invalid day {}!", *day);
+    	}
+
+        let runner = days::get_day_runner(*day).unwrap_or_else(|err| {
+            eprintln!(
+                "An error occured while trying to get a runner for day {}!",
+                day
+            );
+            eprintln!("Error: {}", err);
+            process::exit(2)
+        });
+
+        match runner {
+            Some(mut run) => {
+                let init_start = Instant::now();
+                let init_result = run.init();
+                if init_result.is_err() {
+                    eprintln!("Initializing day {} failed!", day);
+                    eprintln!("Error: {}", init_result.err().unwrap());
+                    continue;
+                }
+                if time {
+                    println!(
+                        "Initializing day {} took {}.",
+                        day,
+                        format_duration(&init_start.elapsed())
+                    );
+                }
+
+                let part1_start = Instant::now();
+                let part1_result = run.part1();
+                if part1_result.is_err() {
+                    eprintln!("Running day {} part 1 failed!", day);
+                    eprintln!("Error: {}", part1_result.err().unwrap());
+                    continue;
+                }
+
+                let part1_str = part1_result.unwrap();
+                if part1_str.is_some() {
+                    println!("Day {} part 1 result: {}", day, part1_str.unwrap());
+                }
+                if time {
+                    println!(
+                        "Day {} part 1 took {}",
+                        day,
+                        format_duration(&part1_start.elapsed())
+                    );
+                }
+
+                let part2_start = Instant::now();
+                let part2_result = run.part2();
+                if part2_result.is_err() {
+                    eprintln!("Running day {} part 2 failed!", day);
+                    eprintln!("Error: {}", part2_result.err().unwrap());
+                    continue;
+                }
+
+                let part2_str = part2_result.unwrap();
+                if part2_str.is_some() {
+                    println!("Day {} part 2 result: {}", day, part2_str.unwrap());
+                }
+                if time {
+                    println!(
+                        "Day {} part 2 took {}",
+                        day,
+                        format_duration(&part2_start.elapsed())
+                    );
+                    println!(
+                        "Running day {} took {} in total.",
+                        day,
+                        format_duration(&init_start.elapsed())
+                    );
+                }
+            }
+            None => eprintln!("No runner for day {} found!", day),
+        }
+    }
+
+    if time {
+        println!(
+            "Running all days took a total of {}.",
+            format_duration(&start.elapsed())
+        );
+    }
 }
 
 pub mod days;
