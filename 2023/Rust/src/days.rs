@@ -35,16 +35,25 @@
 use std::error::Error;
 use std::sync::{OnceLock, RwLock};
 
-static DAY_RUNNERS: OnceLock<
-    Vec<RwLock<Option<Box<dyn Fn() -> Box<dyn DayRunner> + Send + Sync>>>>,
-> = OnceLock::new();
+use self::day1::Day1Runner;
 
-/// Initializes the internal runners list and registers all runners.
+static DAY_RUNNERS: RwLock<Vec<Option<Box<dyn Fn() -> Box<dyn DayRunner> + Send + Sync>>>> =
+    RwLock::new(Vec::new());
+
+/// Initializes the internal runners list.
 ///
 /// Initializes the interal data structure storing the constructors for each days runner.  
-/// Currently also registers all the already implemented days.  
 /// Has to be called before the first [get_day_runner] call.  
+/// Currently also registers all the already implemented days.
+///
+/// Will automatically be called by the first [register_day_runner] call.  
+/// Calling this function a second time wont do anything.
+///
 /// TODO If possible, find a way for runners to register themselves.
+///
+/// # Panics
+///
+/// This function panics if the internal [RwLock] is poisoned.
 ///
 /// # Examples
 ///
@@ -55,10 +64,10 @@ static DAY_RUNNERS: OnceLock<
 /// days::init();
 /// ```
 pub fn init() {
-    let vec: Vec<RwLock<Option<Box<dyn Fn() -> Box<dyn DayRunner> + Send + Sync>>>> =
-        (0..25).map(|_| RwLock::new(None)).collect();
-    let _ = DAY_RUNNERS.set(vec);
-    let _ = register_day_runner(1, day1::Day1Runner::new);
+    if DAY_RUNNERS.read().unwrap().is_empty() {
+        DAY_RUNNERS.write().unwrap().extend((0..25).map(|_| None));
+        register_day_runner(1, Day1Runner::new);
+    }
 }
 
 /// A runner solving a specific day of the [Advent of Code](https://adventofcode.com/).
@@ -153,7 +162,9 @@ pub trait DayRunner {
 /// # Panics
 ///
 /// This function panics when given a day that is either 0 or above 25.  
-/// This function also panics if the internal data structure isn't initialized, because [init] wasn't called.
+/// It will also panic if the internal [RwLock] is poisoned.  
+/// This function also panics if the internal data structure isn't initialized, because [init] wasn't called.  
+/// Note that [register_day_runner] automatically runs [init].
 ///
 /// # Examples
 ///
@@ -187,7 +198,11 @@ pub fn get_day_runner(day: u8) -> Result<Option<Box<dyn DayRunner>>, Box<dyn Err
         panic!("Trying to register runner for a day after the 25th.");
     }
 
-    match &*DAY_RUNNERS.get().unwrap()[usize::from(day - 1)].read()? {
+    if DAY_RUNNERS.read()?.is_empty() {
+        panic!("init has to be called for get_day_runner to work.");
+    }
+
+    match &DAY_RUNNERS.read()?[usize::from(day - 1)] {
         Some(func) => Ok(Some(func())),
         None => Ok(None),
     }
@@ -200,8 +215,8 @@ pub fn get_day_runner(day: u8) -> Result<Option<Box<dyn DayRunner>>, Box<dyn Err
 ///
 /// # Panics
 ///
-/// This function panics when given a day that is either 0 or above 25.  
-/// This function also panics if the internal data structure isn't initialized, because [init] wasn't called.
+/// This function panics if given a day that is either 0 or above 25.  
+/// And if the internal [RwLock] is poisoned.
 ///
 /// # Examples
 ///
@@ -233,26 +248,41 @@ where
     T: DayRunner + 'static,
     U: Fn() -> T + Send + Sync + 'static,
 {
+    if DAY_RUNNERS.read().unwrap().is_empty() {
+        init();
+    }
+
     if day == 0 {
         panic!("Trying to register runner for day 0.");
     } else if day > 25 {
         panic!("Trying to register runner for a day after the 25th.");
     }
 
-    if DAY_RUNNERS.get().unwrap()[usize::from(day - 1)]
-        .read()
-        .unwrap()
-        .is_some()
-    {
+    if DAY_RUNNERS.read().unwrap()[usize::from(day - 1)].is_some() {
         return false;
     }
 
-    let cons: OnceLock<Box<U>> = OnceLock::new();
-    let _ = cons.set(Box::new(constructor));
-    *DAY_RUNNERS.get().unwrap()[usize::from(day - 1)]
-        .write()
-        .unwrap() = Some(Box::new(move || Box::new(cons.get().unwrap()())));
+    let cons: OnceLock<U> = OnceLock::new();
+    let _ = cons.set(constructor);
+
+    DAY_RUNNERS.write().unwrap()[usize::from(day - 1)] =
+        Some(Box::new(move || wrap_constructor(&cons)));
     true
+}
+
+/// Calls the given constructor.
+///
+/// This function calls the constructor from the given lock and wraps the result in a box.
+///
+/// # Panics
+///
+/// This function panics if the given [OnceLock] is uninitialized or poisoned.
+fn wrap_constructor<T, U>(constructor: &OnceLock<U>) -> Box<dyn DayRunner>
+where
+    T: DayRunner + 'static,
+    U: Fn() -> T + Send + Sync,
+{
+    Box::new(constructor.get().unwrap()())
 }
 
 // TODO add unit tests.

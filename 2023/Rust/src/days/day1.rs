@@ -4,6 +4,9 @@ use std::fs;
 use super::super::get_input_file;
 use super::DayRunner;
 
+/// The day 1 runner.
+///
+/// The [DayRunner] implementation for the aoc day one.
 #[derive(Debug, Clone)]
 pub struct Day1Runner {}
 
