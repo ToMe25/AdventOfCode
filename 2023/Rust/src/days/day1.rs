@@ -6,7 +6,7 @@ use super::DayRunner;
 
 /// The day 1 runner.
 ///
-/// The [DayRunner] implementation for the aoc day one.
+/// The [DayRunner] implementation for the aoc day 1.
 #[derive(Debug, Clone)]
 pub struct Day1Runner {}
 

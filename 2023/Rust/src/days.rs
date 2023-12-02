@@ -35,8 +35,6 @@
 use std::error::Error;
 use std::sync::{OnceLock, RwLock};
 
-use self::day1::Day1Runner;
-
 static DAY_RUNNERS: RwLock<Vec<Option<Box<dyn Fn() -> Box<dyn DayRunner> + Send + Sync>>>> =
     RwLock::new(Vec::new());
 
@@ -142,7 +140,8 @@ pub trait DayRunner {
 pub fn init() {
     if DAY_RUNNERS.read().unwrap().is_empty() {
         DAY_RUNNERS.write().unwrap().extend((0..25).map(|_| None));
-        register_day_runner(1, Day1Runner::new);
+        register_day_runner(1, day1::Day1Runner::new);
+        register_day_runner(2, day2::Day2Runner::new);
     }
 }
 
@@ -289,3 +288,4 @@ where
 
 // Below are the mods for each day.
 mod day1;
+mod day2;
