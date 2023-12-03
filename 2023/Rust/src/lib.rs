@@ -362,7 +362,7 @@ pub fn print_help() {
 ///
 /// This function panics if it receives a day that is 0 or greater than 25.  
 /// It also panics if [days::init] wasn't called before this function.  
-/// Note that [days::init] is automatically called by [days::register_day_runner].
+/// Note that [days::init] is automatically called by [days::register_day_runner_constructor] and [days::register_day_runner_default].
 ///
 /// # Examples
 ///

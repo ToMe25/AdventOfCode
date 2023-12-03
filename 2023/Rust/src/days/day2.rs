@@ -8,19 +8,13 @@ use super::DayRunner;
 /// The day 2 runner.
 ///
 /// The [DayRunner] implementation for the aoc day 2.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Day2Runner {
     /// The cubes that were taken out the bag at once.
     ///
     /// The outer vector contains one vector per game.  
     /// Each inner vector contains a color and the number of cubes of that color that were taken.
     cubes: Option<Vec<Vec<(String, u16)>>>,
-}
-
-impl Day2Runner {
-    pub fn new() -> Day2Runner {
-        Day2Runner { cubes: None }
-    }
 }
 
 impl DayRunner for Day2Runner {

@@ -7,14 +7,8 @@ use super::DayRunner;
 /// The day 1 runner.
 ///
 /// The [DayRunner] implementation for the aoc day 1.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Day1Runner {}
-
-impl Day1Runner {
-    pub fn new() -> Day1Runner {
-        Day1Runner {}
-    }
-}
 
 impl DayRunner for Day1Runner {
     fn part1(&self) -> Result<Option<String>, Box<dyn Error>> {

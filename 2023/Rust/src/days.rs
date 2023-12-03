@@ -12,25 +12,100 @@
 //! use rust_aoc_2023::days;
 //! use rust_aoc_2023::days::DayRunner;
 //!
+//! #[derive(Default)]
 //! struct SomeRunner {}
-//!
-//! impl SomeRunner {
-//!     pub fn new() -> SomeRunner {
-//!         SomeRunner {}
-//!     }
-//! }
 //!
 //! impl DayRunner for SomeRunner {}
 //!
 //! fn main() {
 //!     days::init();
-//!     let _ = days::register_day_runner(19, SomeRunner::new);
+//!     let _ = days::register_day_runner_default::<SomeRunner>(19);
 //!     let mut runner = days::get_day_runner(19).unwrap();
 //!     assert!(runner.is_some());
 //!     runner = days::get_day_runner(5).unwrap();
 //!     assert!(runner.is_none());
 //! }
 //! ```
+//!
+//! This is how a runner is supposed to be implemented:
+//! ```
+//! # use std::error::Error;
+//! #
+//! # use rust_aoc_2023::days;
+//! # use rust_aoc_2023::days::DayRunner;
+//! #
+//! #[derive(Default)]
+//! struct SomeRunner {
+//!     field: u32,
+//! }
+//!
+//! impl DayRunner for SomeRunner {
+//!     fn init(&mut self) -> Result<(), Box<dyn Error>> {
+//!         assert_eq!(self.field, 0);
+//!         // Some complex function to get common data.
+//!         self.field = 91;
+//!         Ok(())
+//!     }
+//!
+//!     fn part1(&self) -> Result<Option<String>, Box<dyn Error>> {
+//!         assert_eq!(self.field, 91);
+//!         // Further logic, specific to part 1.
+//!         let result = self.field * 3;
+//!         Ok(Some(result.to_string()))
+//!     }
+//! }
+//!
+//! fn main() {
+//!     days::init();
+//!     let _ = days::register_day_runner_default::<SomeRunner>(7);
+//!     let mut runner = days::get_day_runner(7).unwrap().unwrap();
+//! #     runner.init().unwrap();
+//! #     assert_eq!(runner.part1().unwrap().unwrap(), "273");
+//! #     assert!(runner.part2().unwrap().is_none());
+//! }
+//! ```
+//!
+//! It is also possible to register a custom constructor, if this is desired for whatever reason:
+//! ```
+//! # use std::error::Error;
+//! #
+//! # use rust_aoc_2023::days;
+//! # use rust_aoc_2023::days::DayRunner;
+//! #
+//! struct SomeRunner {
+//!     field: u32,
+//! }
+//!
+//! impl SomeRunner {
+//!     pub fn new() -> SomeRunner {
+//!         SomeRunner {
+//!             field: 0,
+//!         }
+//!     }
+//! }
+//!
+//! impl DayRunner for SomeRunner {
+//!     fn init(&mut self) -> Result<(), Box<dyn Error>> {
+//!         assert_eq!(self.field, 0);
+//!         // Some complex function to get common data.
+//!         self.field = 91;
+//!         Ok(())
+//!     }
+//!
+//! #     fn part1(&self) -> Result<Option<String>, Box<dyn Error>> {
+//! #         assert_eq!(self.field, 91);
+//! #         Ok(None)
+//! #     }
+//! }
+//!
+//! fn main() {
+//!     days::init();
+//!     let _ = days::register_day_runner_constructor(16, SomeRunner::new);
+//!     let mut runner = days::get_day_runner(16).unwrap().unwrap();
+//! #     runner.init().unwrap();
+//! #     assert!(runner.part1().unwrap().is_none());
+//! #     assert!(runner.part2().unwrap().is_none());
+//! }
 
 use std::error::Error;
 use std::sync::{OnceLock, RwLock};
@@ -60,13 +135,28 @@ static DAY_RUNNERS: RwLock<Vec<Option<Box<dyn Fn() -> Box<dyn DayRunner> + Send 
 ///         self.common = 7;
 ///         Ok(())
 ///     }
+///
+///     fn part1(&self) -> Result<Option<String>, Box<dyn Error>> {
+///         assert_eq!(self.common, 7);
+///         // Additional functionality specific to part 1.
+///         let result = self.common * 391;
+///         Ok(Some(result.to_string()))
+///     }
+///
+///     fn part2(&self) -> Result<Option<String>, Box<dyn Error>> {
+///         assert_eq!(self.common, 7);
+///         // Additional functionality specific to part 2.
+///         Ok(None)
+///     }
 /// }
 ///
 /// fn main() {
 ///     let mut runner = ExampleRunner {common: 0};
-///     let _ = runner.init();
-///     runner.part1();
-///     runner.part2();
+///     runner.init().unwrap();
+///     let part1 = runner.part1().unwrap();
+///     let part2 = runner.part2().unwrap();
+/// #     assert_eq!(part1.unwrap(), "2737");
+/// #     assert!(part2.is_none());
 /// }
 /// ```
 pub trait DayRunner {
@@ -120,7 +210,7 @@ pub trait DayRunner {
 /// Has to be called before the first [get_day_runner] call.  
 /// Currently also registers all the already implemented days.
 ///
-/// Will automatically be called by the first [register_day_runner] call.  
+/// Will automatically be called by the first [register_day_runner_constructor] or [register_day_runner_default] call.  
 /// Calling this function a second time wont do anything.
 ///
 /// TODO If possible, find a way for runners to register themselves.
@@ -140,16 +230,16 @@ pub trait DayRunner {
 pub fn init() {
     if DAY_RUNNERS.read().unwrap().is_empty() {
         DAY_RUNNERS.write().unwrap().extend((0..25).map(|_| None));
-        register_day_runner(1, day1::Day1Runner::new);
-        register_day_runner(2, day2::Day2Runner::new);
-        register_day_runner(3, day3::Day3Runner::new);
+        register_day_runner_default::<day1::Day1Runner>(1);
+        register_day_runner_default::<day2::Day2Runner>(2);
+        register_day_runner_default::<day3::Day3Runner>(3);
     }
 }
 
 /// Get a runner for a specific day.
 ///
 /// This function creates a new runner for the given day, if a constructor was registered for that day.  
-/// Constructors can be registered using [register_day_runner].  
+/// Constructors can be registered using [register_day_runner_constructor] or [register_day_runner_default].  
 ///
 /// If no constructor was registered this function returns `Ok(None)`.
 ///
@@ -164,7 +254,7 @@ pub fn init() {
 /// This function panics when given a day that is either 0 or above 25.  
 /// It will also panic if the internal [RwLock] is poisoned.  
 /// This function also panics if the internal data structure isn't initialized, because [init] wasn't called.  
-/// Note that [register_day_runner] automatically runs [init].
+/// Note that calling [register_day_runner_constructor] or [register_day_runner_default] automatically runs [init].
 ///
 /// # Examples
 ///
@@ -172,20 +262,15 @@ pub fn init() {
 /// # use rust_aoc_2023::days;
 /// # use rust_aoc_2023::days::DayRunner;
 /// #
+/// # #[derive(Default)]
 /// # struct SomeRunner {}
-/// #
-/// # impl SomeRunner {
-/// #     pub fn new() -> SomeRunner {
-/// #         SomeRunner {}
-/// #     }
-/// # }
 /// #
 /// # impl DayRunner for SomeRunner {}
 /// #
 /// # fn main() {
 ///     days::init();
-///     let _ = days::register_day_runner(19, SomeRunner::new);
-///     let mut runner = days::get_day_runner(19).unwrap();
+///     let _ = days::register_day_runner_default::<SomeRunner>(17);
+///     let mut runner = days::get_day_runner(17).unwrap();
 ///     assert!(runner.is_some());
 ///     runner = days::get_day_runner(5).unwrap();
 ///     assert!(runner.is_none());
@@ -208,9 +293,10 @@ pub fn get_day_runner(day: u8) -> Result<Option<Box<dyn DayRunner>>, Box<dyn Err
     }
 }
 
-/// Register a runner for a specific day.
+/// Register a runner constructor for a specific day.
 ///
-/// This function registers the constructor to be used to create a runner for the given day.  
+/// This function registers the given constructor to be used to create a runner for the given day.  
+/// To register a [Default] constructor use [register_day_runner_default].  
 /// To get a runner use [get_day_runner].
 ///
 /// # Panics
@@ -220,30 +306,31 @@ pub fn get_day_runner(day: u8) -> Result<Option<Box<dyn DayRunner>>, Box<dyn Err
 ///
 /// # Examples
 ///
+/// Using this function to register a `new` constructor:
 /// ```
 /// # use rust_aoc_2023::days;
 /// # use rust_aoc_2023::days::DayRunner;
 /// #
-/// # struct SomeRunner {}
-/// #
-/// # impl SomeRunner {
-/// #     pub fn new() -> SomeRunner {
-/// #         SomeRunner {}
-/// #     }
-/// # }
-/// #
-/// # impl DayRunner for SomeRunner {}
-/// #
-/// # fn main() {
+/// struct SomeRunner {}
+///
+/// impl SomeRunner {
+///     pub fn new() -> SomeRunner {
+///         SomeRunner {}
+///     }
+/// }
+///
+/// impl DayRunner for SomeRunner {}
+///
+/// fn main() {
 ///     days::init();
-///     let _ = days::register_day_runner(6, SomeRunner::new);
+///     let _ = days::register_day_runner_constructor(6, SomeRunner::new);
 ///     let mut runner = days::get_day_runner(4).unwrap();
 ///     assert!(runner.is_none());
 ///     runner = days::get_day_runner(6).unwrap();
 ///     assert!(runner.is_some());
-/// # }
+/// }
 /// ```
-pub fn register_day_runner<T, U>(day: u8, constructor: U) -> bool
+pub fn register_day_runner_constructor<T, U>(day: u8, constructor: U) -> bool
 where
     T: DayRunner + 'static,
     U: Fn() -> T + Send + Sync + 'static,
@@ -267,6 +354,57 @@ where
 
     DAY_RUNNERS.write().unwrap()[usize::from(day - 1)] =
         Some(Box::new(move || wrap_constructor(&cons)));
+    true
+}
+
+/// Register a default constructable day runner.
+///
+/// This function registers the [default](Default::default) constructor to be used to create a runner for the given day.  
+/// To register a non-defaultable constructor use [register_day_runner_constructor].  
+/// To get a runner use [get_day_runner].
+///
+/// # Panics
+///
+/// This function panics if given a day that is either 0 or above 25.  
+/// And if the internal [RwLock] is poisoned.
+///
+/// # Examples
+///
+/// Using this function to register a [Default::default] constructor:
+/// ```
+/// # use rust_aoc_2023::days;
+/// # use rust_aoc_2023::days::DayRunner;
+/// #
+/// #[derive(Default)]
+/// struct SomeRunner {}
+///
+/// impl DayRunner for SomeRunner {}
+///
+/// fn main() {
+///     days::init();
+///     let _ = days::register_day_runner_default::<SomeRunner>(8);
+///     let mut runner = days::get_day_runner(8).unwrap();
+///     assert!(runner.is_some());
+///     runner = days::get_day_runner(5).unwrap();
+///     assert!(runner.is_none());
+/// }
+pub fn register_day_runner_default<T: DayRunner + Default + 'static>(day: u8) -> bool {
+    if DAY_RUNNERS.read().unwrap().is_empty() {
+        init();
+    }
+
+    if day == 0 {
+        panic!("Trying to register runner for day 0.");
+    } else if day > 25 {
+        panic!("Trying to register runner for a day after the 25th.");
+    }
+
+    if DAY_RUNNERS.read().unwrap()[usize::from(day - 1)].is_some() {
+        return false;
+    }
+
+    DAY_RUNNERS.write().unwrap()[usize::from(day - 1)] =
+        Some(Box::new(move || Box::new(T::default())));
     true
 }
 

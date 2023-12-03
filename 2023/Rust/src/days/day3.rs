@@ -9,7 +9,7 @@ use super::DayRunner;
 /// The day 3 runner.
 ///
 /// The [DayRunner] implementation for the aoc day 3.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Day3Runner {
 	/// The parsed input data.
 	///
@@ -21,12 +21,6 @@ pub struct Day3Runner {
 	/// Numbers that aren't part numbers are considered [Value::None].  
 	/// Gears that don't have exactly two adjacent parts are considered [symbols](Value::Symbol).
     values: Vec<Vec<Rc<RefCell<Value>>>>,
-}
-
-impl Day3Runner {
-    pub fn new() -> Day3Runner {
-        Day3Runner { values: Vec::new() }
-    }
 }
 
 impl DayRunner for Day3Runner {
