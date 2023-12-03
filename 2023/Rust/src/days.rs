@@ -142,6 +142,7 @@ pub fn init() {
         DAY_RUNNERS.write().unwrap().extend((0..25).map(|_| None));
         register_day_runner(1, day1::Day1Runner::new);
         register_day_runner(2, day2::Day2Runner::new);
+        register_day_runner(3, day3::Day3Runner::new);
     }
 }
 
@@ -289,3 +290,4 @@ where
 // Below are the mods for each day.
 mod day1;
 mod day2;
+mod day3;
