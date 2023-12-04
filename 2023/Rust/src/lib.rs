@@ -411,7 +411,7 @@ pub fn run_days<'a, I: Iterator<Item = &'a u8>>(days: I, time: bool) {
                 }
                 if time {
                     println!(
-                        "Initializing day {} took {}.",
+                        "Day {} initialization took {}.",
                         day,
                         format_duration(&init_start.elapsed())
                     );

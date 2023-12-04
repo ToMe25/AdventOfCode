@@ -9,12 +9,18 @@ use super::DayRunner;
 ///
 /// The [DayRunner] implementation for the aoc day 4.
 #[derive(Debug, Clone, Default)]
-pub struct Day4Runner {}
+pub struct Day4Runner {
+	/// The number of wins per scratchcard.
+	///
+	/// This vector contains the number of wins for each scratchcard.  
+	/// Each number in the second set of numbers that is also found in the first set counts as one win.
+    wins: Vec<usize>,
+}
 
 impl DayRunner for Day4Runner {
-    fn part1(&self) -> Result<Option<String>, Box<dyn Error>> {
+    fn init(&mut self) -> Result<(), Box<dyn Error>> {
         let input = get_input_file(4)?;
-        let sum: usize = fs::read_to_string(input)?
+        self.wins = fs::read_to_string(input)?
             .lines()
             .map(|line| line.split_once(':').unwrap().1)
             .map(|game| game.split_once('|').unwrap())
@@ -33,9 +39,34 @@ impl DayRunner for Day4Runner {
                     .filter(|win| *win)
                     .count()
             })
-            .map(|wins| 1.min(wins) << (wins.max(1) - 1))
+            .collect();
+        Ok(())
+    }
+
+    fn part1(&self) -> Result<Option<String>, Box<dyn Error>> {
+        let sum: usize = self
+            .wins
+            .iter()
+            .map(|wins| 1.min(*wins) << (wins.max(&1) - 1))
             .sum();
 
+        Ok(Some(sum.to_string()))
+    }
+
+    fn part2(&self) -> Result<Option<String>, Box<dyn Error>> {
+        let sum: usize = self
+            .wins
+            .iter()
+            .fold((0, Vec::<usize>::new()), |(acc, wins_acc), wins| {
+                let copies = 1 + wins_acc.len();
+                let mut new_wins: Vec<usize> =
+                    wins_acc.iter().map(|i| i - 1).filter(|i| *i > 0).collect();
+                if *wins > 0 {
+                    new_wins.extend((0..copies).map(|_| *wins))
+                }
+                (acc + copies, new_wins)
+            })
+            .0;
         Ok(Some(sum.to_string()))
     }
 }
