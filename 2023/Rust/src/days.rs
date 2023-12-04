@@ -233,6 +233,7 @@ pub fn init() {
         register_day_runner_default::<day1::Day1Runner>(1);
         register_day_runner_default::<day2::Day2Runner>(2);
         register_day_runner_default::<day3::Day3Runner>(3);
+        register_day_runner_default::<day4::Day4Runner>(4);
     }
 }
 
@@ -429,3 +430,4 @@ where
 mod day1;
 mod day2;
 mod day3;
+mod day4;
