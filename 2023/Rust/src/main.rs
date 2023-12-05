@@ -13,6 +13,6 @@ fn main() {
         return;
     }
 
-    days::init();
+    days::init(true);
     rust_aoc_2023::run_days(args.days.iter(), args.time);
 }

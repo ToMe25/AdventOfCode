@@ -18,7 +18,7 @@
 //! impl DayRunner for SomeRunner {}
 //!
 //! fn main() {
-//!     days::init();
+//!     days::init(false);
 //!     let _ = days::register_day_runner_default::<SomeRunner>(19);
 //!     let mut runner = days::get_day_runner(19).unwrap();
 //!     assert!(runner.is_some());
@@ -56,7 +56,7 @@
 //! }
 //!
 //! fn main() {
-//!     days::init();
+//!     days::init(false);
 //!     let _ = days::register_day_runner_default::<SomeRunner>(7);
 //!     let mut runner = days::get_day_runner(7).unwrap().unwrap();
 //! #     runner.init().unwrap();
@@ -99,7 +99,7 @@
 //! }
 //!
 //! fn main() {
-//!     days::init();
+//!     days::init(false);
 //!     let _ = days::register_day_runner_constructor(16, SomeRunner::new);
 //!     let mut runner = days::get_day_runner(16).unwrap().unwrap();
 //! #     runner.init().unwrap();
@@ -225,15 +225,18 @@ pub trait DayRunner {
 /// ```
 /// use rust_aoc_2023::days;
 ///
-/// days::init();
+/// days::init(false);
 /// ```
-pub fn init() {
+pub fn init(register: bool) {
     if DAY_RUNNERS.read().unwrap().is_empty() {
         DAY_RUNNERS.write().unwrap().extend((0..25).map(|_| None));
-        register_day_runner_default::<day1::Day1Runner>(1);
-        register_day_runner_default::<day2::Day2Runner>(2);
-        register_day_runner_default::<day3::Day3Runner>(3);
-        register_day_runner_default::<day4::Day4Runner>(4);
+        if register {
+            register_day_runner_default::<day1::Day1Runner>(1);
+            register_day_runner_default::<day2::Day2Runner>(2);
+            register_day_runner_default::<day3::Day3Runner>(3);
+            register_day_runner_default::<day4::Day4Runner>(4);
+            register_day_runner_default::<day5::Day5Runner>(5);
+        }
     }
 }
 
@@ -269,7 +272,7 @@ pub fn init() {
 /// # impl DayRunner for SomeRunner {}
 /// #
 /// # fn main() {
-///     days::init();
+///     days::init(false);
 ///     let _ = days::register_day_runner_default::<SomeRunner>(17);
 ///     let mut runner = days::get_day_runner(17).unwrap();
 ///     assert!(runner.is_some());
@@ -323,7 +326,7 @@ pub fn get_day_runner(day: u8) -> Result<Option<Box<dyn DayRunner>>, Box<dyn Err
 /// impl DayRunner for SomeRunner {}
 ///
 /// fn main() {
-///     days::init();
+///     days::init(false);
 ///     let _ = days::register_day_runner_constructor(6, SomeRunner::new);
 ///     let mut runner = days::get_day_runner(4).unwrap();
 ///     assert!(runner.is_none());
@@ -337,7 +340,7 @@ where
     U: Fn() -> T + Send + Sync + 'static,
 {
     if DAY_RUNNERS.read().unwrap().is_empty() {
-        init();
+        init(false);
     }
 
     if day == 0 {
@@ -382,7 +385,7 @@ where
 /// impl DayRunner for SomeRunner {}
 ///
 /// fn main() {
-///     days::init();
+///     days::init(false);
 ///     let _ = days::register_day_runner_default::<SomeRunner>(8);
 ///     let mut runner = days::get_day_runner(8).unwrap();
 ///     assert!(runner.is_some());
@@ -391,7 +394,7 @@ where
 /// }
 pub fn register_day_runner_default<T: DayRunner + Default + 'static>(day: u8) -> bool {
     if DAY_RUNNERS.read().unwrap().is_empty() {
-        init();
+        init(false);
     }
 
     if day == 0 {
@@ -427,7 +430,8 @@ where
 // TODO add unit tests.
 
 // Below are the mods for each day.
-mod day1;
-mod day2;
-mod day3;
-mod day4;
+pub mod day1;
+pub mod day2;
+pub mod day3;
+pub mod day4;
+pub mod day5;

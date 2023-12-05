@@ -371,7 +371,7 @@ pub fn print_help() {
 /// use rust_aoc_2023;
 /// use rust_aoc_2023::days;
 /// 
-/// days::init();
+/// days::init(true);
 /// rust_aoc_2023::run_days([1, 7, 5].iter(), false);
 /// ```
 ///
@@ -380,7 +380,7 @@ pub fn print_help() {
 /// # use rust_aoc_2023;
 /// # use rust_aoc_2023::days;
 /// #
-/// # days::init();
+/// # days::init(true);
 /// rust_aoc_2023::run_days([7, 9, 1].iter(), true);
 /// ```
 pub fn run_days<'a, I: Iterator<Item = &'a u8>>(days: I, time: bool) {
