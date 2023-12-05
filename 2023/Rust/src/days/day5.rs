@@ -14,14 +14,17 @@ use super::DayRunner;
 ///
 /// The [DayRunner] implementation for the aoc day 5.
 #[derive(Debug, Clone, Default)]
-pub struct Day5Runner {}
+pub struct Day5Runner {
+    seeds: Vec<u32>,
+    maps: Vec<RangeMap>,
+}
 
 impl DayRunner for Day5Runner {
-    fn part1(&self) -> Result<Option<String>, Box<dyn Error>> {
+    fn init(&mut self) -> Result<(), Box<dyn Error>> {
         let input = get_input_file(5)?;
         let input_data = fs::read_to_string(input)?;
         let input_lines = &mut input_data.lines();
-        let mut seeds: Vec<u64> = input_lines
+        self.seeds = input_lines
             .skip_while(|line| line.is_empty())
             .next()
             .unwrap()
@@ -34,10 +37,9 @@ impl DayRunner for Day5Runner {
 
         let mut map = Some(RangeMap::new());
         while map.is_some() {
-            seeds = seeds
-                .iter()
-                .map(|seed| map.as_ref().unwrap().get_or_value(*seed))
-                .collect();
+            if !map.as_ref().unwrap().is_empty() {
+                self.maps.push(map.unwrap())
+            }
 
             map = Some(RangeMap::parse_lines(
                 input_lines
@@ -51,8 +53,53 @@ impl DayRunner for Day5Runner {
             }
         }
 
-        let result = seeds.iter().min().unwrap();
+        Ok(())
+    }
+
+    fn part1(&self) -> Result<Option<String>, Box<dyn Error>> {
+        let result = self
+            .seeds
+            .iter()
+            .map(|seed| {
+                let mut seed = *seed;
+                self.maps
+                    .iter()
+                    .for_each(|map| seed = map.get_or_value(seed as u64) as u32);
+                seed
+            })
+            .min()
+            .unwrap();
         Ok(Some(result.to_string()))
+    }
+
+    fn part2(&self) -> Result<Option<String>, Box<dyn Error>> {
+        let parts: (Vec<(usize, u32)>, Vec<(usize, u32)>) = self
+            .seeds
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (i, *v))
+            .partition(|(i, _)| i % 2 == 0);
+        let ranges: Vec<(u32, u32)> = parts
+            .0
+            .iter()
+            .map(|(_, v)| *v)
+            .zip(parts.1.iter().map(|(_, v)| *v))
+            .collect();
+
+        let mut min: u64 = u64::MAX;
+        for range in ranges {
+            for i in range.0..=range.1 + range.0 {
+                let mut val = i as u64;
+                for map in &self.maps {
+                    val = map.get_or_value(val);
+                }
+                if val < min {
+                    min = val;
+                }
+            }
+        }
+
+        Ok(Some(min.to_string()))
     }
 }
 
