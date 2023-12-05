@@ -4,8 +4,9 @@
 
 use std::cell::RefCell;
 use std::error::Error;
-use std::fs;
+use std::fmt::Display;
 use std::rc::Rc;
+use std::{fmt, fs};
 
 use super::super::get_input_file;
 use super::DayRunner;
@@ -38,7 +39,8 @@ impl DayRunner for Day5Runner {
         let mut map = Some(RangeMap::new());
         while map.is_some() {
             if !map.as_ref().unwrap().is_empty() {
-                self.maps.push(map.unwrap())
+                // self.map = self.map.merge(map.as_ref().unwrap());
+                self.maps.push(map.unwrap());
             }
 
             map = Some(RangeMap::parse_lines(
@@ -121,7 +123,7 @@ impl DayRunner for Day5Runner {
 /// assert_eq!(map.get(13), None);
 /// assert_eq!(map.get(21), Some(24));
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct RangeMap {
     first: Option<Rc<RefCell<RangeNode>>>,
 }
@@ -184,7 +186,8 @@ impl RangeMap {
     ///
     /// # Panics
     ///
-    /// This function panics if a given range overlaps with a previously inserted range.
+    /// This function panics if a given range overlaps with a previously inserted range.  
+    /// And also if end_in is smaller than start_in.
     ///
     /// # Examples
     ///
@@ -215,12 +218,20 @@ impl RangeMap {
     /// assert_eq!(map.get(20), Some(21));
     /// ```
     pub fn insert_raw(&mut self, start_in: u64, end_in: u64, offset: i64) {
+        if end_in < start_in {
+            panic!(
+                "Input start({}) cannot be smaller than input end({})!",
+                start_in, end_in
+            );
+        }
+
         let mut new_node = RangeNode {
             start: start_in,
             end: end_in,
             offset,
             next: None,
         };
+
         if self.first.is_none() {
             self.first = Some(Rc::new(RefCell::new(new_node)));
         } else {
@@ -351,15 +362,126 @@ impl RangeMap {
     pub fn is_empty(&self) -> bool {
         self.first.is_none()
     }
+
+    pub fn merge(&self, other: &RangeMap) -> RangeMap {
+        if self.first.is_none() {
+            return other.clone();
+        } else if other.first.is_none() {
+            return self.clone();
+        }
+
+        let mut result = RangeMap::new();
+
+        let mut scn = self.first.as_ref().unwrap().clone();
+        let mut ocn = other.first.as_ref().unwrap().clone();
+        let mut start = scn.borrow().start.min(ocn.borrow().start);
+        while scn.borrow().next.is_some()
+            || ocn.borrow().next.is_some()
+            || scn.borrow().end >= start
+            || ocn.borrow().end >= start
+        {
+            let mut end = scn.borrow().end.max(ocn.borrow().end);
+            if start < scn.borrow().start && scn.borrow().start <= end {
+                end = scn.borrow().start - 1;
+            } else if start >= scn.borrow().start
+                && start <= scn.borrow().end
+                && end > scn.borrow().end
+            {
+                end = scn.borrow().end;
+            }
+
+            if start < ocn.borrow().start && ocn.borrow().start <= end {
+                end = ocn.borrow().start - 1;
+            } else if start >= ocn.borrow().start
+                && start <= ocn.borrow().end
+                && end > ocn.borrow().end
+            {
+                end = ocn.borrow().end;
+            }
+
+            let mut offset: i64 = 0;
+            if (start >= scn.borrow().start && start <= scn.borrow().end)
+                || (end >= scn.borrow().start && end <= scn.borrow().end)
+            {
+                offset += scn.borrow().offset;
+            }
+            if (start >= ocn.borrow().start && start <= ocn.borrow().end)
+                || (end >= ocn.borrow().start && end <= ocn.borrow().end)
+            {
+                offset += ocn.borrow().offset;
+            }
+            result.insert_raw(start, end, offset);
+            start = end + 1;
+
+            if end == scn.borrow().end && scn.borrow().next.is_some() {
+                scn = scn.clone().borrow().next.as_ref().unwrap().clone();
+            }
+            if end == ocn.borrow().end && ocn.borrow().next.is_some() {
+                ocn = ocn.clone().borrow().next.as_ref().unwrap().clone();
+            }
+        }
+
+        result
+    }
+}
+
+impl Clone for RangeMap {
+    fn clone(&self) -> Self {
+        RangeMap {
+            first: self
+                .first
+                .as_ref()
+                .map(|rc| Rc::new(RefCell::new(rc.borrow().clone()))),
+        }
+    }
+}
+
+impl Display for RangeMap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "RangeMap [")?;
+        if self.first.is_some() {
+            let mut node = self.first.as_ref().unwrap().clone();
+            write!(f, "{}", node.borrow())?;
+            while node.borrow().next.is_some() {
+                node = node.clone().borrow().next.as_ref().unwrap().clone();
+                write!(f, ", {}", node.borrow())?;
+            }
+        }
+        write!(f, "]")
+    }
 }
 
 /// A single range representation for [RangeMap].
 ///
 /// A node of a [RangeMap], representing a single range.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct RangeNode {
     pub start: u64,
     pub end: u64,
     pub offset: i64,
     pub next: Option<Rc<RefCell<RangeNode>>>,
+}
+
+impl Clone for RangeNode {
+    fn clone(&self) -> Self {
+        RangeNode {
+            start: self.start,
+            end: self.end,
+            offset: self.offset,
+            next: self
+                .next
+                .as_ref()
+                .map(|rc| Rc::new(RefCell::new(rc.borrow().clone()))),
+        }
+    }
+}
+
+impl Display for RangeNode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Node {{Range: {} -> {}, Offset: {}}}",
+            self.start, self.end, self.offset
+        )
+    }
 }
