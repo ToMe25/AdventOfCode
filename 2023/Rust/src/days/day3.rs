@@ -1,3 +1,7 @@
+//! My rust AoC 2023 day 3 implementation.
+//!
+//! This module contains my solution to the [Advent of Code](https://adventofcode.com/) [2023](https://adventofcode.com/2023/) [Day 3](https://adventofcode.com/2023/day/3).
+
 use std::cell::RefCell;
 use std::error::Error;
 use std::fs;

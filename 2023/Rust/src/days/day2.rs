@@ -1,3 +1,7 @@
+//! My rust AoC 2023 day 2 implementation.
+//!
+//! This module contains my solution to the [Advent of Code](https://adventofcode.com/) [2023](https://adventofcode.com/2023/) [Day 2](https://adventofcode.com/2023/day/2).
+
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
