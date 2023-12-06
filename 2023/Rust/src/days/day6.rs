@@ -53,10 +53,46 @@ impl DayRunner for Day6Runner {
                             Some(distance)
                         }
                     })
-                    .filter(|d| d > dist)
+                    .skip_while(|d| d > dist)
                     .count()
             })
             .product();
+
+        Ok(Some(result.to_string()))
+    }
+
+    fn part2(&self) -> Result<Option<String>, Box<dyn Error>> {
+        let input_data = fs::read_to_string(get_input_file(6)?)?;
+        let input_lines = &mut input_data.lines();
+        let time: u32 = input_lines
+            .next()
+            .unwrap()
+            .split_once(':')
+            .unwrap()
+            .1
+            .replace(&[' ', '\t'], "")
+            .parse()?;
+
+        let distance: u64 = input_lines
+            .next()
+            .unwrap()
+            .split_once(':')
+            .unwrap()
+            .1
+            .replace(&[' ', '\t'], "")
+            .parse()?;
+
+        let result = (0..time)
+            .scan(false, |found, t| {
+                let dist = (time - t) as u64 * t as u64;
+                if *found && dist <= distance {
+                    None
+                } else {
+                    Some(dist)
+                }
+            })
+            .skip_while(|d| d > &distance)
+            .count();
 
         Ok(Some(result.to_string()))
     }

@@ -29,7 +29,7 @@ impl DayRunner for Day2Runner {
                 .lines()
                 .filter(|line| !line.is_empty())
                 .map(|line| line.split_once(':').unwrap().1.trim())
-                .map(|line| line.split([';', ',']))
+                .map(|line| line.split(&[';', ',']))
                 .map(|game| {
                     game.map(|cubes| cubes.trim().split_once(' ').unwrap())
                         .map(|(nr, color)| (color.to_owned(), nr.parse::<u16>().unwrap()))
