@@ -372,7 +372,7 @@ pub fn print_help() {
 /// use rust_aoc_2023::days;
 /// 
 /// days::init(true);
-/// rust_aoc_2023::run_days([1, 7, 5].iter(), false);
+/// rust_aoc_2023::run_days([1, 7, 4].iter(), false);
 /// ```
 ///
 /// Timing day executions:

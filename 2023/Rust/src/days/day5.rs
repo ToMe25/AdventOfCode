@@ -17,7 +17,7 @@ use super::DayRunner;
 #[derive(Debug, Clone, Default)]
 pub struct Day5Runner {
     seeds: Vec<u32>,
-    maps: Vec<RangeMap>,
+    map: RangeMap,
 }
 
 impl DayRunner for Day5Runner {
@@ -39,8 +39,7 @@ impl DayRunner for Day5Runner {
         let mut map = Some(RangeMap::new());
         while map.is_some() {
             if !map.as_ref().unwrap().is_empty() {
-                // self.map = self.map.merge(map.as_ref().unwrap());
-                self.maps.push(map.unwrap());
+                self.map = self.map.merge(map.as_ref().unwrap());
             }
 
             map = Some(RangeMap::parse_lines(
@@ -62,13 +61,7 @@ impl DayRunner for Day5Runner {
         let result = self
             .seeds
             .iter()
-            .map(|seed| {
-                let mut seed = *seed;
-                self.maps
-                    .iter()
-                    .for_each(|map| seed = map.get_or_value(seed as u64) as u32);
-                seed
-            })
+            .map(|seed| self.map.get_or_key(*seed as u64))
             .min()
             .unwrap();
         Ok(Some(result.to_string()))
@@ -91,10 +84,7 @@ impl DayRunner for Day5Runner {
         let mut min: u64 = u64::MAX;
         for range in ranges {
             for i in range.0..=range.1 + range.0 {
-                let mut val = i as u64;
-                for map in &self.maps {
-                    val = map.get_or_value(val);
-                }
+                let val = self.map.get_or_key(i as u64);
                 if val < min {
                     min = val;
                 }
@@ -302,9 +292,9 @@ impl RangeMap {
         );
     }
 
-    /// Get the value for the given input, if any.
+    /// Get the value for the given key, if any.
     ///
-    /// Gets the value for the given input, of the input matches a range.  
+    /// Gets the value for the given key, if the input matches a range.  
     /// Returns `None` otherwise.
     ///
     /// # Examples
@@ -318,18 +308,19 @@ impl RangeMap {
     /// assert_eq!(map.get(16), Some(21));
     /// assert_eq!(map.get(13), None);
     /// ```
-    pub fn get(&self, input: u64) -> Option<u64> {
+    pub fn get(&self, key: u64) -> Option<u64> {
         if self.first.is_none() {
             return None;
         }
 
-        let mut current_node = self.first.as_ref().unwrap().clone();
-        while current_node.borrow().next.is_some() && current_node.borrow().end < input {
-            current_node = current_node.clone().borrow().next.as_ref().unwrap().clone();
+        let current_node = self.get_range_for(key);
+        if current_node.is_none() {
+            return None;
         }
 
-        if current_node.borrow().start <= input && current_node.borrow().end >= input {
-            Some((input as i64 + current_node.borrow().offset) as u64)
+        let current_node_ref = current_node.as_ref().unwrap().borrow();
+        if current_node_ref.start <= key && current_node_ref.end >= key {
+            Some((key as i64 + current_node_ref.offset) as u64)
         } else {
             None
         }
@@ -337,12 +328,12 @@ impl RangeMap {
 
     /// Get the value for the key, or the key if it doesn't exist.
     ///
-    /// Get the value for the given input, or the given input if the value doesn't match any range.  
-    /// This is a convinience method matching the behaviour of `get(input).unwrap_or(input)`.
+    /// Get the value for the given key, or the given key if the key doesn't match any range.  
+    /// This is a convinience method matching the behaviour of `get(key).unwrap_or(key)`.
     ///
     /// See also: [get](Self::get)
-    pub fn get_or_value(&self, input: u64) -> u64 {
-        self.get(input).unwrap_or(input)
+    pub fn get_or_key(&self, key: u64) -> u64 {
+        self.get(key).unwrap_or(key)
     }
 
     /// Checks if this rangemap is empty.
@@ -363,65 +354,184 @@ impl RangeMap {
         self.first.is_none()
     }
 
+    /// Merges this map and the given map into a new map.
+    ///
+    /// Creates new map such that for any given key `B.get_or_key(A.get_or_key(KEY)) == A.merge(&B).get_or_key(KEY)`.  
+    /// If one of the maps is empty, the resulting map will be equal to the non-empty map.  
+    ///
+    /// If neither of the input maps are empty, the output map will not contain any ranges with an offset of 0.  
+    /// If either of the input maps is empty, the output map will contain ranges with an offset of 0, if the non-empty input map did.
+    ///
+    /// # Examples
+    ///
+    /// Merging two not overlapping maps:
+    /// ```
+    /// # use rust_aoc_2023::days::day5::RangeMap;
+    /// #
+    /// let mut map_a = RangeMap::new();
+    /// map_a.insert_raw(17, 21, -5);
+    /// let mut map_b = RangeMap::new();
+    /// map_b.insert_raw(23, 55, 17);
+    /// let mut map_c = RangeMap::new();
+    /// map_c.insert_raw(17, 21, -5);
+    /// map_c.insert_raw(23, 55, 17);
+    /// assert_eq!(map_a.merge(&map_b), map_c);
+    /// ```
+    ///
+    /// Merging of two overlapping maps:
+    /// ```
+    /// # use rust_aoc_2023::days::day5::RangeMap;
+    /// #
+    /// let mut map_a = RangeMap::new();
+    /// map_a.insert_raw(51, 81, 16);
+    /// map_a.insert_raw(86, 99, -10);
+    /// map_a.insert_raw(101, 101, 10);
+    /// let mut map_b = RangeMap::new();
+    /// map_b.insert_raw(35, 47, -19);
+    /// map_b.insert_raw(48, 62, 12);
+    /// map_b.insert_raw(75, 102, -5);
+    ///
+    /// let mut map_c = RangeMap::new();
+    /// map_c.insert_raw(35, 47, -19);
+    /// map_c.insert_raw(48, 50, 12);
+    /// map_c.insert_raw(51, 58, 16);
+    /// map_c.insert_raw(59, 81, 11);
+    /// map_c.insert_raw(82, 85, -5);
+    /// map_c.insert_raw(86, 99, -15);
+    /// map_c.insert_raw(100, 100, -5);
+    /// map_c.insert_raw(101, 101, 10);
+    /// map_c.insert_raw(102, 102, -5);
+    /// assert_eq!(map_a.merge(&map_b), map_c);
+    /// ```
+    ///
+    /// Another example of merging two maps:
+    /// ```
+    /// use rust_aoc_2023::days::day5::RangeMap;
+    ///
+    /// let mut map_a = RangeMap::new();
+    /// map_a.insert_raw(0, 16, 7);
+    /// map_a.insert_raw(20, 24, -5);
+    /// map_a.insert_raw(30, 60, 10);
+    /// let mut map_b = RangeMap::new();
+    /// map_b.insert_raw(2, 6, 5);
+    /// map_b.insert_raw(9, 20, -5);
+    /// map_b.insert_raw(25, 50, 15);
+    ///
+    /// let mut map_c = RangeMap::new();
+    /// map_c.insert_raw(0, 1, 7);
+    /// map_c.insert_raw(2, 13, 2);
+    /// map_c.insert_raw(14, 16, 7);
+    /// map_c.insert_raw(17, 19, -5);
+    /// map_c.insert_raw(20, 24, -10);
+    /// map_c.insert_raw(25, 29, 15);
+    /// map_c.insert_raw(30, 40, 25);
+    /// map_c.insert_raw(41, 60, 10);
+    /// assert_eq!(map_a.merge(&map_b), map_c);
+    /// ```
     pub fn merge(&self, other: &RangeMap) -> RangeMap {
-        if self.first.is_none() {
+        if self.is_empty() {
             return other.clone();
-        } else if other.first.is_none() {
+        } else if other.is_empty() {
             return self.clone();
         }
 
         let mut result = RangeMap::new();
-
+        let mut start: u64 = 0;
         let mut scn = self.first.as_ref().unwrap().clone();
-        let mut ocn = other.first.as_ref().unwrap().clone();
-        let mut start = scn.borrow().start.min(ocn.borrow().start);
+        let mut ocn = other.get_range_for(self.get_or_key(start));
         while scn.borrow().next.is_some()
-            || ocn.borrow().next.is_some()
             || scn.borrow().end >= start
-            || ocn.borrow().end >= start
+            || (ocn.is_some() && ocn.as_ref().unwrap().borrow().end >= start)
         {
-            let mut end = scn.borrow().end.max(ocn.borrow().end);
-            if start < scn.borrow().start && scn.borrow().start <= end {
-                end = scn.borrow().start - 1;
-            } else if start >= scn.borrow().start
-                && start <= scn.borrow().end
-                && end > scn.borrow().end
-            {
-                end = scn.borrow().end;
-            }
-
-            if start < ocn.borrow().start && ocn.borrow().start <= end {
-                end = ocn.borrow().start - 1;
-            } else if start >= ocn.borrow().start
-                && start <= ocn.borrow().end
-                && end > ocn.borrow().end
-            {
-                end = ocn.borrow().end;
-            }
-
+            let mut o_start = start;
             let mut offset: i64 = 0;
-            if (start >= scn.borrow().start && start <= scn.borrow().end)
-                || (end >= scn.borrow().start && end <= scn.borrow().end)
-            {
-                offset += scn.borrow().offset;
+            if start >= scn.borrow().start && start <= scn.borrow().end {
+                offset = scn.borrow().offset;
+                o_start = (start as i64 + scn.borrow().offset) as u64;
             }
-            if (start >= ocn.borrow().start && start <= ocn.borrow().end)
-                || (end >= ocn.borrow().start && end <= ocn.borrow().end)
-            {
-                offset += ocn.borrow().offset;
+
+            ocn = other.get_range_for(o_start);
+            if ocn.is_none() {
+                ocn = other.get_range_after(o_start);
+            } else {
+                offset += ocn.as_ref().unwrap().borrow().offset;
             }
-            result.insert_raw(start, end, offset);
+
+            let mut end = scn.borrow().end;
+            if start < scn.borrow().start {
+                end = scn.borrow().start - 1;
+            } else if end < start && ocn.is_some() {
+                end = ocn.as_ref().unwrap().borrow().end;
+            }
+            let mut o_len = u64::MAX;
+            if ocn.is_some() && ocn.as_ref().unwrap().borrow().start <= o_start {
+                o_len = ocn.as_ref().unwrap().borrow().end - o_start;
+            } else if ocn.is_some() {
+                o_len = ocn.as_ref().unwrap().borrow().start - o_start - 1;
+            }
+
+            if ocn.is_some() && o_len < end - start {
+                end = start + o_len;
+            }
+
+            if offset != 0 {
+                result.insert_raw(start, end, offset);
+            }
             start = end + 1;
 
             if end == scn.borrow().end && scn.borrow().next.is_some() {
                 scn = scn.clone().borrow().next.as_ref().unwrap().clone();
             }
-            if end == ocn.borrow().end && ocn.borrow().next.is_some() {
-                ocn = ocn.clone().borrow().next.as_ref().unwrap().clone();
+
+            ocn = other.get_range_for(start);
+            if ocn.is_none() {
+                ocn = other.get_range_after(start);
             }
         }
 
         result
+    }
+
+    /// Gets the range for the given key.
+    ///
+    /// Gets the range that would be used to map the given key.  
+    /// `None` if there is no range matching the given key.
+    fn get_range_for(&self, key: u64) -> Option<Rc<RefCell<RangeNode>>> {
+        if self.first.is_none() {
+            return None;
+        }
+
+        let mut current_node = self.first.as_ref().unwrap().clone();
+        while current_node.borrow().next.is_some() && current_node.borrow().end < key {
+            current_node = current_node.clone().borrow().next.as_ref().unwrap().clone();
+        }
+
+        if current_node.borrow().start <= key && current_node.borrow().end >= key {
+            Some(current_node)
+        } else {
+            None
+        }
+    }
+
+    /// Gets the first range starting after the given key.
+    ///
+    /// Gets the first range starting after the given key.  
+    /// Returns `None` if there isn't any.
+    fn get_range_after(&self, key: u64) -> Option<Rc<RefCell<RangeNode>>> {
+        if self.first.is_none() {
+            return None;
+        }
+
+        let mut current_node = self.first.as_ref().map(|rc| rc.clone());
+        while current_node.is_some() && current_node.as_ref().unwrap().borrow().start <= key {
+            current_node = current_node
+                .unwrap()
+                .borrow()
+                .next
+                .as_ref()
+                .map(|rc| rc.clone());
+        }
+        current_node.map(|rc| rc.clone())
     }
 }
 
