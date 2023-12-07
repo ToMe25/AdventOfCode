@@ -50,10 +50,13 @@ impl DayRunner for Day6Runner {
                         if *found && distance <= *dist {
                             None
                         } else {
+                            if distance > *dist {
+                                *found = true;
+                            }
                             Some(distance)
                         }
                     })
-                    .skip_while(|d| d > dist)
+                    .skip_while(|d| d <= dist)
                     .count()
             })
             .product();
@@ -88,10 +91,13 @@ impl DayRunner for Day6Runner {
                 if *found && dist <= distance {
                     None
                 } else {
+                    if dist > distance {
+                        *found = true;
+                    }
                     Some(dist)
                 }
             })
-            .skip_while(|d| d > &distance)
+            .skip_while(|d| d <= &distance)
             .count();
 
         Ok(Some(result.to_string()))
