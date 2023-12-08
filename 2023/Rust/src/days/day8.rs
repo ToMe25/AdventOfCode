@@ -2,9 +2,11 @@
 //!
 //! This module contains my solution to the [Advent of Code](https://adventofcode.com/) [2023](https://adventofcode.com/2023/) [Day 8](https://adventofcode.com/2023/day/8).
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
+use std::rc::Rc;
 
 use super::super::get_input_file;
 use super::DayRunner;
@@ -23,7 +25,7 @@ pub struct Day8Runner {
     ///
     /// The nodes from the input file.  
     /// The key is the current node, and the value are the possible next nodes.
-    nodes: HashMap<String, (String, String)>,
+    nodes: HashMap<String, Rc<RefCell<Node>>>,
 }
 
 impl DayRunner for Day8Runner {
@@ -33,7 +35,7 @@ impl DayRunner for Day8Runner {
 
         self.instructions = lines.next().unwrap().chars().map(|c| c == 'R').collect();
 
-        self.nodes = lines
+        let nodes: HashMap<&str, (&str, &str)> = lines
             .map(|line| line.split_once('=').unwrap())
             .map(|(from, to)| {
                 (
@@ -43,33 +45,42 @@ impl DayRunner for Day8Runner {
                         .unwrap(),
                 )
             })
-            .map(|(from, (tol, tor))| {
+            .map(|(from, (tol, tor))| (from.trim(), (tol.trim(), tor.trim())))
+            .collect();
+
+        self.nodes = nodes
+            .keys()
+            .map(|name| {
                 (
-                    from.trim().to_owned(),
-                    (tol.trim().to_owned(), tor.trim().to_owned()),
+                    (*name).to_owned(),
+                    Rc::new(RefCell::new(Node {
+                        name: (*name).to_owned(),
+                        left: None,
+                        right: None,
+                    })),
                 )
             })
             .collect();
+
+        nodes.iter().for_each(|(key, (left, right))| {
+            let node = self.nodes.get(*key).unwrap().clone();
+            node.borrow_mut().left = Some(self.nodes.get(*left).unwrap().clone());
+            node.borrow_mut().right = Some(self.nodes.get(*right).unwrap().clone());
+        });
 
         Ok(())
     }
 
     fn part1(&self) -> Result<Option<String>, Box<dyn Error>> {
         let mut insts = self.instructions.iter().cycle();
-        let mut current = &String::from("AAA");
+        let mut current = self.nodes.get("AAA").unwrap().clone();
         let mut steps: usize = 0;
-        while current != "ZZZ" {
-            current = self
-                .nodes
-                .get(current)
-                .map(|node| {
-                    if *insts.next().unwrap() {
-                        &node.1
-                    } else {
-                        &node.0
-                    }
-                })
-                .unwrap();
+        while current.borrow().name != "ZZZ" {
+            if *insts.next().unwrap() {
+                current = current.clone().borrow().right.clone().unwrap();
+            } else {
+                current = current.clone().borrow().left.clone().unwrap();
+            }
             steps += 1;
         }
 
@@ -78,21 +89,40 @@ impl DayRunner for Day8Runner {
 
     fn part2(&self) -> Result<Option<String>, Box<dyn Error>> {
         let mut insts = self.instructions.iter().cycle();
-        let mut current: Vec<&String> =
-            self.nodes.keys().filter(|key| key.ends_with('A')).collect();
+        let mut current: Vec<Rc<RefCell<Node>>> = self
+            .nodes
+            .iter()
+            .filter(|(key, _)| key.ends_with('A'))
+            .map(|(_, node)| node.clone())
+            .collect();
+
         let mut steps: usize = 0;
-        while !current.iter().all(|pos| pos.ends_with('Z')) {
+        while !current.iter().all(|pos| pos.borrow().name.ends_with('Z')) {
             let right = *insts.next().unwrap();
-            for i in 0..current.len() {
-                current[i] = self
-                    .nodes
-                    .get(current[i])
-                    .map(|node| if right { &node.1 } else { &node.0 })
-                    .unwrap();
-            }
+            current = current
+                .iter()
+                .map(|node| {
+                    if right {
+                        node.borrow().right.clone().unwrap()
+                    } else {
+                        node.borrow().left.clone().unwrap()
+                    }
+                })
+                .collect();
             steps += 1;
         }
 
         Ok(Some(steps.to_string()))
     }
+}
+
+/// A node from the input data.
+///
+/// A single node from the input data.  
+/// Contains its name, its left next node, and its right next node.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct Node {
+    name: String,
+    left: Option<Rc<RefCell<Node>>>,
+    right: Option<Rc<RefCell<Node>>>,
 }
