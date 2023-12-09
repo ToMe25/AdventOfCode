@@ -239,6 +239,7 @@ pub fn init(register: bool) {
             register_day_runner_default::<day6::Day6Runner>(6);
             register_day_runner_default::<day7::Day7Runner>(7);
             register_day_runner_default::<day8::Day8Runner>(8);
+            register_day_runner_default::<day9::Day9Runner>(9);
         }
     }
 }
@@ -441,3 +442,4 @@ pub mod day5;
 pub mod day6;
 pub mod day7;
 pub mod day8;
+pub mod day9;
