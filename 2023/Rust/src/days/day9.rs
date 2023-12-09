@@ -12,23 +12,28 @@ use super::DayRunner;
 ///
 /// The [DayRunner] implementation for the aoc day 9.
 #[derive(Debug, Clone, Default)]
-pub struct Day9Runner {}
+pub struct Day9Runner {
+    /// The differences of the historic values of the input data.
+    ///
+    /// The differences of the historic values of the input data.  
+    /// The outer most vector contains one vector for each input line.  
+    /// Each of those vectors contains one vector for the initial history,  
+    /// plus the recursive differences between the numbers.
+    diffs: Vec<Vec<Vec<i32>>>,
+}
 
 impl DayRunner for Day9Runner {
-    fn part1(&self) -> Result<Option<String>, Box<dyn Error>> {
+    fn init(&mut self) -> Result<(), Box<dyn Error>> {
         let input_data = fs::read_to_string(get_input_file(9)?)?;
 
-        let histories: Vec<Vec<i32>> = input_data
+        self.diffs = input_data
             .lines()
+            .filter(|line| !line.is_empty())
             .map(|line| {
                 line.split_whitespace()
                     .map(|num| num.parse().unwrap())
-                    .collect()
+                    .collect::<Vec<i32>>()
             })
-            .collect();
-
-        let extrapolated: Vec<i32> = histories
-            .iter()
             .map(|history| {
                 let mut diffs: Vec<Vec<i32>> = Vec::new();
                 let mut current = history.clone();
@@ -50,10 +55,40 @@ impl DayRunner for Day9Runner {
                 }
                 diffs
             })
-            .map(|diffs| diffs.iter().rev().map(|diff| diff.last().unwrap()).sum())
             .collect();
 
-        let sum: i32 = extrapolated.iter().sum();
+        Ok(())
+    }
+
+    fn part1(&self) -> Result<Option<String>, Box<dyn Error>> {
+        let sum: i32 = self
+            .diffs
+            .iter()
+            .map(|diffs| {
+                diffs
+                    .iter()
+                    .rev()
+                    .map(|diff| diff.last().unwrap())
+                    .sum::<i32>()
+            })
+            .sum();
+
+        Ok(Some(sum.to_string()))
+    }
+
+    fn part2(&self) -> Result<Option<String>, Box<dyn Error>> {
+        let sum: i32 = self
+            .diffs
+            .iter()
+            .map(|diffs| {
+                diffs
+                    .iter()
+                    .rev()
+                    .map(|diff| *diff.first().unwrap())
+                    .reduce(|acc, nr| nr - acc)
+                    .unwrap()
+            })
+            .sum();
 
         Ok(Some(sum.to_string()))
     }
