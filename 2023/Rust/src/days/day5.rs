@@ -5,6 +5,7 @@
 use std::cell::RefCell;
 use std::error::Error;
 use std::fmt::Display;
+use std::ops::{Bound, RangeBounds};
 use std::rc::Rc;
 use std::{fmt, fs};
 
@@ -81,15 +82,14 @@ impl DayRunner for Day5Runner {
             .zip(parts.1.iter().map(|(_, v)| *v))
             .collect();
 
-        let mut min: u64 = u64::MAX;
-        for range in ranges {
-            for i in range.0..=range.1 + range.0 {
-                let val = self.map.get_or_key(i as u64);
-                if val < min {
-                    min = val;
-                }
-            }
-        }
+        let min = ranges
+            .iter()
+            .map(|range| {
+                self.map
+                    .get_min_in_range(range.0 as u64..(range.1 + range.0) as u64)
+            })
+            .min()
+            .unwrap();
 
         Ok(Some(min.to_string()))
     }
@@ -119,7 +119,6 @@ pub struct RangeMap {
 }
 
 impl RangeMap {
-	// TODO implement get_min_in_range
     /// Creates a new range map.
     ///
     /// This function creates a new empty range map.
@@ -274,9 +273,6 @@ impl RangeMap {
     ///
     /// Inserting a range that will cause values from 10 to 15(exclusive) to themselves plus 2:
     /// ```
-    /// # use std::cell::RefCell;
-    /// # use std::rc::Rc;
-    /// #
     /// use rust_aoc_2023::days::day5::RangeMap;
     ///
     /// let mut map = RangeMap::new();
@@ -297,6 +293,8 @@ impl RangeMap {
     ///
     /// Gets the value for the given key, if the input matches a range.  
     /// Returns `None` otherwise.
+    ///
+    /// See also: [get_or_key](Self::get_or_key), [get_min_in_range](Self::get_min_in_range)
     ///
     /// # Examples
     ///
@@ -332,9 +330,120 @@ impl RangeMap {
     /// Get the value for the given key, or the given key if the key doesn't match any range.  
     /// This is a convinience method matching the behaviour of `get(key).unwrap_or(key)`.
     ///
-    /// See also: [get](Self::get)
+    /// See also: [get](Self::get), [get_min_in_range](Self::get_min_in_range)
+    ///
+    /// # Examples
+    ///
+    /// Getting a value that is mapped:
+    /// ```
+    /// use rust_aoc_2023::days::day5::RangeMap;
+    ///
+    /// let mut map = RangeMap::new();
+    /// map.insert_raw(14, 19, -5);
+    /// assert_eq!(map.get_or_key(15), 10);
+    /// ```
+    ///
+    /// Getting an unmapped key:
+    /// ```
+    /// use rust_aoc_2023::days::day5::RangeMap;
+    ///
+    /// let mut map = RangeMap::new();
+    /// map.insert_raw(3, 99, 51);
+    /// assert_eq!(map.get_or_key(2), 2);
+    /// ```
     pub fn get_or_key(&self, key: u64) -> u64 {
         self.get(key).unwrap_or(key)
+    }
+
+    /// Gets the smallest value for the given key range.
+    ///
+    /// Gets the smallest value for the given key range.  
+    /// Should behave identical to `range.map(|key| map.get_or_key(key)).min()`.
+    ///
+    /// This function can not handle ranges without an upper bound!  
+    /// Ranges without a lower bound are interpreted to be ranges that start at 0.
+    ///
+    /// See also: [get](Self::get), [get_or_key](Self::get_or_key)
+    ///
+    /// # Panics
+    ///
+    /// This function panics when it is given a range without an upper bound.
+    ///
+    /// # Examples
+    ///
+    /// Getting the min value from a range on an empty map:
+    /// ```
+    /// use rust_aoc_2023::days::day5::RangeMap;
+    ///
+    /// let map = RangeMap::new();
+    /// assert_eq!(map.get_min_in_range(10..15), 10);
+    /// ```
+    ///
+    /// Using a range where the min valud is between two ranges:
+    /// ```
+    /// use rust_aoc_2023::days::day5::RangeMap;
+    ///
+    /// let mut map = RangeMap::new();
+    /// map.insert_raw(21, 35, 41);
+    /// map.insert_raw(44, 46, -7);
+    /// assert_eq!(map.get_min_in_range(26..=48), 36);
+    /// ```
+    ///
+    /// Using a range without a lower bound:
+    /// ```
+    /// use rust_aoc_2023::days::day5::RangeMap;
+    ///
+    /// let mut map = RangeMap::new();
+    /// map.insert_raw(0, 10, 7);
+    /// assert_eq!(map.get_min_in_range(..15), 7);
+    /// ```
+    ///
+    /// Using a range without an upper bound:
+    /// ```should_panic
+    /// use rust_aoc_2023::days::day5::RangeMap;
+    ///
+    /// let map = RangeMap::new();
+    /// map.get_min_in_range(5..);
+    /// ```
+    pub fn get_min_in_range(&self, range: impl RangeBounds<u64>) -> u64 {
+        let start = match range.start_bound() {
+            Bound::Included(x) => *x,
+            Bound::Excluded(x) => x + 1,
+            Bound::Unbounded => 0,
+        };
+
+        let end = match range.end_bound() {
+            Bound::Included(x) => *x,
+            Bound::Excluded(x) => x - 1,
+            Bound::Unbounded => panic!("range has to have an end bound!"),
+        };
+
+        let mut current = self.get_range_for(start);
+        let mut min =
+            (start as i64 + current.as_ref().map(|rc| rc.borrow().offset).unwrap_or(0)) as u64;
+        if current.is_none() {
+            current = self.get_range_after(start);
+        }
+        while current.is_some() && current.as_ref().unwrap().borrow().start <= end {
+            if min
+                > (current.as_ref().unwrap().borrow().start as i64
+                    + current.as_ref().unwrap().borrow().offset) as u64
+            {
+                min = (current.as_ref().unwrap().borrow().start as i64
+                    + current.as_ref().unwrap().borrow().offset) as u64;
+            }
+
+            let next = current.as_ref().unwrap().borrow().end + 1;
+            current = self.get_range_for(next);
+            if current.is_none() {
+                if next <= end && next < min {
+                    min = next;
+                }
+                current = self.get_range_after(next);
+            }
+        }
+
+        min
     }
 
     /// Checks if this rangemap is empty.
