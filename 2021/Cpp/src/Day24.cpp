@@ -49,6 +49,28 @@ enum SolvePart {
 	BOTH
 };
 
+enum PrintInsts {
+	/**
+	 * Don't ever print the instructions to the standard output.
+	 * Will be overridden if used in combination with any other value.
+	 */
+	NEVER = 0,
+	/**
+	 * Print the initial parsed, unoptimized, instructions to the standard output.
+	 */
+	INITIAL = 1,
+	/**
+	 * Print the fully optimized instructions to the standard output after optimizing.
+	 * Only applicable if OPTIMIZE is true.
+	 */
+	OPTIMIZED = 2,
+	/**
+	 * Print the current instructions after every optimization pass.
+	 * Only applicable if OPTIMIZE is true.
+	 */
+	STEP = 4
+};
+
 /**
  * Whether the input assembly should be interpreted or compiled.
  */
@@ -75,6 +97,19 @@ const SolvePart SOLVE_PART = BOTH;
  * The digits to use as input for the program.
  */
 const char INPUT_DIGITS[] = { 10 };
+
+/**
+ * Whether the compiled executable, and the files used to create it,
+ * should be deleted after the execution finishes.
+ * Only applicable with ExecType COMPILE.
+ */
+const bool DELETE_COMPILATION_FILES = true;
+
+/**
+ * When to print the current instructions to the standard output.
+ * Multiple values can be combined using bitwise or.
+ */
+const unsigned int PRINT_INSTRUCTIONS = NEVER;
 
 template<>
 void DayRunner<24>::solve(std::ifstream input) {
@@ -162,13 +197,35 @@ void DayRunner<24>::solve(std::ifstream input) {
 		instructions.push_back(Instruction(type, reg_a, const_b, in_b));
 	}
 
+	if (PRINT_INSTRUCTIONS & INITIAL) {
+		print_instructions("Initial", instructions, std::cout);
+	}
+
 	if (OPTIMIZE) {
 		instructions = static_eval(instructions);
+		if (PRINT_INSTRUCTIONS & STEP) {
+			print_instructions("Post static evaluation 1", instructions, std::cout);
+		}
 		instructions = merge_maths(instructions);
+		if (PRINT_INSTRUCTIONS & STEP) {
+			print_instructions("Merged math and cmp instructions", instructions, std::cout);
+		}
 		// Static evaluation needs to be run before and after merging instructions.
 		instructions = static_eval(instructions);
+		if (PRINT_INSTRUCTIONS & STEP) {
+			print_instructions("Post static evaluation 2", instructions, std::cout);
+		}
 		instructions = dead_code_removal(instructions);
+		if (PRINT_INSTRUCTIONS & STEP) {
+			print_instructions("Post dead code removal", instructions, std::cout);
+		}
 		instructions = delay_input(instructions);
+		if (PRINT_INSTRUCTIONS & STEP) {
+			print_instructions("Delayed input instructions", instructions, std::cout);
+		}
+		if (PRINT_INSTRUCTIONS & OPTIMIZED) {
+			print_instructions("Fully optimized", instructions, std::cout);
+		}
 	}
 
 	for (size_t i = 0; i < instructions.size(); i++) {
@@ -254,7 +311,7 @@ void DayRunner<24>::solve(std::ifstream input) {
 		}
 	}
 
-	if (EXEC_MODE == COMPILE && tmpExe.has_value()) {
+	if (EXEC_MODE == COMPILE && tmpExe.has_value() && DELETE_COMPILATION_FILES) {
 		delete_temp(tmpDir, tmpExe.value());
 	}
 }
@@ -296,6 +353,14 @@ std::ostream& operator <<(std::ostream &stream, const Compiler &comp) {
 	}
 
 	return stream;
+}
+
+void print_instructions(const char *state,
+	const std::vector<Instruction> &insts, std::ostream &stream) {
+	stream << state << " instructions:" << std::endl;
+	for (size_t i = 0; i < insts.size(); i++) {
+		std::cout << "    " << insts[i] << std::endl;
+	}
 }
 
 std::vector<Instruction> static_eval(const std::vector<Instruction> &insts) {

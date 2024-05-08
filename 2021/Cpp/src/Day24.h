@@ -193,6 +193,17 @@ std::ostream& operator <<(std::ostream &stream, const InstType &type);
 std::ostream& operator <<(std::ostream &stream, const Compiler &comp);
 
 /**
+ * Prints the given instructions to the given output stream,
+ * prefaced by a line about the current optimization state.
+ *
+ * @param state		A string description of the current optimization state.
+ * @param insts		The instructions to write to the output stream.
+ * @param stream	The output stream to write the instructions to.
+ */
+void print_instructions(const char *state,
+		const std::vector<Instruction> &insts, std::ostream &stream);
+
+/**
  * Optimizes the given program to make it contain fewer instructions.
  * This is done by replacing all sets of instructions that do not use anything
  * touched by input with a single set instruction.
