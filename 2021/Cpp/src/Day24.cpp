@@ -204,24 +204,29 @@ void DayRunner<24>::solve(std::ifstream input) {
 	if (OPTIMIZE) {
 		instructions = static_eval(instructions);
 		if (PRINT_INSTRUCTIONS & STEP) {
-			print_instructions("Post static evaluation 1", instructions, std::cout);
+			print_instructions("Post static evaluation 1", instructions,
+					std::cout);
 		}
 		instructions = merge_maths(instructions);
 		if (PRINT_INSTRUCTIONS & STEP) {
-			print_instructions("Merged math and cmp instructions", instructions, std::cout);
+			print_instructions("Merged math and cmp instructions", instructions,
+					std::cout);
 		}
 		// Static evaluation needs to be run before and after merging instructions.
 		instructions = static_eval(instructions);
 		if (PRINT_INSTRUCTIONS & STEP) {
-			print_instructions("Post static evaluation 2", instructions, std::cout);
+			print_instructions("Post static evaluation 2", instructions,
+					std::cout);
 		}
 		instructions = dead_code_removal(instructions);
 		if (PRINT_INSTRUCTIONS & STEP) {
-			print_instructions("Post dead code removal", instructions, std::cout);
+			print_instructions("Post dead code removal", instructions,
+					std::cout);
 		}
 		instructions = delay_input(instructions);
 		if (PRINT_INSTRUCTIONS & STEP) {
-			print_instructions("Delayed input instructions", instructions, std::cout);
+			print_instructions("Delayed input instructions", instructions,
+					std::cout);
 		}
 		if (PRINT_INSTRUCTIONS & OPTIMIZED) {
 			print_instructions("Fully optimized", instructions, std::cout);
@@ -311,7 +316,8 @@ void DayRunner<24>::solve(std::ifstream input) {
 		}
 	}
 
-	if (EXEC_MODE == COMPILE && tmpExe.has_value() && DELETE_COMPILATION_FILES) {
+	if (EXEC_MODE == COMPILE && tmpExe.has_value()
+			&& DELETE_COMPILATION_FILES) {
 		delete_temp(tmpDir, tmpExe.value());
 	}
 }
@@ -356,7 +362,7 @@ std::ostream& operator <<(std::ostream &stream, const Compiler &comp) {
 }
 
 void print_instructions(const char *state,
-	const std::vector<Instruction> &insts, std::ostream &stream) {
+		const std::vector<Instruction> &insts, std::ostream &stream) {
 	stream << state << " instructions:" << std::endl;
 	for (size_t i = 0; i < insts.size(); i++) {
 		std::cout << "    " << insts[i] << std::endl;
@@ -1172,26 +1178,23 @@ bool compile_instructions(const std::vector<Instruction> insts,
 		tmpCO << "            argv[4][i] += 32;" << std::endl;
 		tmpCO << "        }" << std::endl;
 		tmpCO << "    }" << std::endl << std::endl;
+		tmpCO << "    const char reverse = strncmp(argv[4], \"true\", 5) == 0;"
+				<< std::endl;
 		tmpCO
-				<< "    if (strcmp(argv[4], \"true\") != 0 && strcmp(argv[4], \"false\") != 0) {"
+				<< "    if (reverse != 1 && strncmp(argv[4], \"false\", 6) != 0) {"
 				<< std::endl;
 		tmpCO
 				<< "        fprintf(stderr, \"REVERSE wasn't a valid boolean. Was \\\"%s\\\".\\n\", argv[4]);"
 				<< std::endl;
 		tmpCO << "        return 1;" << std::endl;
-		tmpCO << "    }" << std::endl;
-		tmpCO << "    const char reverse = strcmp(argv[4], \"true\") == 0;"
-				<< std::endl << std::endl;
-		tmpCO << "    char *ofp = (char*) malloc(strlen(argv[0]) + 4);"
-				<< std::endl;
-		tmpCO << "    strcpy(ofp, argv[0]);" << std::endl;
-		tmpCO << "    ofp[strlen(argv[0])] = const_inputs[0] + '0';"
-				<< std::endl;
-		tmpCO << "    ofp[strlen(argv[0]) + 1] = const_inputs[1] + '0';"
-				<< std::endl;
-		tmpCO << "    ofp[strlen(argv[0]) + 2] = const_inputs[2] + '0';"
-				<< std::endl;
-		tmpCO << "    ofp[strlen(argv[0]) + 3] = 0;" << std::endl;
+		tmpCO << "    }" << std::endl << std::endl;
+		tmpCO << "    const size_t ep_len = strlen(argv[0]);" << std::endl;
+		tmpCO << "    char *ofp = (char*) malloc(ep_len + 4);" << std::endl;
+		tmpCO << "    strncpy(ofp, argv[0], ep_len);" << std::endl;
+		tmpCO << "    ofp[ep_len] = const_inputs[0] + '0';" << std::endl;
+		tmpCO << "    ofp[ep_len + 1] = const_inputs[1] + '0';" << std::endl;
+		tmpCO << "    ofp[ep_len + 2] = const_inputs[2] + '0';" << std::endl;
+		tmpCO << "    ofp[ep_len + 3] = 0;" << std::endl << std::endl;
 		tmpCO << "    FILE *of = fopen(ofp, \"w\");" << std::endl;
 		tmpCO << "    if (!of) {" << std::endl;
 		tmpCO
@@ -1421,13 +1424,16 @@ bool compile_instructions(const std::vector<Instruction> insts,
 				<< "fprintf(of, \"%d%d%d%d%d%d%d%d%d%d%d%d%d%d\", "
 				<< "const_inputs[0], const_inputs[1], const_inputs[2], i, j, k, l, m, n, o, p, q, r, s);"
 				<< std::endl;
+		tmpCO
+				<< "                                                    fclose(of);"
+				<< std::endl;
 		tmpCO << "                                                    return 0;"
 				<< std::endl;
 		for (uint8_t i = 12; i > 0; i--) {
 			for (uint8_t j = 0; j < i; j++) {
 				tmpCO << "    ";
 			}
-			tmpCO << '}' << std::endl;
+			tmpCO << '}' << std::endl << std::endl;
 		}
 		tmpCO
 				<< "    printf(\"Worker %d%d%d couldn't find a valid number.\\n\", const_inputs[0], const_inputs[1], const_inputs[2]);"
@@ -1439,6 +1445,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 				<< "    printf(\"The register values after running the program are w=%lld, x=%lld, y=%lld, z=%lld.\\n\", "
 				<< "reg_h[0], reg_h[1], reg_h[2], reg_h[3]);" << std::endl;
 	}
+	tmpCO << "    return 0;" << std::endl;
 	tmpCO << '}' << std::endl;
 	tmpCO.close();
 
