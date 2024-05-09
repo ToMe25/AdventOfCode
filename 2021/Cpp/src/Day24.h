@@ -313,6 +313,39 @@ int64_t find_first_valid_compiled(const std::filesystem::path exe,
 		const bool highest);
 
 /**
+ * Generates a single SIMD intrinsics call.
+ *
+ * This function will not generate any padding.
+ *
+ * @param out		The output stream to write the generated call to.
+ * @param fn_name	The name of the SIMD intrinsics function.
+ * @param regset	The register set to use for the call.
+ * 					NOTE: unlike other uses in this program,
+ * 					regset may be multiple characters long.
+ * @param reg_a		The output and primary input register index to use.
+ * @param in_b		The secondary input to use. May be a register or a constant.
+ * @param const_b	Whether the secondary input is a constant.
+ */
+void generate_simd_call(std::ostream &out, const char *fn_name,
+		const char *regset, const uint16_t reg_a, const uint32_t in_b,
+		const bool const_b);
+
+/**
+ * Generates the C code for a single instruction.
+ *
+ * This function will generate the SIMD code for all 9 possible values if simd is true,
+ * but only the code for a single value if simd is false.
+ *
+ * @param inst		The instruction to generate code for.
+ * @param out		The output stream to write the generated code to.
+ * @param inp_idx	The number of input instructions before the current instruction.
+ * 					If the current instruction is an input instruction it should also be counted.
+ * @param simd		Whether to generate SIMD code instead of standard code.
+ */
+void generate_instruction_code(const Instruction &inst, std::ostream &out,
+		const uint16_t inp_idx, const bool simd);
+
+/**
  * Compiles the given set of instructions to a native library in the given temporary directory.
  * The instructions are split into functions such that each function only gets one input digit.
  *
@@ -327,17 +360,28 @@ bool compile_instructions(const std::vector<Instruction> insts,
 /**
  * Finds the compiler to use.
  * The order of preference is
- *  1. make
- *  2. gcc
- *  3. clang.
+ *  1. gcc
+ *  2. clang
+ *  3. cl.
  *
  * Other compilers aren't supported at this time.
- * If make is found this program assumes that there is a c compiler that make can use.
+ *
  * If none of these can be found this will return None.
  *
  * @return	The compiler to use to compile the instructions.
  */
 Compiler detect_compiler();
+
+/**
+ * Attempts to automatically detect cpu, os, and compiler support for SIMD instructions.
+ *
+ * Since the current SIMD support of this program requires SSE4.1, that is what this function checks for.
+ *
+ * @param comp		The compiler to use.
+ * @param tmpDir	The temporary directory to generate the test executable in.
+ * @return	True if SSE4.1 is supported, false if it isn't supported and null if the test could not be run.
+ */
+std::optional<bool> detect_simd(const Compiler comp, const std::filesystem::path tmpDir);
 
 /**
  * Creates a temporary shared library from the given instructions in a temporary directory.

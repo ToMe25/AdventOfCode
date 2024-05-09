@@ -71,6 +71,22 @@ enum PrintInsts {
 	STEP = 4
 };
 
+enum SIMDMode {
+	/**
+	 * No SIMD intrinsics will be used, regardless of their availability.
+	 */
+	SIMD_DISABLED,
+	/**
+	 * The generated C code will include SIMD intrinsics, even if they aren't available.
+	 */
+	SIMD_ENABLED,
+	/**
+	 * The program automatically checks for the availability of SIMD intrinsics
+	 * and uses them if possible.
+	 */
+	SIMD_AUTO
+};
+
 /**
  * Whether the input assembly should be interpreted or compiled.
  */
@@ -110,6 +126,14 @@ const bool DELETE_COMPILATION_FILES = true;
  * Multiple values can be combined using bitwise or.
  */
 const unsigned int PRINT_INSTRUCTIONS = NEVER;
+
+/**
+ * Whether SIMD intrinsics should be used to improve the performance of the generated C code.
+ * Only used with EXEC_MODE COMPILE and RUN_TYPE SOLVE.
+ *
+ * Currently only affects the block after the last input instruction.
+ */
+const SIMDMode SIMD_MODE = SIMD_AUTO;
 
 template<>
 void DayRunner<24>::solve(std::ifstream input) {
@@ -1128,11 +1152,281 @@ int64_t find_first_valid_compiled(const std::filesystem::path exe,
 	return result == 0 ? -1 : result;
 }
 
+void generate_simd_call(std::ostream &out, const char *fn_name,
+		const char *regset, const uint16_t reg_a, const uint32_t in_b,
+		const bool const_b) {
+	out << "reg_" << regset << '[' << reg_a << "] = " << fn_name << "(reg_"
+			<< regset << '[' << reg_a << "], ";
+	if (const_b) {
+		out << "_mm_set_epi32(" << in_b << ", " << in_b << ", " << in_b << ", "
+				<< in_b << ')';
+	} else {
+		out << "reg_" << regset << '[' << in_b << ']';
+	}
+	out << ");" << std::endl;
+}
+
+void generate_instruction_code(const Instruction &inst, std::ostream &out,
+		const uint16_t inp_idx, const bool simd) {
+	if (inst.type == InstType::NOP) {
+		return;
+	}
+
+	const char regset =
+			RUN_TYPE == EXECUTE ?
+					'h' : std::max('h', static_cast<char>('i' + inp_idx - 4));
+
+	std::string padding = "    ";
+	if (RUN_TYPE == SOLVE) {
+		for (size_t i = 0; i < std::max(0, inp_idx - 3 - simd); i++) {
+			padding.append("    ");
+		}
+	}
+
+	if (simd) {
+		const char regset_l[4] = { regset, '_', 'l', 0 };
+		const char regset_h[4] = { regset, '_', 'h', 0 };
+		switch (inst.type) {
+		case InstType::INP:
+			out << padding << "reg_" << regset << "_l["
+					<< static_cast<uint16_t>(inst.reg_a)
+					<< "] = _mm_set_epi32(1, 2, 3, 4);" << std::endl;
+			out << padding << "reg_" << regset << "_h["
+					<< static_cast<uint16_t>(inst.reg_a)
+					<< "] = _mm_set_epi32(5, 6, 7, 8);" << std::endl;
+			break;
+		case InstType::ADD:
+			out << padding;
+			generate_simd_call(out, "_mm_add_epi32", regset_l, inst.reg_a,
+					inst.in_b, inst.const_b);
+			out << padding;
+			generate_simd_call(out, "_mm_add_epi32", regset_h, inst.reg_a,
+					inst.in_b, inst.const_b);
+			break;
+		case InstType::SUB:
+			out << padding;
+			generate_simd_call(out, "_mm_sub_epi32", regset_l, inst.reg_a,
+					inst.in_b, inst.const_b);
+			out << padding;
+			generate_simd_call(out, "_mm_sub_epi32", regset_h, inst.reg_a,
+					inst.in_b, inst.const_b);
+			break;
+		case InstType::MUL:
+			out << padding;
+			generate_simd_call(out, "_mm_mullo_epi32", regset_l, inst.reg_a,
+					inst.in_b, inst.const_b);
+			out << padding;
+			generate_simd_call(out, "_mm_mullo_epi32", regset_h, inst.reg_a,
+					inst.in_b, inst.const_b);
+			break;
+		case InstType::DIV:
+			out << padding << "reg_" << regset << "_l["
+					<< static_cast<uint16_t>(inst.reg_a)
+					<< "] = _mm_set_epi32(";
+			for (int i = 3; i >= 0; i--) {
+				out << "_mm_extract_epi32(reg_" << regset << "_l["
+						<< static_cast<uint16_t>(inst.reg_a) << "], " << i
+						<< ") / ";
+				if (inst.const_b) {
+					out << inst.in_b;
+				} else {
+					out << "_mm_extract_epi32(reg_" << regset << "_l["
+							<< inst.in_b << ", " << i << ')';
+				}
+				if (i > 0) {
+					out << ", ";
+				}
+			}
+			out << ");" << std::endl;
+
+			out << padding << "reg_" << regset << "_h["
+					<< static_cast<uint16_t>(inst.reg_a)
+					<< "] = _mm_set_epi32(";
+			for (int i = 3; i >= 0; i--) {
+				out << "_mm_extract_epi32(reg_" << regset << "_h["
+						<< static_cast<uint16_t>(inst.reg_a) << "], " << i
+						<< ") / ";
+				if (inst.const_b) {
+					out << inst.in_b;
+				} else {
+					out << "_mm_extract_epi32(reg_" << regset << "_h["
+							<< inst.in_b << ", " << i << ')';
+				}
+				if (i > 0) {
+					out << ", ";
+				}
+			}
+			out << ");" << std::endl;
+			break;
+		case InstType::MOD:
+			out << padding << "reg_" << regset << "_l["
+					<< static_cast<uint16_t>(inst.reg_a)
+					<< "] = _mm_set_epi32(";
+			for (int i = 3; i >= 0; i--) {
+				out << "_mm_extract_epi32(reg_" << regset << "_l["
+						<< static_cast<uint16_t>(inst.reg_a) << "], " << i
+						<< ") % ";
+				if (inst.const_b) {
+					out << inst.in_b;
+				} else {
+					out << "_mm_extract_epi32(reg_" << regset << "_l["
+							<< inst.in_b << ", " << i << ')';
+				}
+				if (i > 0) {
+					out << ", ";
+				}
+			}
+			out << ");" << std::endl;
+
+			out << padding << "reg_" << regset << "_h["
+					<< static_cast<uint16_t>(inst.reg_a)
+					<< "] = _mm_set_epi32(";
+			for (int i = 3; i >= 0; i--) {
+				out << "_mm_extract_epi32(reg_" << regset << "_h["
+						<< static_cast<uint16_t>(inst.reg_a) << "], " << i
+						<< ") % ";
+				if (inst.const_b) {
+					out << inst.in_b;
+				} else {
+					out << "_mm_extract_epi32(reg_" << regset << "_h["
+							<< inst.in_b << ", " << i << ')';
+				}
+				if (i > 0) {
+					out << ", ";
+				}
+			}
+			out << ");" << std::endl;
+			break;
+			return;
+		case InstType::EQL:
+			out << padding;
+			generate_simd_call(out, "_mm_cmpeq_epi32", regset_l, inst.reg_a,
+					inst.in_b, inst.const_b);
+			out << padding << "reg_" << regset << "_l["
+					<< static_cast<uint16_t>(inst.reg_a)
+					<< "] = _mm_and_si128(reg_" << regset << "_l["
+					<< static_cast<uint16_t>(inst.reg_a) << "], eql_mask);"
+					<< std::endl;
+			out << padding;
+			generate_simd_call(out, "_mm_cmpeq_epi32", regset_h, inst.reg_a,
+					inst.in_b, inst.const_b);
+			out << padding << "reg_" << regset << "_h["
+					<< static_cast<uint16_t>(inst.reg_a)
+					<< "] = _mm_and_si128(reg_" << regset << "_h["
+					<< static_cast<uint16_t>(inst.reg_a) << "], eql_mask);"
+					<< std::endl;
+			break;
+		case InstType::NEQ:
+			out << padding;
+			generate_simd_call(out, "_mm_cmpeq_epi32", regset_l, inst.reg_a,
+					inst.in_b, inst.const_b);
+			out << padding << "reg_" << regset << "_l["
+					<< static_cast<uint16_t>(inst.reg_a)
+					<< "] = _mm_andnot_si128(reg_" << regset << "_l["
+					<< static_cast<uint16_t>(inst.reg_a) << "], neq_mask);"
+					<< std::endl;
+			out << padding;
+			generate_simd_call(out, "_mm_cmpeq_epi32", regset_h, inst.reg_a,
+					inst.in_b, inst.const_b);
+			out << padding << "reg_" << regset << "_h["
+					<< static_cast<uint16_t>(inst.reg_a)
+					<< "] = _mm_andnot_si128(reg_" << regset << "_h["
+					<< static_cast<uint16_t>(inst.reg_a) << "], neq_mask);"
+					<< std::endl;
+			break;
+		case InstType::SET:
+			out << padding << "reg_" << regset << "_l["
+					<< static_cast<uint16_t>(inst.reg_a) << "] = ";
+			if (inst.const_b) {
+				out << "_mm_set_epi32(" << inst.in_b << ", " << inst.in_b
+						<< ", " << inst.in_b << ", " << inst.in_b << ");"
+						<< std::endl;
+			} else {
+				out << "reg_" << regset << "_l[" << inst.in_b << "];"
+						<< std::endl;
+			}
+			out << padding << "reg_" << regset << "_h["
+					<< static_cast<uint16_t>(inst.reg_a) << "] = ";
+			if (inst.const_b) {
+				out << "_mm_set_epi32(" << inst.in_b << ", " << inst.in_b
+						<< ", " << inst.in_b << ", " << inst.in_b << ");"
+						<< std::endl;
+			} else {
+				out << "reg_" << regset << "_h[" << inst.in_b << "];"
+						<< std::endl;
+			}
+			break;
+		default:
+			std::cerr << "Received unknown SIMD instruction type " << inst.type
+					<< '!' << std::endl;
+		}
+	}
+
+	const char *rs_sfx = simd ? "_e" : "";
+	out << padding << "reg_" << regset << rs_sfx << '['
+			<< static_cast<uint16_t>(inst.reg_a) << ']';
+
+	switch (inst.type) {
+	case InstType::INP:
+		if (inp_idx < 4 || RUN_TYPE == EXECUTE) {
+			out << " = const_inputs[" << inp_idx - 1 << ']';
+		} else if (simd) {
+			out << " = 9";
+		} else {
+			out << " = " << regset;
+		}
+		break;
+	case InstType::ADD:
+		out << " += ";
+		break;
+	case InstType::SUB:
+		out << " -= ";
+		break;
+	case InstType::MUL:
+		out << " *= ";
+		break;
+	case InstType::DIV:
+		out << " /= ";
+		break;
+	case InstType::MOD:
+		out << " %= ";
+		break;
+	case InstType::EQL:
+		out << " = reg_" << regset << rs_sfx << '['
+				<< static_cast<uint16_t>(inst.reg_a) << "] == ";
+		break;
+	case InstType::NEQ:
+		out << " = reg_" << regset << rs_sfx << '['
+				<< static_cast<uint16_t>(inst.reg_a) << "] != ";
+		break;
+	case InstType::SET:
+		out << " = ";
+		break;
+	default:
+		std::cerr << "Received unknown instruction type " << inst.type << '!'
+				<< std::endl;
+	}
+
+	if (inst.type != InstType::INP) {
+		if (inst.const_b) {
+			out << inst.in_b;
+		} else {
+			out << "reg_" << regset << rs_sfx << '[' << inst.in_b << ']';
+		}
+	}
+
+	out << ';' << std::endl;
+}
+
 bool compile_instructions(const std::vector<Instruction> insts,
 		const std::filesystem::path tmpDir, const Compiler comp) {
+	const bool simd_enabled = SIMD_MODE == SIMD_ENABLED
+			|| (SIMD_MODE == SIMD_AUTO
+					&& detect_simd(comp, tmpDir).value_or(false));
+
 	std::filesystem::path tmpC(tmpDir);
 	tmpC += std::filesystem::path::preferred_separator;
-	tmpC += "tmp.c";
+	tmpC += "solver.c";
 
 	if (std::filesystem::exists(tmpC)
 			&& !std::filesystem::is_regular_file(tmpC)) {
@@ -1144,10 +1438,45 @@ bool compile_instructions(const std::vector<Instruction> insts,
 		return false;
 	}
 
+	const size_t inpc = std::count_if(insts.begin(), insts.end(),
+			[](const Instruction &inst) -> bool {
+				return inst.type == InstType::INP;
+			});
+
 	std::ofstream tmpCO(tmpC);
+	tmpCO << "/**" << std::endl;
+	tmpCO << " * This source file was automatically generated" << std::endl;
+	tmpCO
+			<< " * by a Advent of Code(https://adventofcode.com/) year 2021 day 24 solution."
+			<< std::endl;
+	tmpCO << " *" << std::endl;
+	tmpCO << " * It will be overridden and re-compiled on the next run,"
+			<< std::endl;
+	tmpCO
+			<< " * so manually modifying it is unlikely to yield the desired results."
+			<< std::endl;
+	if (simd_enabled) {
+		tmpCO << " *" << std::endl;
+		tmpCO << " * This file was generated with SIMD support enabled."
+				<< std::endl;
+	}
+	tmpCO << " */" << std::endl << std::endl;
 	tmpCO << "#include <stdio.h>" << std::endl;
 	tmpCO << "#include <stdlib.h>" << std::endl;
-	tmpCO << "#include <string.h>" << std::endl << std::endl;
+	tmpCO << "#include <string.h>" << std::endl;
+	if (simd_enabled) {
+		tmpCO << "#include <immintrin.h>" << std::endl;
+	}
+	tmpCO << std::endl;
+	// MSVC doesn't have a compiler support check for this, as far as I can tell.
+	if (simd_enabled && comp != Compiler::CL) {
+		tmpCO << "#ifndef __SSE4_1__" << std::endl;
+		tmpCO << "#error This version of the solver requires SSE4.1 support."
+				<< std::endl;
+		tmpCO << "#error Please regenerate this file without SIMD enabled."
+				<< std::endl;
+		tmpCO << "#endif" << std::endl << std::endl;
+	}
 	tmpCO << "int main(const int argc, char *argv[]) {" << std::endl;
 	if (RUN_TYPE == SOLVE) {
 		tmpCO << "    if (argc < 5) {" << std::endl;
@@ -1204,10 +1533,6 @@ bool compile_instructions(const std::vector<Instruction> insts,
 		tmpCO << "    }" << std::endl;
 		tmpCO << "    free(ofp);" << std::endl << std::endl;
 	} else if (RUN_TYPE == EXECUTE) {
-		const size_t inpc = std::count_if(insts.begin(), insts.end(),
-				[](const Instruction &inst) -> bool {
-					return inst.type == InstType::INP;
-				});
 		tmpCO << "    if (argc != " << inpc << " + 1) {" << std::endl;
 		tmpCO << "        fprintf(stderr, \"This program has " << inpc
 				<< " input instructions, so it requires " << inpc
@@ -1243,12 +1568,19 @@ bool compile_instructions(const std::vector<Instruction> insts,
 		tmpCO << "        const_inputs[i - 1] = (char) input;" << std::endl;
 		tmpCO << "    }" << std::endl << std::endl;
 	}
-	tmpCO << "    long long int reg_h[4];" << std::endl << std::endl;
+	if (simd_enabled) {
+		tmpCO << "    const __m128i eql_mask = _mm_set_epi32(1, 1, 1, 1);"
+				<< std::endl;
+		tmpCO
+				<< "    const __m128i neq_mask = _mm_set_epi32(0xFFFFFFFE, 0xFFFFFFFE, 0xFFFFFFFE, 0xFFFFFFFE);"
+				<< std::endl << std::endl;
+	}
+	tmpCO << "    int reg_h[4];" << std::endl;
 
 	const char loop_start[] =
 			"for (char I = reverse ? 9 : 1; reverse ? (I > 0) : (I < 10); reverse ? I-- : I++) {";
 
-	int16_t method_idx = 0;
+	uint16_t method_idx = 0;
 	for (size_t i = 0; i < insts.size(); i++) {
 		const Instruction inst = insts[i];
 
@@ -1257,20 +1589,31 @@ bool compile_instructions(const std::vector<Instruction> insts,
 		}
 
 		if (method_idx > 3 && inst.type == InstType::INP && RUN_TYPE == SOLVE) {
+			const char regset = std::max('h',
+					static_cast<char>('i' + method_idx - 4));
+			std::string indent;
 			for (size_t i = 0; i < std::max(1, method_idx - 3); i++) {
-				tmpCO << "    ";
+				if (!simd_enabled || i < inpc - 1) {
+					indent.append("    ");
+				}
 			}
-			std::string loop(loop_start);
-			std::replace(loop.begin(), loop.end(), 'I',
-					(char) ('i' + method_idx - 4));
-			tmpCO << loop << std::endl;
 
-			for (size_t i = 0; i < std::max(1, method_idx - 2); i++) {
-				tmpCO << "    ";
+			if (simd_enabled && method_idx == inpc) {
+				tmpCO << std::endl;
+				tmpCO << indent << "__m128i reg_" << regset << "_l[4];"
+						<< std::endl;
+				tmpCO << indent << "__m128i reg_" << regset << "_h[4];"
+						<< std::endl;
+				tmpCO << indent << "int reg_" << regset << "_e[4];"
+						<< std::endl;
+			} else {
+				std::string loop(loop_start);
+				std::replace(loop.begin(), loop.end(), 'I', regset);
+				tmpCO << indent << loop << std::endl;
+
+				indent.append("    ");
+				tmpCO << indent << "int reg_" << regset << "[4];" << std::endl;
 			}
-			tmpCO << "long long int reg_"
-					<< std::max('h', (char) ('i' + method_idx - 4)) << "[4];"
-					<< std::endl;
 
 			bool regs_used[4] { false };
 			bool regs_checked[4] { false };
@@ -1301,121 +1644,52 @@ bool compile_instructions(const std::vector<Instruction> insts,
 
 			for (uint16_t j = 0; j < 4; j++) {
 				if (regs_used[j]) {
-					for (size_t i = 0; i < std::max(1, method_idx - 2); i++) {
-						tmpCO << "    ";
+					const char prev_regset = regset - 1;
+					if (simd_enabled && RUN_TYPE == SOLVE
+							&& method_idx == inpc) {
+						tmpCO << indent << "reg_" << regset << "_l[" << j;
+						tmpCO << "] = reg_" << regset << "_h[" << j;
+						tmpCO << "] = _mm_set_epi32(reg_" << prev_regset;
+						tmpCO << '[' << j << "], reg_" << prev_regset;
+						tmpCO << '[' << j << "], reg_" << prev_regset;
+						tmpCO << '[' << j << "], reg_" << prev_regset << '['
+								<< j << "]);" << std::endl;
+						tmpCO << indent << "reg_" << regset << "_e[" << j;
+						tmpCO << "] = reg_" << prev_regset << '[' << j << "];"
+								<< std::endl;
+					} else {
+						tmpCO << indent << "reg_" << regset << '[' << j;
+						tmpCO << "] = reg_" << prev_regset << '[' << j << "];"
+								<< std::endl;
 					}
-					tmpCO << "reg_"
-							<< std::max('h', (char) ('i' + method_idx - 4))
-							<< '[' << j;
-					tmpCO << "] = reg_"
-							<< std::max('h', (char) ('i' + method_idx - 5))
-							<< '[' << j << "];" << std::endl;
 				}
 			}
 		}
 
-		const char reg_idx =
-				RUN_TYPE == EXECUTE ?
-						'h' : std::max('h', (char) ('i' + method_idx - 4));
-		if (inst.type != InstType::NOP) {
-			if (RUN_TYPE == SOLVE) {
-				for (size_t i = 0; i < std::max(1, method_idx - 2); i++) {
-					tmpCO << "    ";
-				}
-			} else {
-				tmpCO << "    ";
-			}
-			tmpCO << "reg_" << reg_idx << '[' << (uint16_t) inst.reg_a << ']';
-		}
-
-		switch (inst.type) {
-		case InstType::NOP:
-			break;
-		case InstType::INP:
-			if (method_idx < 4 || RUN_TYPE == EXECUTE) {
-				tmpCO << " = const_inputs[" << method_idx - 1 << ']';
-			} else {
-				tmpCO << " = " << reg_idx;
-			}
-			break;
-		case InstType::ADD:
-			tmpCO << " += ";
-			if (inst.const_b) {
-				tmpCO << inst.in_b;
-			} else {
-				tmpCO << "reg_" << reg_idx << '[' << inst.in_b << ']';
-			}
-			break;
-		case InstType::SUB:
-			tmpCO << " -= ";
-			if (inst.const_b) {
-				tmpCO << inst.in_b;
-			} else {
-				tmpCO << "reg_" << reg_idx << '[' << inst.in_b << ']';
-			}
-			break;
-		case InstType::MUL:
-			tmpCO << " *= ";
-			if (inst.const_b) {
-				tmpCO << inst.in_b;
-			} else {
-				tmpCO << "reg_" << reg_idx << '[' << inst.in_b << ']';
-			}
-			break;
-		case InstType::DIV:
-			tmpCO << " /= ";
-			if (inst.const_b) {
-				tmpCO << inst.in_b;
-			} else {
-				tmpCO << "reg_" << reg_idx << '[' << inst.in_b << ']';
-			}
-			break;
-		case InstType::MOD:
-			tmpCO << " %= ";
-			if (inst.const_b) {
-				tmpCO << inst.in_b;
-			} else {
-				tmpCO << "reg_" << reg_idx << '[' << inst.in_b << ']';
-			}
-			break;
-		case InstType::EQL:
-			tmpCO << " = reg_" << reg_idx << '[' << (uint16_t) inst.reg_a
-					<< "] == ";
-			if (inst.const_b) {
-				tmpCO << inst.in_b;
-			} else {
-				tmpCO << "reg_" << reg_idx << '[' << inst.in_b << ']';
-			}
-			break;
-		case InstType::NEQ:
-			tmpCO << " = reg_" << reg_idx << '[' << (uint16_t) inst.reg_a
-					<< "] != ";
-			if (inst.const_b) {
-				tmpCO << inst.in_b;
-			} else {
-				tmpCO << "reg_" << reg_idx << '[' << inst.in_b << ']';
-			}
-			break;
-		case InstType::SET:
-			tmpCO << " = ";
-			if (inst.const_b) {
-				tmpCO << inst.in_b;
-			} else {
-				tmpCO << "reg_" << reg_idx << '[' << inst.in_b << ']';
-			}
-			break;
-		}
-
-		if (inst.type != InstType::NOP) {
-			tmpCO << ';' << std::endl;
-		}
+		generate_instruction_code(inst, tmpCO, method_idx,
+				simd_enabled && RUN_TYPE == SOLVE && method_idx == inpc);
 	}
 
 	tmpCO << std::endl;
 	if (RUN_TYPE == SOLVE) {
-		tmpCO
-				<< "                                                if (reg_s[3] == 0) {"
-				<< std::endl;
+		if (simd_enabled) {
+			tmpCO << "                                            "
+					<< "int reg_s_3[] = { _mm_extract_epi32(reg_s_l[3], 3), _mm_extract_epi32(reg_s_l[3], 2), _mm_extract_epi32(reg_s_l[3], 1), _mm_extract_epi32(reg_s_l[3], 0),"
+					<< std::endl;
+			tmpCO << "                                                  "
+					<< "_mm_extract_epi32(reg_s_h[3], 3), _mm_extract_epi32(reg_s_h[3], 2), _mm_extract_epi32(reg_s_h[3], 1), _mm_extract_epi32(reg_s_h[3], 0), reg_s_e[3] };"
+					<< std::endl;
+			tmpCO
+					<< "                                            for (char s = reverse ? 9 : 1; reverse ? (s > 0) : (s < 10); reverse ? s-- : s++) {"
+					<< std::endl;
+			tmpCO
+					<< "                                                if (reg_s_3[s - 1] == 0) {"
+					<< std::endl;
+		} else {
+			tmpCO
+					<< "                                                if (reg_s[3] == 0) {"
+					<< std::endl;
+		}
 		tmpCO << "                                                    "
 				<< "printf(\"Worker %d%d%d found valid number: %d%d%d%d%d%d%d%d%d%d%d%d%d%d\\n\", "
 				<< "const_inputs[0], const_inputs[1], const_inputs[2], const_inputs[0], const_inputs[1], const_inputs[2], i, j, k, l, m, n, o, p, q, r, s);"
@@ -1462,10 +1736,16 @@ bool compile_instructions(const std::vector<Instruction> insts,
 	case Compiler::GCC:
 		cmd = std::string("gcc -o ").append(tmpE.generic_string()).append(
 				" -O3 ").append(tmpC.generic_string());
+		if (simd_enabled) {
+			cmd.append(" -msse4.1");
+		}
 		break;
 	case Compiler::CLANG:
 		cmd = std::string("clang -o ").append(tmpE.generic_string()).append(
 				" -O3 ").append(tmpC.generic_string());
+		if (simd_enabled) {
+			cmd.append(" -msse4.1");
+		}
 		break;
 	case Compiler::CL: {
 		std::filesystem::path tmpO(tmpDir);
@@ -1489,7 +1769,12 @@ bool compile_instructions(const std::vector<Instruction> insts,
 				<< std::endl;
 		return false;
 	} else {
-		std::cout << "Build finished." << std::endl;
+		std::cout << "Build finished.";
+		if (DELETE_COMPILATION_FILES) {
+			std::cout << " Deleting source file.";
+			std::filesystem::remove(tmpC);
+		}
+		std::cout << std::endl;
 	}
 
 	return true;
@@ -1520,6 +1805,169 @@ Compiler detect_compiler() {
 				<< std::endl;
 		return Compiler::NONE;
 	}
+}
+
+std::optional<bool> detect_simd(const Compiler comp,
+		const std::filesystem::path tmpDir) {
+	if (comp == Compiler::NONE) {
+		std::cerr << "Cannot detect SIMD support without a compiler."
+				<< std::endl;
+		return std::nullopt;
+	}
+
+	if (std::filesystem::exists(tmpDir)
+			&& !std::filesystem::is_directory(tmpDir)) {
+		std::cerr << std::filesystem::canonical(tmpDir)
+				<< " exists but isn't a directory." << std::endl;
+		return std::nullopt;
+	} else if (!std::filesystem::exists(tmpDir)
+			&& !std::filesystem::create_directories(tmpDir)) {
+		std::cerr << tmpDir << " does not exist and can't be created."
+				<< std::endl;
+		return std::nullopt;
+	}
+
+	std::filesystem::path tmpC(tmpDir);
+	tmpC += std::filesystem::path::preferred_separator;
+	tmpC += "sse_detect.c";
+
+	if (std::filesystem::exists(tmpC)
+			&& !std::filesystem::is_regular_file(tmpC)) {
+		std::cerr << tmpC << " exists but isn't a file." << std::endl;
+		return std::nullopt;
+	} else if (std::filesystem::exists(tmpC)
+			&& !std::filesystem::remove(tmpC)) {
+		std::cerr << "Failed to remove " << tmpC << '.' << std::endl;
+		return std::nullopt;
+	}
+
+	std::ofstream tmpCO(tmpC);
+	tmpCO << "/**" << std::endl;
+	tmpCO << " * This source file was automatically generated" << std::endl;
+	tmpCO
+			<< " * by a Advent of Code(https://adventofcode.com/) year 2021 day 24 solution."
+			<< std::endl;
+	tmpCO << " *" << std::endl;
+	tmpCO << " * It will be overridden and re-compiled on the next run,"
+			<< std::endl;
+	tmpCO
+			<< " * so manually modifying it is unlikely to yield the desired results."
+			<< std::endl;
+	tmpCO << " */" << std::endl << std::endl;
+	tmpCO << "#include <stdio.h>" << std::endl;
+	tmpCO << "#include <immintrin.h>" << std::endl << std::endl;
+	tmpCO << "#ifndef _XCR_XFEATURE_ENABLED_MASK" << std::endl;
+	tmpCO << "#define _XCR_XFEATURE_ENABLED_MASK 0" << std::endl;
+	tmpCO << "#endif" << std::endl << std::endl;
+	tmpCO << "#define XSTATE_SSE 0x2" << std::endl;
+	tmpCO << "#ifdef _WIN32" << std::endl;
+	tmpCO << "#define cpuid(info, x)    __cpuidex(info, x, 0)" << std::endl;
+	tmpCO << "#else" << std::endl;
+	tmpCO << "#include <cpuid.h>" << std::endl;
+	tmpCO << "#include <xsaveintrin.h>" << std::endl << std::endl;
+	tmpCO << "void cpuid(int info[4], int x) {" << std::endl;
+	tmpCO << "    __cpuid_count(x, 0, info[0], info[1], info[2], info[3]);"
+			<< std::endl;
+	tmpCO << "}" << std::endl;
+	tmpCO << "#endif" << std::endl << std::endl;
+	tmpCO << "int main(int argc, char **argv) {" << std::endl;
+	tmpCO << "    int cpuInfo[4];" << std::endl;
+	tmpCO << "    cpuid(cpuInfo, 1);" << std::endl << std::endl;
+	tmpCO << "    int cpuSSE4_1 = cpuInfo[2] & ((int) 1 << 19);" << std::endl;
+	tmpCO << "    int osXSAVE = cpuInfo[2] & ((int) 1 << 27);" << std::endl;
+	tmpCO << "    if (osXSAVE && cpuSSE4_1) {" << std::endl;
+	tmpCO
+			<< "        unsigned long long xcrFeatureMask = _xgetbv(_XCR_XFEATURE_ENABLED_MASK);"
+			<< std::endl;
+	tmpCO << "        int osSSE = (xcrFeatureMask & XSTATE_SSE) == XSTATE_SSE;"
+			<< std::endl;
+	tmpCO << "        if (osSSE && cpuSSE4_1) {" << std::endl;
+	tmpCO
+			<< "            // Run a very basic SSE test using SSE4.1 instructions."
+			<< std::endl;
+	tmpCO << "            const int sse_testi = (int) (rand() * 1000.0);"
+			<< std::endl;
+	tmpCO << "            __m128i sse_test = _mm_set_epi32(sse_testi, 0, 0, 0);"
+			<< std::endl;
+	tmpCO
+			<< "            sse_test = _mm_mullo_epi32(sse_test, _mm_set_epi32(7, 0, 0, 0));"
+			<< std::endl;
+	tmpCO
+			<< "            if (_mm_extract_epi32(sse_test, 3) != sse_testi * 7) {"
+			<< std::endl;
+	tmpCO << "                puts(\"SSE test failed.\");" << std::endl;
+	tmpCO << "                return 1;" << std::endl;
+	tmpCO << "            }" << std::endl;
+	tmpCO << "            puts(\"SSE4.1 supported.\");" << std::endl;
+	tmpCO << "            return 0;" << std::endl;
+	tmpCO << "        }" << std::endl;
+	tmpCO << "    }" << std::endl << std::endl;
+	tmpCO << "    puts(\"SSE4.1 not supported.\");" << std::endl;
+	tmpCO << "    return 1;" << std::endl;
+	tmpCO << "}" << std::endl;
+	tmpCO.close();
+
+	std::string cmd = "";
+	std::filesystem::path tmpE(tmpDir);
+	tmpE += std::filesystem::path::preferred_separator;
+	tmpE += "tmp";
+	// Always generate .exe files on windows.
+	if (std::filesystem::path::preferred_separator == '\\') {
+		tmpE += ".exe";
+	}
+
+	switch (comp) {
+	case Compiler::GCC:
+		cmd = std::string("gcc -o ").append(tmpE.generic_string()).append(
+				" -O3 ").append(tmpC.generic_string()).append(
+				" -mxsave -msse4.1");
+		break;
+	case Compiler::CLANG:
+		cmd = std::string("clang -o ").append(tmpE.generic_string()).append(
+				" -O3 ").append(tmpC.generic_string()).append(
+				" -mxsave -msse4.1");
+		break;
+	case Compiler::CL: {
+		std::filesystem::path tmpO(tmpDir);
+		tmpO += std::filesystem::path::preferred_separator;
+		tmpO += "tmp.o";
+		cmd = std::string("cl /Fo: ").append(tmpO.generic_string()).append(
+				" /Fe: ").append(tmpE.generic_string()).append(" /O2 ").append(
+				tmpC.generic_string());
+		break;
+	}
+	default:
+		std::cerr << "Received unknown compiler value " << comp << '!'
+				<< std::endl;
+		return std::nullopt;
+	}
+
+	std::cout << "Running \"" << cmd << "\"." << std::endl;
+	int status = std::system(cmd.c_str());
+	if (status != 0) {
+		std::cout << "Failed to compile SSE test. Disabling SIMD mode."
+				<< std::endl;
+		if (DELETE_COMPILATION_FILES) {
+			std::cout << "Deleting sse_test source file." << std::endl;
+			std::filesystem::remove(tmpC);
+		}
+		return std::optional<bool> { false };
+	}
+
+	cmd = std::string(tmpE.generic_string());
+	std::cout << "Running \"" << cmd << "\"." << std::endl;
+	status = std::system(cmd.c_str());
+	if (status != 0) {
+		std::cout << "SSE test failed. Disabling SIMD mode." << std::endl;
+	} else {
+		std::cout << "SIMD support detected." << std::endl;
+	}
+	if (DELETE_COMPILATION_FILES) {
+		std::cout << "Deleting sse_test source file." << std::endl;
+		std::filesystem::remove(tmpC);
+	}
+
+	return std::optional<bool> { status == 0 };
 }
 
 std::optional<std::filesystem::path> create_temp_lib(
@@ -1568,10 +2016,6 @@ bool delete_temp(const std::filesystem::path tmpDir,
 	tmpM += std::filesystem::path::preferred_separator;
 	tmpM += "tmp.Makefile";
 	std::filesystem::remove(tmpM);
-	std::filesystem::path tmpC(tmpDir);
-	tmpC += std::filesystem::path::preferred_separator;
-	tmpC += "tmp.c";
-	std::filesystem::remove(tmpC);
 	if (std::filesystem::is_empty(tmpDir)) {
 		std::filesystem::remove(tmpDir);
 		return true;
