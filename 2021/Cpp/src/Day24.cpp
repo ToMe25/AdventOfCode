@@ -87,6 +87,17 @@ enum SIMDMode {
 	SIMD_AUTO
 };
 
+enum RegSize {
+	/**
+	 * The compiled solver will use 32 bit registers.
+	 */
+	REG_SIZE_32,
+	/**
+	 * The compiled solver will use 64 bit registers.
+	 */
+	REG_SIZE_64
+};
+
 /**
  * Whether the input assembly should be interpreted or compiled.
  */
@@ -134,6 +145,13 @@ const unsigned int PRINT_INSTRUCTIONS = NEVER;
  * Currently only affects the block after the last input instruction.
  */
 const SIMDMode SIMD_MODE = SIMD_AUTO;
+
+/**
+ * The register size to use for the compiled solver.
+ * Does not have any effect in interpreted mode.
+ * Works with both ExecModes.
+ */
+const RegSize REGISTER_SIZE = REG_SIZE_32;
 
 template<>
 void DayRunner<24>::solve(std::ifstream input) {
@@ -1158,8 +1176,12 @@ void generate_simd_call(std::ostream &out, const char *fn_name,
 	out << "reg_" << regset << '[' << reg_a << "] = " << fn_name << "(reg_"
 			<< regset << '[' << reg_a << "], ";
 	if (const_b) {
-		out << "_mm_set_epi32(" << in_b << ", " << in_b << ", " << in_b << ", "
-				<< in_b << ')';
+		if (REGISTER_SIZE == REG_SIZE_64) {
+			out << "_mm_set_epi64x(" << in_b << ", " << in_b << ')';
+		} else {
+			out << "_mm_set_epi32(" << in_b << ", " << in_b << ", " << in_b
+					<< ", " << in_b << ')';
+		}
 	} else {
 		out << "reg_" << regset << '[' << in_b << ']';
 	}
@@ -1184,181 +1206,195 @@ void generate_instruction_code(const Instruction &inst, std::ostream &out,
 	}
 
 	if (simd) {
-		const char regset_l[4] = { regset, '_', 'l', 0 };
-		const char regset_h[4] = { regset, '_', 'h', 0 };
-		switch (inst.type) {
-		case InstType::INP:
-			out << padding << "reg_" << regset << "_l["
-					<< static_cast<uint16_t>(inst.reg_a)
-					<< "] = _mm_set_epi32(1, 2, 3, 4);" << std::endl;
-			out << padding << "reg_" << regset << "_h["
-					<< static_cast<uint16_t>(inst.reg_a)
-					<< "] = _mm_set_epi32(5, 6, 7, 8);" << std::endl;
-			break;
-		case InstType::ADD:
-			out << padding;
-			generate_simd_call(out, "_mm_add_epi32", regset_l, inst.reg_a,
-					inst.in_b, inst.const_b);
-			out << padding;
-			generate_simd_call(out, "_mm_add_epi32", regset_h, inst.reg_a,
-					inst.in_b, inst.const_b);
-			break;
-		case InstType::SUB:
-			out << padding;
-			generate_simd_call(out, "_mm_sub_epi32", regset_l, inst.reg_a,
-					inst.in_b, inst.const_b);
-			out << padding;
-			generate_simd_call(out, "_mm_sub_epi32", regset_h, inst.reg_a,
-					inst.in_b, inst.const_b);
-			break;
-		case InstType::MUL:
-			out << padding;
-			generate_simd_call(out, "_mm_mullo_epi32", regset_l, inst.reg_a,
-					inst.in_b, inst.const_b);
-			out << padding;
-			generate_simd_call(out, "_mm_mullo_epi32", regset_h, inst.reg_a,
-					inst.in_b, inst.const_b);
-			break;
-		case InstType::DIV:
-			out << padding << "reg_" << regset << "_l["
-					<< static_cast<uint16_t>(inst.reg_a)
-					<< "] = _mm_set_epi32(";
-			for (int i = 3; i >= 0; i--) {
-				out << "_mm_extract_epi32(reg_" << regset << "_l["
-						<< static_cast<uint16_t>(inst.reg_a) << "], " << i
-						<< ") / ";
-				if (inst.const_b) {
-					out << inst.in_b;
+		char regset_i[5] = { regset, '[', '0', ']', 0 };
+		const int num_regsets = REGISTER_SIZE == REG_SIZE_64 ? 4 : 2;
+		for (char i = 0; i < num_regsets; i++) {
+			regset_i[2] = i + '0';
+			switch (inst.type) {
+			case InstType::INP:
+				out << padding << "reg_" << regset_i << '['
+						<< static_cast<uint16_t>(inst.reg_a);
+				if (REGISTER_SIZE == REG_SIZE_64) {
+					out << "] = _mm_set_epi64x(";
+					for (char j = 0; j < 2; j++) {
+						out << (i * 2 + j + 1);
+						if (j < 1) {
+							out << ", ";
+						}
+					}
+					out << ");" << std::endl;
 				} else {
-					out << "_mm_extract_epi32(reg_" << regset << "_l["
-							<< inst.in_b << ", " << i << ')';
+					out << "] = _mm_set_epi32(";
+					for (char j = 0; j < 4; j++) {
+						out << (i * 4 + j + 1);
+						if (j < 3) {
+							out << ", ";
+						}
+					}
+					out << ");" << std::endl;
 				}
-				if (i > 0) {
-					out << ", ";
-				}
-			}
-			out << ");" << std::endl;
-
-			out << padding << "reg_" << regset << "_h["
-					<< static_cast<uint16_t>(inst.reg_a)
-					<< "] = _mm_set_epi32(";
-			for (int i = 3; i >= 0; i--) {
-				out << "_mm_extract_epi32(reg_" << regset << "_h["
-						<< static_cast<uint16_t>(inst.reg_a) << "], " << i
-						<< ") / ";
-				if (inst.const_b) {
-					out << inst.in_b;
+				break;
+			case InstType::ADD:
+				out << padding;
+				if (REGISTER_SIZE == REG_SIZE_64) {
+					generate_simd_call(out, "_mm_add_epi64", regset_i,
+							inst.reg_a, inst.in_b, inst.const_b);
 				} else {
-					out << "_mm_extract_epi32(reg_" << regset << "_h["
-							<< inst.in_b << ", " << i << ')';
+					generate_simd_call(out, "_mm_add_epi32", regset_i,
+							inst.reg_a, inst.in_b, inst.const_b);
 				}
-				if (i > 0) {
-					out << ", ";
-				}
-			}
-			out << ");" << std::endl;
-			break;
-		case InstType::MOD:
-			out << padding << "reg_" << regset << "_l["
-					<< static_cast<uint16_t>(inst.reg_a)
-					<< "] = _mm_set_epi32(";
-			for (int i = 3; i >= 0; i--) {
-				out << "_mm_extract_epi32(reg_" << regset << "_l["
-						<< static_cast<uint16_t>(inst.reg_a) << "], " << i
-						<< ") % ";
-				if (inst.const_b) {
-					out << inst.in_b;
+				break;
+			case InstType::SUB:
+				out << padding;
+				if (REGISTER_SIZE == REG_SIZE_64) {
+					generate_simd_call(out, "_mm_sub_epi64", regset_i,
+							inst.reg_a, inst.in_b, inst.const_b);
 				} else {
-					out << "_mm_extract_epi32(reg_" << regset << "_l["
-							<< inst.in_b << ", " << i << ')';
+					generate_simd_call(out, "_mm_sub_epi32", regset_i,
+							inst.reg_a, inst.in_b, inst.const_b);
 				}
-				if (i > 0) {
-					out << ", ";
-				}
-			}
-			out << ");" << std::endl;
-
-			out << padding << "reg_" << regset << "_h["
-					<< static_cast<uint16_t>(inst.reg_a)
-					<< "] = _mm_set_epi32(";
-			for (int i = 3; i >= 0; i--) {
-				out << "_mm_extract_epi32(reg_" << regset << "_h["
-						<< static_cast<uint16_t>(inst.reg_a) << "], " << i
-						<< ") % ";
-				if (inst.const_b) {
-					out << inst.in_b;
+				break;
+			case InstType::MUL:
+				// For some reason there doesn't seem to be a 64 bit integer multiplication instruction.
+				if (REGISTER_SIZE == REG_SIZE_64) {
+					out << padding << "reg_" << regset_i << '['
+							<< static_cast<uint16_t>(inst.reg_a)
+							<< "] = _mm_set_epi64x(";
+					for (int i = 1; i >= 0; i--) {
+						out << "_mm_extract_epi64(reg_" << regset_i << '['
+								<< static_cast<uint16_t>(inst.reg_a) << "], "
+								<< i << ") * ";
+						if (inst.const_b) {
+							out << inst.in_b;
+						} else {
+							out << "_mm_extract_epi64(reg_" << regset_i << '['
+									<< inst.in_b << "], " << i << ')';
+						}
+						if (i > 0) {
+							out << ", ";
+						}
+					}
+					out << ");" << std::endl;
 				} else {
-					out << "_mm_extract_epi32(reg_" << regset << "_h["
-							<< inst.in_b << ", " << i << ')';
+					out << padding;
+					generate_simd_call(out, "_mm_mullo_epi32", regset_i,
+							inst.reg_a, inst.in_b, inst.const_b);
 				}
-				if (i > 0) {
-					out << ", ";
+				break;
+			case InstType::DIV: {
+				std::string unit = "epi32";
+				short vals = 4;
+				if (REGISTER_SIZE == REG_SIZE_64) {
+					unit = "epi64";
+					vals = 2;
 				}
+				out << padding << "reg_" << regset_i << '['
+						<< static_cast<uint16_t>(inst.reg_a);
+				if (REGISTER_SIZE == REG_SIZE_64) {
+					out << "] = _mm_set_epi64x(";
+				} else {
+					out << "] = _mm_set_epi32(";
+				}
+				for (int i = vals - 1; i >= 0; i--) {
+					out << "_mm_extract_" << unit << "(reg_" << regset_i << '['
+							<< static_cast<uint16_t>(inst.reg_a) << "], " << i
+							<< ") / ";
+					if (inst.const_b) {
+						out << inst.in_b;
+					} else {
+						out << "_mm_extract_" << unit << "(reg_" << regset_i
+								<< '[' << inst.in_b << "], " << i << ')';
+					}
+					if (i > 0) {
+						out << ", ";
+					}
+				}
+				out << ");" << std::endl;
+				break;
 			}
-			out << ");" << std::endl;
-			break;
-			return;
-		case InstType::EQL:
-			out << padding;
-			generate_simd_call(out, "_mm_cmpeq_epi32", regset_l, inst.reg_a,
-					inst.in_b, inst.const_b);
-			out << padding << "reg_" << regset << "_l["
-					<< static_cast<uint16_t>(inst.reg_a)
-					<< "] = _mm_and_si128(reg_" << regset << "_l["
-					<< static_cast<uint16_t>(inst.reg_a) << "], eql_mask);"
-					<< std::endl;
-			out << padding;
-			generate_simd_call(out, "_mm_cmpeq_epi32", regset_h, inst.reg_a,
-					inst.in_b, inst.const_b);
-			out << padding << "reg_" << regset << "_h["
-					<< static_cast<uint16_t>(inst.reg_a)
-					<< "] = _mm_and_si128(reg_" << regset << "_h["
-					<< static_cast<uint16_t>(inst.reg_a) << "], eql_mask);"
-					<< std::endl;
-			break;
-		case InstType::NEQ:
-			out << padding;
-			generate_simd_call(out, "_mm_cmpeq_epi32", regset_l, inst.reg_a,
-					inst.in_b, inst.const_b);
-			out << padding << "reg_" << regset << "_l["
-					<< static_cast<uint16_t>(inst.reg_a)
-					<< "] = _mm_andnot_si128(reg_" << regset << "_l["
-					<< static_cast<uint16_t>(inst.reg_a) << "], neq_mask);"
-					<< std::endl;
-			out << padding;
-			generate_simd_call(out, "_mm_cmpeq_epi32", regset_h, inst.reg_a,
-					inst.in_b, inst.const_b);
-			out << padding << "reg_" << regset << "_h["
-					<< static_cast<uint16_t>(inst.reg_a)
-					<< "] = _mm_andnot_si128(reg_" << regset << "_h["
-					<< static_cast<uint16_t>(inst.reg_a) << "], neq_mask);"
-					<< std::endl;
-			break;
-		case InstType::SET:
-			out << padding << "reg_" << regset << "_l["
-					<< static_cast<uint16_t>(inst.reg_a) << "] = ";
-			if (inst.const_b) {
-				out << "_mm_set_epi32(" << inst.in_b << ", " << inst.in_b
-						<< ", " << inst.in_b << ", " << inst.in_b << ");"
-						<< std::endl;
-			} else {
-				out << "reg_" << regset << "_l[" << inst.in_b << "];"
-						<< std::endl;
+			case InstType::MOD: {
+				std::string unit = "epi32";
+				short vals = 4;
+				if (REGISTER_SIZE == REG_SIZE_64) {
+					unit = "epi64";
+					vals = 2;
+				}
+				out << padding << "reg_" << regset_i << '['
+						<< static_cast<uint16_t>(inst.reg_a);
+				if (REGISTER_SIZE == REG_SIZE_64) {
+					out << "] = _mm_set_epi64x(";
+				} else {
+					out << "] = _mm_set_epi32(";
+				}
+				for (int i = vals - 1; i >= 0; i--) {
+					out << "_mm_extract_" << unit << "(reg_" << regset_i << '['
+							<< static_cast<uint16_t>(inst.reg_a) << "], " << i
+							<< ") % ";
+					if (inst.const_b) {
+						out << inst.in_b;
+					} else {
+						out << "_mm_extract_" << unit << "(reg_" << regset_i
+								<< '[' << inst.in_b << "], " << i << ')';
+					}
+					if (i > 0) {
+						out << ", ";
+					}
+				}
+				out << ");" << std::endl;
+				break;
 			}
-			out << padding << "reg_" << regset << "_h["
-					<< static_cast<uint16_t>(inst.reg_a) << "] = ";
-			if (inst.const_b) {
-				out << "_mm_set_epi32(" << inst.in_b << ", " << inst.in_b
-						<< ", " << inst.in_b << ", " << inst.in_b << ");"
+			case InstType::EQL:
+				out << padding;
+				if (REGISTER_SIZE == REG_SIZE_64) {
+					generate_simd_call(out, "_mm_cmpeq_epi64", regset_i,
+							inst.reg_a, inst.in_b, inst.const_b);
+				} else {
+					generate_simd_call(out, "_mm_cmpeq_epi32", regset_i,
+							inst.reg_a, inst.in_b, inst.const_b);
+				}
+				out << padding << "reg_" << regset_i << '['
+						<< static_cast<uint16_t>(inst.reg_a)
+						<< "] = _mm_and_si128(reg_" << regset_i << '['
+						<< static_cast<uint16_t>(inst.reg_a) << "], cmp_mask);"
 						<< std::endl;
-			} else {
-				out << "reg_" << regset << "_h[" << inst.in_b << "];"
+				break;
+			case InstType::NEQ:
+				out << padding;
+				if (REGISTER_SIZE == REG_SIZE_64) {
+					generate_simd_call(out, "_mm_cmpeq_epi64", regset_i,
+							inst.reg_a, inst.in_b, inst.const_b);
+				} else {
+					generate_simd_call(out, "_mm_cmpeq_epi32", regset_i,
+							inst.reg_a, inst.in_b, inst.const_b);
+				}
+				out << padding << "reg_" << regset_i << '['
+						<< static_cast<uint16_t>(inst.reg_a)
+						<< "] = _mm_andnot_si128(reg_" << regset_i << '['
+						<< static_cast<uint16_t>(inst.reg_a) << "], cmp_mask);"
 						<< std::endl;
+				break;
+			case InstType::SET:
+				out << padding << "reg_" << regset_i << '['
+						<< static_cast<uint16_t>(inst.reg_a) << "] = ";
+				if (inst.const_b) {
+					if (REGISTER_SIZE == REG_SIZE_64) {
+						out << "_mm_set_epi64x(" << inst.in_b << ", "
+								<< inst.in_b << ");" << std::endl;
+					} else {
+						out << "_mm_set_epi32(" << inst.in_b << ", "
+								<< inst.in_b << ", " << inst.in_b << ", "
+								<< inst.in_b << ");" << std::endl;
+					}
+				} else {
+					out << "reg_" << regset_i << '[' << inst.in_b << "];"
+							<< std::endl;
+				}
+				break;
+			default:
+				// FIXME only print once
+				std::cerr << "Received unknown SIMD instruction type "
+						<< inst.type << '!' << std::endl;
 			}
-			break;
-		default:
-			std::cerr << "Received unknown SIMD instruction type " << inst.type
-					<< '!' << std::endl;
 		}
 	}
 
@@ -1443,6 +1479,13 @@ bool compile_instructions(const std::vector<Instruction> insts,
 				return inst.type == InstType::INP;
 			});
 
+	std::string reg_type = "int";
+	std::string reg_format = "%d";
+	if (REGISTER_SIZE == REG_SIZE_64) {
+		reg_type = "long long int";
+		reg_format = "%lld";
+	}
+
 	std::ofstream tmpCO(tmpC);
 	tmpCO << "/**" << std::endl;
 	tmpCO << " * This source file was automatically generated" << std::endl;
@@ -1481,10 +1524,10 @@ bool compile_instructions(const std::vector<Instruction> insts,
 	if (RUN_TYPE == SOLVE) {
 		tmpCO << "    if (argc < 5) {" << std::endl;
 		tmpCO
-				<< "        fprintf(stderr, \"Error: This program requires three input digits and a boolean to operate.\\n\");"
+				<< "        fputs(\"Error: This program requires three input digits and a boolean to operate.\\n\", stderr);"
 				<< std::endl;
 		tmpCO
-				<< "        fprintf(stderr, \"Format: DIGIT_1 DIGIT_2 DIGIT_3 REVERSE\\n\");"
+				<< "        fputs(\"Format: DIGIT_1 DIGIT_2 DIGIT_3 REVERSE\\n\", stderr);"
 				<< std::endl;
 		tmpCO << "        return 1;" << std::endl;
 		tmpCO << "    }" << std::endl << std::endl;
@@ -1534,9 +1577,9 @@ bool compile_instructions(const std::vector<Instruction> insts,
 		tmpCO << "    free(ofp);" << std::endl << std::endl;
 	} else if (RUN_TYPE == EXECUTE) {
 		tmpCO << "    if (argc != " << inpc << " + 1) {" << std::endl;
-		tmpCO << "        fprintf(stderr, \"This program has " << inpc
+		tmpCO << "        fputs(\"This program has " << inpc
 				<< " input instructions, so it requires " << inpc
-				<< " input numbers.\\n\");" << std::endl;
+				<< " input numbers.\\n\", stderr);" << std::endl;
 		tmpCO
 				<< "        fprintf(stderr, \"However it was given %d.\\n\", argc - 1);"
 				<< std::endl;
@@ -1558,7 +1601,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 		tmpCO << "        const int input = atoi(argv[i]);" << std::endl;
 		tmpCO << "        if (input < -128 || input > 127) {" << std::endl;
 		tmpCO
-				<< "            fprintf(stderr, \"Inputs are intended to be digits and required to be singed 8 bit numbers(-128 to 127).\\n\");"
+				<< "            fputs(\"Inputs are intended to be digits and required to be singed 8 bit numbers(-128 to 127).\\n\", stderr);"
 				<< std::endl;
 		tmpCO
 				<< "            fprintf(stderr, \"However input %d was %d.\\n\", i, input);"
@@ -1569,13 +1612,15 @@ bool compile_instructions(const std::vector<Instruction> insts,
 		tmpCO << "    }" << std::endl << std::endl;
 	}
 	if (simd_enabled) {
-		tmpCO << "    const __m128i eql_mask = _mm_set_epi32(1, 1, 1, 1);"
-				<< std::endl;
-		tmpCO
-				<< "    const __m128i neq_mask = _mm_set_epi32(0xFFFFFFFE, 0xFFFFFFFE, 0xFFFFFFFE, 0xFFFFFFFE);"
-				<< std::endl << std::endl;
+		if (REGISTER_SIZE == REG_SIZE_64) {
+			tmpCO << "    const __m128i cmp_mask = _mm_set_epi64x(1, 1);"
+					<< std::endl;
+		} else {
+			tmpCO << "    const __m128i cmp_mask = _mm_set_epi32(1, 1, 1, 1);"
+					<< std::endl;
+		}
 	}
-	tmpCO << "    int reg_h[4];" << std::endl;
+	tmpCO << "    " << reg_type << " reg_h[4];" << std::endl;
 
 	const char loop_start[] =
 			"for (char I = reverse ? 9 : 1; reverse ? (I > 0) : (I < 10); reverse ? I-- : I++) {";
@@ -1600,11 +1645,14 @@ bool compile_instructions(const std::vector<Instruction> insts,
 
 			if (simd_enabled && method_idx == inpc) {
 				tmpCO << std::endl;
-				tmpCO << indent << "__m128i reg_" << regset << "_l[4];"
-						<< std::endl;
-				tmpCO << indent << "__m128i reg_" << regset << "_h[4];"
-						<< std::endl;
-				tmpCO << indent << "int reg_" << regset << "_e[4];"
+				if (REGISTER_SIZE == REG_SIZE_64) {
+					tmpCO << indent << "__m128i reg_" << regset << "[4][4];"
+							<< std::endl;
+				} else {
+					tmpCO << indent << "__m128i reg_" << regset << "[2][4];"
+							<< std::endl;
+				}
+				tmpCO << indent << reg_type << " reg_" << regset << "_e[4];"
 						<< std::endl;
 			} else {
 				std::string loop(loop_start);
@@ -1612,7 +1660,8 @@ bool compile_instructions(const std::vector<Instruction> insts,
 				tmpCO << indent << loop << std::endl;
 
 				indent.append("    ");
-				tmpCO << indent << "int reg_" << regset << "[4];" << std::endl;
+				tmpCO << indent << reg_type << " reg_" << regset << "[4];"
+						<< std::endl;
 			}
 
 			bool regs_used[4] { false };
@@ -1647,13 +1696,37 @@ bool compile_instructions(const std::vector<Instruction> insts,
 					const char prev_regset = regset - 1;
 					if (simd_enabled && RUN_TYPE == SOLVE
 							&& method_idx == inpc) {
-						tmpCO << indent << "reg_" << regset << "_l[" << j;
-						tmpCO << "] = reg_" << regset << "_h[" << j;
-						tmpCO << "] = _mm_set_epi32(reg_" << prev_regset;
-						tmpCO << '[' << j << "], reg_" << prev_regset;
-						tmpCO << '[' << j << "], reg_" << prev_regset;
-						tmpCO << '[' << j << "], reg_" << prev_regset << '['
-								<< j << "]);" << std::endl;
+						if (REGISTER_SIZE == REG_SIZE_64) {
+							tmpCO << indent;
+							for (short k = 0; k < 4; k++) {
+								tmpCO << "reg_" << regset << '[' << k << "]["
+										<< j << "] = ";
+							}
+							tmpCO << "_mm_set_epi64x(";
+							for (short k = 0; k < 2; k++) {
+								tmpCO << "reg_" << prev_regset << '[' << j
+										<< ']';
+								if (k < 1) {
+									tmpCO << ", ";
+								}
+							}
+							tmpCO << ");" << std::endl;
+						} else {
+							tmpCO << indent;
+							for (short k = 0; k < 2; k++) {
+								tmpCO << "reg_" << regset << '[' << k << "]["
+										<< j << "] = ";
+							}
+							tmpCO << "_mm_set_epi32(";
+							for (short k = 0; k < 4; k++) {
+								tmpCO << "reg_" << prev_regset << '[' << j
+										<< ']';
+								if (k < 3) {
+									tmpCO << ", ";
+								}
+							}
+							tmpCO << ");" << std::endl;
+						}
 						tmpCO << indent << "reg_" << regset << "_e[" << j;
 						tmpCO << "] = reg_" << prev_regset << '[' << j << "];"
 								<< std::endl;
@@ -1673,12 +1746,24 @@ bool compile_instructions(const std::vector<Instruction> insts,
 	tmpCO << std::endl;
 	if (RUN_TYPE == SOLVE) {
 		if (simd_enabled) {
-			tmpCO << "                                            "
-					<< "int reg_s_3[] = { _mm_extract_epi32(reg_s_l[3], 3), _mm_extract_epi32(reg_s_l[3], 2), _mm_extract_epi32(reg_s_l[3], 1), _mm_extract_epi32(reg_s_l[3], 0),"
-					<< std::endl;
-			tmpCO << "                                                  "
-					<< "_mm_extract_epi32(reg_s_h[3], 3), _mm_extract_epi32(reg_s_h[3], 2), _mm_extract_epi32(reg_s_h[3], 1), _mm_extract_epi32(reg_s_h[3], 0), reg_s_e[3] };"
-					<< std::endl;
+			tmpCO << "                                            " << reg_type
+					<< " reg_s_3[] = { ";
+			if (REGISTER_SIZE == REG_SIZE_64) {
+				for (short i = 0; i < 4; i++) {
+					for (short j = 1; j >= 0; j--) {
+						tmpCO << "_mm_extract_epi64(reg_s[" << i << "][3], "
+								<< j << "), ";
+					}
+				}
+			} else {
+				for (short i = 0; i < 2; i++) {
+					for (short j = 3; j >= 0; j--) {
+						tmpCO << "_mm_extract_epi32(reg_s[" << i << "][3], "
+								<< j << "), ";
+					}
+				}
+			}
+			tmpCO << "reg_s_e[3] };" << std::endl;
 			tmpCO
 					<< "                                            for (char s = reverse ? 9 : 1; reverse ? (s > 0) : (s < 10); reverse ? s-- : s++) {"
 					<< std::endl;
@@ -1716,7 +1801,9 @@ bool compile_instructions(const std::vector<Instruction> insts,
 		tmpCO << "    fclose(of);" << std::endl;
 	} else if (RUN_TYPE == EXECUTE) {
 		tmpCO
-				<< "    printf(\"The register values after running the program are w=%lld, x=%lld, y=%lld, z=%lld.\\n\", "
+				<< "    printf(\"The register values after running the program are w="
+				<< reg_format << ", x=" << reg_format << ", y=" << reg_format
+				<< ", z=" << reg_format << ".\\n\", "
 				<< "reg_h[0], reg_h[1], reg_h[2], reg_h[3]);" << std::endl;
 	}
 	tmpCO << "    return 0;" << std::endl;
