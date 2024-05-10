@@ -11,6 +11,7 @@
 #include <cmath>
 #include <sstream>
 #include <thread>
+#include <unordered_set>
 
 enum ExecMode {
 	/**
@@ -662,49 +663,53 @@ std::vector<Instruction> merge_maths(const std::vector<Instruction> &insts) {
 
 std::vector<Instruction> delay_input(const std::vector<Instruction> &insts) {
 	std::vector<Instruction> result;
+	result.reserve(insts.size());
 
-	int64_t reg_inp[4] { -1, -1, -1, -1 };
-	for (const Instruction inst : insts) {
-		if (inst.type == InstType::INP) {
-			reg_inp[inst.reg_a] = result.size();
-		} else if (inst.type != InstType::NOP) {
-			// FIXME earlier inputs on unrelated registers need to be inserted.
-			if (!inst.const_b && reg_inp[inst.in_b] >= 0
-					&& reg_inp[inst.in_b] < reg_inp[inst.reg_a]) {
-				result.push_back(
-						Instruction(InstType::INP, inst.in_b, false, 0));
-				reg_inp[inst.in_b] = -1;
-			}
+	// In this case dirty means contaminated with input, not modified.
+	bool reg_dirty[4] = { false, false, false, false };
+	std::unordered_set<size_t> copied_insts;
+	copied_insts.reserve(insts.size());
+	int64_t cur_inp = -1;
 
-			if (reg_inp[inst.reg_a] >= 0) {
-				result.push_back(
-						Instruction(InstType::INP, inst.reg_a, false, 0));
-				reg_inp[inst.reg_a] = -1;
-			}
-
-			if (!inst.const_b && reg_inp[inst.in_b] >= 0) {
-				result.push_back(
-						Instruction(InstType::INP, inst.in_b, false, 0));
-				reg_inp[inst.in_b] = -1;
-			}
-			result.push_back(inst);
-		}
-	}
-
-	// Insert unused inputs.
-	for (uint8_t i = 0; i < 4; i++) {
-		int64_t min = LLONG_MAX;
-		int8_t min_reg = -1;
-		for (uint8_t j = 0; j < 4; j++) {
-			if (reg_inp[j] > -1 && reg_inp[j] < min) {
-				min = reg_inp[j];
-				min_reg = j;
-			}
+	while (copied_insts.size() < insts.size()) {
+		reg_dirty[0] = reg_dirty[1] = reg_dirty[2] = reg_dirty[3] = false;
+		if (cur_inp >= 0) {
+			result.push_back(
+					Instruction(InstType::INP, insts[cur_inp].reg_a, true, 0));
+			copied_insts.insert(cur_inp);
+			cur_inp = -1;
 		}
 
-		if (min_reg > -1) {
-			result.push_back(Instruction(InstType::INP, min_reg, false, 0));
-			reg_inp[min_reg] = -1;
+		for (size_t i = 0; i < insts.size(); i++) {
+			if (copied_insts.count(i) > 0) {
+				continue;
+			}
+			const Instruction &inst = insts[i];
+
+			if (inst.type == InstType::INP) {
+				reg_dirty[inst.reg_a] = true;
+				if (cur_inp < 0) {
+					cur_inp = i;
+				}
+			} else if (inst.type != InstType::NOP && !reg_dirty[inst.reg_a]) {
+				// Don't move up constant SET's.
+				// Doing so will require another dynamic set, which is probably slower.
+				if (inst.type != InstType::SET || !inst.const_b || cur_inp < 0) {
+					if (!inst.const_b && reg_dirty[inst.in_b]) {
+						reg_dirty[inst.reg_a] = true;
+					} else {
+						result.push_back(inst);
+						copied_insts.insert(i);
+					}
+				}
+			} else if (inst.type == InstType::NOP) {
+				result.push_back(inst);
+				copied_insts.insert(i);
+			}
+
+			if (reg_dirty[0] && reg_dirty[1] && reg_dirty[2] && reg_dirty[3]) {
+				break;
+			}
 		}
 	}
 
