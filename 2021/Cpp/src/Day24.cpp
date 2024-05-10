@@ -694,7 +694,8 @@ std::vector<Instruction> delay_input(const std::vector<Instruction> &insts) {
 			} else if (inst.type != InstType::NOP && !reg_dirty[inst.reg_a]) {
 				// Don't move up constant SET's.
 				// Doing so will require another dynamic set, which is probably slower.
-				if (inst.type != InstType::SET || !inst.const_b || cur_inp < 0) {
+				if (inst.type != InstType::SET || !inst.const_b
+						|| cur_inp < 0) {
 					if (!inst.const_b && reg_dirty[inst.in_b]) {
 						reg_dirty[inst.reg_a] = true;
 					} else {
@@ -1414,7 +1415,7 @@ void generate_instruction_code(const Instruction &inst, std::ostream &out,
 		} else if (simd) {
 			out << " = 9";
 		} else {
-			out << " = " << regset;
+			out << " = reverse ? (10 - " << regset << ") : " << regset;
 		}
 		break;
 	case InstType::ADD:
@@ -1627,8 +1628,7 @@ bool compile_instructions(const std::vector<Instruction> insts,
 	}
 	tmpCO << "    " << reg_type << " reg_h[4];" << std::endl;
 
-	const char loop_start[] =
-			"for (char I = reverse ? 9 : 1; reverse ? (I > 0) : (I < 10); reverse ? I-- : I++) {";
+	const char loop_start[] = "for (char I = 1; I < 10; I++) {";
 
 	uint16_t method_idx = 0;
 	for (size_t i = 0; i < insts.size(); i++) {
@@ -1752,25 +1752,66 @@ bool compile_instructions(const std::vector<Instruction> insts,
 	if (RUN_TYPE == SOLVE) {
 		if (simd_enabled) {
 			tmpCO << "                                            " << reg_type
-					<< " reg_s_3[] = { ";
+					<< " reg_s_3[9];" << std::endl;
+			tmpCO
+					<< "                                            if (reverse) {"
+					<< std::endl;
+			tmpCO
+					<< "                                                reg_s_3[0] = reg_s_e[3];"
+					<< std::endl;
+			if (REGISTER_SIZE == REG_SIZE_64) {
+				for (short i = 3; i >= 0; i--) {
+					for (short j = 0; j < 2; j++) {
+						tmpCO
+								<< "                                                "
+								<< "reg_s_3[" << (8 - (i * 2 + 1 - j))
+								<< "] = _mm_extract_epi64(reg_s[" << i
+								<< "][3], " << j << ");" << std::endl;
+					}
+				}
+			} else {
+				for (short i = 1; i >= 0; i--) {
+					for (short j = 0; j < 4; j++) {
+						tmpCO
+								<< "                                                "
+								<< "reg_s_3[" << (8 - (i * 4 + 3 - j))
+								<< "] = _mm_extract_epi32(reg_s[" << i
+								<< "][3], " << j << ");" << std::endl;
+					}
+				}
+			}
+			tmpCO << "                                            } else {"
+					<< std::endl;
 			if (REGISTER_SIZE == REG_SIZE_64) {
 				for (short i = 0; i < 4; i++) {
 					for (short j = 1; j >= 0; j--) {
-						tmpCO << "_mm_extract_epi64(reg_s[" << i << "][3], "
-								<< j << "), ";
+						tmpCO
+								<< "                                                "
+								<< "reg_s_3[" << (1 + i * 2 + 1 - j)
+								<< "] = _mm_extract_epi64(reg_s[" << i
+								<< "][3], " << j << ");" << std::endl;
 					}
 				}
 			} else {
 				for (short i = 0; i < 2; i++) {
 					for (short j = 3; j >= 0; j--) {
-						tmpCO << "_mm_extract_epi32(reg_s[" << i << "][3], "
-								<< j << "), ";
+						tmpCO
+								<< "                                                "
+								<< "reg_s_3[" << (1 + i * 4 + 2 - j)
+								<< "] = _mm_extract_epi32(reg_s[" << i
+								<< "][3], " << j << ");" << std::endl;
 					}
 				}
 			}
-			tmpCO << "reg_s_e[3] };" << std::endl;
 			tmpCO
-					<< "                                            for (char s = reverse ? 9 : 1; reverse ? (s > 0) : (s < 10); reverse ? s-- : s++) {"
+					<< "                                                reg_s_3[8] = reg_s_e[3];"
+					<< std::endl;
+			tmpCO << "                                            }"
+					<< std::endl << std::endl;
+
+			std::string loop(loop_start);
+			std::replace(loop.begin(), loop.end(), 'I', 's');
+			tmpCO << "                                            " << loop
 					<< std::endl;
 			tmpCO
 					<< "                                                if (reg_s_3[s - 1] == 0) {"
@@ -1781,13 +1822,48 @@ bool compile_instructions(const std::vector<Instruction> insts,
 					<< std::endl;
 		}
 		tmpCO << "                                                    "
-				<< "printf(\"Worker %d%d%d found valid number: %d%d%d%d%d%d%d%d%d%d%d%d%d%d\\n\", "
-				<< "const_inputs[0], const_inputs[1], const_inputs[2], const_inputs[0], const_inputs[1], const_inputs[2], i, j, k, l, m, n, o, p, q, r, s);"
+				<< "long long int result = const_inputs[0] * 10000000000000ll + "
+				<< "const_inputs[1] * 1000000000000ll + const_inputs[2] * 100000000000ll;"
+				<< std::endl;
+		tmpCO
+				<< "                                                    if (reverse) {"
+				<< std::endl;
+		tmpCO
+				<< "                                                        result += ";
+		for (short i = 10; i >= 0; i--) {
+			tmpCO << "(10 - " << static_cast<char>('s' - i) << ") * 1";
+			for (short j = 0; j < i; j++) {
+				tmpCO << '0';
+			}
+			tmpCO << "ll";
+			if (i > 0) {
+				tmpCO << " + ";
+			}
+		}
+		tmpCO << ';' << std::endl;
+		tmpCO << "                                                    } else {"
+				<< std::endl;
+		tmpCO
+				<< "                                                        result += ";
+		for (short i = 10; i >= 0; i--) {
+			tmpCO << static_cast<char>('s' - i) << " * 1";
+			for (short j = 0; j < i; j++) {
+				tmpCO << '0';
+			}
+			tmpCO << "ll";
+			if (i > 0) {
+				tmpCO << " + ";
+			}
+		}
+		tmpCO << ';' << std::endl;
+		tmpCO << "                                                    }"
 				<< std::endl;
 		tmpCO << "                                                    "
-				<< "fprintf(of, \"%d%d%d%d%d%d%d%d%d%d%d%d%d%d\", "
-				<< "const_inputs[0], const_inputs[1], const_inputs[2], i, j, k, l, m, n, o, p, q, r, s);"
+				<< "printf(\"Worker %d%d%d found valid number: %lld\\n\", "
+				<< "const_inputs[0], const_inputs[1], const_inputs[2], result);"
 				<< std::endl;
+		tmpCO << "                                                    "
+				<< "fprintf(of, \"%lld\", result);" << std::endl;
 		tmpCO
 				<< "                                                    fclose(of);"
 				<< std::endl;
