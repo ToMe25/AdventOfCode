@@ -58,23 +58,28 @@ impl DayRunner for Day13Runner {
 
 /// A single one of the patterns from the input data.
 ///
-/// Contains the materials for each position in the pattern.
+/// Contains the materials for each position in the pattern.  
 /// Also calculates and stores the mirror axis.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pattern {
     map: Vec<Vec<Material>>,
     mirror_axis: MirrorAxis,
+    width: usize,
+    dirty: bool,
 }
 
 impl Pattern {
     /// Creates a new pattern with the given materials.
     ///
-    /// Creates a new pattern object representing the given 2D vector of Materials.
+    /// Creates a new pattern object representing the given 2D vector of Materials.  
     /// The newly created pattern will not yet have a mirror axis.
     pub fn new(materials: Vec<Vec<Material>>) -> Pattern {
+        let width = materials.iter().map(|row| row.len()).max().unwrap_or(0);
         Pattern {
             map: materials,
             mirror_axis: MirrorAxis::default(),
+            width,
+            dirty: true,
         }
     }
 
@@ -144,10 +149,7 @@ impl Pattern {
             })
             .collect();
 
-        Pattern {
-            map: materials,
-            mirror_axis: MirrorAxis::default(),
-        }
+        Self::new(materials)
     }
 
     /// Adds the given row of materials to the bottom of this pattern.
@@ -169,14 +171,17 @@ impl Pattern {
     /// # assert_eq!(pattern, ref_pat);
     /// ```
     pub fn add_row(&mut self, row: Vec<Material>) {
+        if row.len() > self.width {
+            self.width = row.len();
+        }
         self.map.push(row);
+        self.dirty = true
     }
 
     /// Finds the mirror axis in a pattern and stores it in the pattern object.
     ///
-    /// Finds the mirror axis in a pattern.  
-    /// Will not run again if a mirror axis was already found.  
-    /// This means it cannot be used to update the axis after an [`add_row`] call.
+    /// Will not run again if a mirror axis was already found,  
+    /// unless a new row was added using [`add_row`].
     ///
     /// If some lines are shorter, those missing positions are considered to match any material.
     ///
@@ -190,6 +195,7 @@ impl Pattern {
     /// use rust_aoc_2023::days::day13::MirrorAxis;
     ///
     /// let mut pattern = Pattern::parse(&vec!("#..#.", ".##.#", "....#"));
+    /// # assert_eq!(pattern.get_mirror(), &MirrorAxis::Unknown);
     /// pattern.find_mirror();
     /// assert_eq!(pattern.get_mirror(), &MirrorAxis::Vertical(1));
     /// ```
@@ -223,7 +229,7 @@ impl Pattern {
     /// assert_eq!(pattern.get_mirror(), &MirrorAxis::Unknown);
     /// ```
     ///
-    /// This method cannot be used to update the mirror axis by calling it a second time:
+    /// This method can be used to update the mirror axis by calling it a second time:
     /// ```
     /// use rust_aoc_2023::days::day13::Pattern;
     /// use rust_aoc_2023::days::day13::Material;
@@ -232,23 +238,23 @@ impl Pattern {
     /// // Note that horizontal mirrors are checked first.
     /// let mut pattern = Pattern::parse(&vec!("..##..", ".####.", ".####."));
     /// pattern.find_mirror();
-    /// # assert_eq!(pattern.get_mirror(), &MirrorAxis::Horizontal(1));
+    /// assert_eq!(pattern.get_mirror(), &MirrorAxis::Horizontal(1));
     /// pattern.add_row(vec!(Material::Rock, Material::Ash, Material::Ash, Material::Ash, Material::Ash, Material::Rock));// #....#
     /// pattern.find_mirror();
-    /// assert_eq!(pattern.get_mirror(), &MirrorAxis::Horizontal(1));
+    /// assert_eq!(pattern.get_mirror(), &MirrorAxis::Vertical(2));
     /// ```
     ///
     /// [`add_row`]: Self#method.add_row
     /// [`get_mirror`]: Self#method.get_mirror
     pub fn find_mirror(&mut self) {
-        if self.mirror_axis != MirrorAxis::Unknown {
+        if !self.dirty {
             return;
         }
 
-        let num_rows = self.map.len();
-        for i in 0..(num_rows - 1) {
+        let height = self.map.len();
+        for i in 0..(height - 1) {
             let mut failed = false;
-            for y in 0..(i + 1).min(num_rows - i - 1) {
+            for y in 0..(i + 1).min(height - i - 1) {
                 if self.map[i - y] != self.map[i + y + 1] {
                     failed = true;
                     break;
@@ -256,15 +262,15 @@ impl Pattern {
             }
             if !failed {
                 self.mirror_axis = MirrorAxis::Horizontal(i);
+                self.dirty = false;
                 return;
             }
         }
 
-        let max_cols = self.map.iter().map(|row| row.len()).max().unwrap_or(0);
-        for i in 0..(max_cols - 1) {
+        for i in 0..(self.width - 1) {
             let mut failed = false;
-            for x in 0..(i + 1).min(max_cols - i - 1) {
-                for y in 0..num_rows {
+            for x in 0..(i + 1).min(self.width - i - 1) {
+                for y in 0..height {
                     if self.map[y].len() > i + x + 1 && self.map[y][i - x] != self.map[y][i + x + 1]
                     {
                         failed = true;
@@ -275,11 +281,15 @@ impl Pattern {
                     break;
                 }
             }
+
             if !failed {
                 self.mirror_axis = MirrorAxis::Vertical(i);
+                self.dirty = false;
                 return;
             }
         }
+
+        self.dirty = false;
     }
 
     /// Gets the mirror axis of this pattern.
@@ -294,8 +304,8 @@ impl Pattern {
 
     /// Calculate the summary of this pattern.
     ///
-    /// Returns the number of rows above the mirror in case of a horizontal reflection,  
-    /// and 100 times the number of columns to the left of the mirror for a vertical one.
+    /// Returns 100 times the number of rows above the mirror in case of a horizontal reflection,  
+    /// and the number of columns to the left of the mirror for a vertical one.
     ///
     /// Returns [`None`] if the mirror axis is not known.
     ///
