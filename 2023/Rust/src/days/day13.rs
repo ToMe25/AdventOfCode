@@ -2,6 +2,7 @@
 //!
 //! This module contains my solution to the [Advent of Code](https://adventofcode.com/) [2023](https://adventofcode.com/2023/) [Day 13](https://adventofcode.com/2023/day/13).
 
+use std::collections::HashSet;
 use std::error::Error;
 use std::fmt::Display;
 use std::fs;
@@ -33,14 +34,56 @@ impl DayRunner for Day13Runner {
             })
             .iter()
             .map(Pattern::parse)
-            .collect();
-
-        let result: usize = patterns
-            .into_iter()
             .map(|mut pattern| {
                 pattern.find_mirror();
                 pattern
             })
+            .collect();
+
+        let result: usize = patterns
+            .iter()
+            .map(|pattern| pattern.summarize())
+            .enumerate()
+            .filter_map(|(i, summary)| match summary {
+                Some(_) => summary,
+                None => {
+                    eprintln!("Pattern {} failed to find a mirror axis.", i + 1);
+                    None
+                }
+            })
+            .sum();
+
+        return Ok(Some(result.to_string()));
+    }
+
+    fn part2(&self) -> Result<Option<String>, Box<dyn Error>> {
+        let input_data = fs::read_to_string(get_input_file(13)?)?;
+        let patterns: Vec<Pattern> = input_data
+            .lines()
+            .fold(Vec::new(), |mut list, line| {
+                if list.is_empty() || line.is_empty() {
+                    list.push(Vec::new());
+                }
+
+                if !line.is_empty() {
+                    list.last_mut().unwrap().push(line);
+                }
+
+                list
+            })
+            .iter()
+            .map(Pattern::parse)
+            .enumerate()
+            .map(|(i, mut pattern)| {
+                if !pattern.fix() {
+                    eprintln!("Pattern {} failed to find a fix.", i + 1);
+                }
+                pattern
+            })
+            .collect();
+
+        let result: usize = patterns
+            .iter()
             .map(|pattern| pattern.summarize())
             .enumerate()
             .filter_map(|(i, summary)| match summary {
@@ -125,9 +168,13 @@ impl Pattern {
     /// let pattern = Pattern::parse(&vec!("#..#", "", ".##.", "", "...#"));
     /// assert_eq!(pattern, Pattern::parse(&vec!("#..#", ".##.", "...#")));
     /// ```
-    pub fn parse(lines: &Vec<&str>) -> Pattern {
+    pub fn parse<'a, 'b, I>(lines: I) -> Pattern
+    where
+        'b: 'a,
+        I: IntoIterator<Item = &'a &'b str>,
+    {
         let materials: Vec<Vec<Material>> = lines
-            .iter()
+            .into_iter()
             .map(|line| {
                 line.chars()
                     .filter_map(|c| match c {
@@ -251,6 +298,19 @@ impl Pattern {
             return;
         }
 
+        self.mirror_axis = self.find_mirror_internal(None);
+        self.dirty = false;
+    }
+
+	/// The internal function containing the logic for finding a mirror axis.
+	///
+	/// Finds and returns a mirror axis, disregarding those included in the given blacklist.  
+	/// Does not modify the pattern's internal state.
+	///
+	/// For external use see [`find_mirror`].
+	///
+	/// [`find_mirror`]: Self#method.find_mirror
+    fn find_mirror_internal(&self, blacklist: Option<&HashSet<MirrorAxis>>) -> MirrorAxis {
         let height = self.map.len();
         for i in 0..(height - 1) {
             let mut failed = false;
@@ -260,10 +320,10 @@ impl Pattern {
                     break;
                 }
             }
-            if !failed {
-                self.mirror_axis = MirrorAxis::Horizontal(i);
-                self.dirty = false;
-                return;
+
+            let mirror = MirrorAxis::Horizontal(i);
+            if !failed && (blacklist.is_none() || !blacklist.unwrap().contains(&mirror)) {
+                return mirror;
             }
         }
 
@@ -282,14 +342,13 @@ impl Pattern {
                 }
             }
 
-            if !failed {
-                self.mirror_axis = MirrorAxis::Vertical(i);
-                self.dirty = false;
-                return;
+            let mirror = MirrorAxis::Vertical(i);
+            if !failed && (blacklist.is_none() || !blacklist.unwrap().contains(&mirror)) {
+                return mirror;
             }
         }
 
-        self.dirty = false;
+        MirrorAxis::Unknown
     }
 
     /// Gets the mirror axis of this pattern.
@@ -345,6 +404,70 @@ impl Pattern {
             MirrorAxis::Unknown => None,
         }
     }
+
+    /// Changes a the material in a single position, such that a different mirror axis becomes valid.
+    ///
+    /// Attempts to change a single material, until it finds one such that the new mirror axis does not match the old mirror axis.  
+    /// After this the pattern will know its mirror axis, so there is no need to call [`find_mirror`].
+    ///
+    /// Returns `true` if a fix was found, and `false` if not.
+    ///
+    /// # Examples
+    /// A succeeding example:
+    /// ```
+    /// use rust_aoc_2023::days::day13::Pattern;
+    /// use rust_aoc_2023::days::day13::MirrorAxis;
+    ///
+    /// let mut pattern = Pattern::parse(&vec!("#..##.", "......", "#..##.", ".....#"));
+    /// pattern.find_mirror();
+    /// assert_eq!(pattern.get_mirror(), &MirrorAxis::Vertical(1));
+    /// assert_eq!(pattern.fix(), true);
+    /// assert_eq!(pattern.get_mirror(), &MirrorAxis::Vertical(3));
+    /// ```
+    ///
+    /// A failing example:
+    /// ```
+    /// use rust_aoc_2023::days::day13::Pattern;
+    /// use rust_aoc_2023::days::day13::MirrorAxis;
+    ///
+    /// let mut pattern = Pattern::parse(&vec!("#..#", ".##.", "...."));
+    /// pattern.find_mirror();
+    /// assert_eq!(pattern.get_mirror(), &MirrorAxis::Vertical(1));
+    /// assert_eq!(pattern.fix(), false);
+    /// assert_eq!(pattern.get_mirror(), &MirrorAxis::Vertical(1));
+    /// ```
+    ///
+    /// [`find_mirror`]: Self#method.find_mirror
+    pub fn fix(&mut self) -> bool {
+        if self.dirty {
+            self.find_mirror();
+        }
+
+        let mut blacklist = HashSet::new();
+        blacklist.insert(self.mirror_axis);
+        for y in 0..self.map.len() {
+            for x in 0..self.width {
+                self.map[y][x] = match self.map[y][x] {
+                    Material::Rock => Material::Ash,
+                    Material::Ash => Material::Rock,
+                };
+
+                let mirror = self.find_mirror_internal(Some(&blacklist));
+                if mirror != MirrorAxis::Unknown {
+                    self.mirror_axis = mirror;
+                    return true;
+                }
+
+                // Undo modification if it wasn't the correct one.
+                self.map[y][x] = match self.map[y][x] {
+                    Material::Rock => Material::Ash,
+                    Material::Ash => Material::Rock,
+                };
+            }
+        }
+
+        false
+    }
 }
 
 impl Display for Pattern {
@@ -390,7 +513,7 @@ pub enum Material {
 ///
 /// An enum representing the mirror axis of a pattern.
 /// The values other than Unknown have an usize representing the row/column after which the pattern is mirrored.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub enum MirrorAxis {
     /// The pattern is mirrored vertically after the given column.
     Vertical(usize),
