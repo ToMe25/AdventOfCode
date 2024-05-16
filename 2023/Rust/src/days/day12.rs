@@ -57,7 +57,38 @@ impl DayRunner for Day12Runner {
 ///
 /// This function panics if `map_line` includes a character that isn't `.`, `?`, or `#`.
 /// This function also panics if there is no valid solution for the given data.
-fn count_possibilities(map_line: &str, lengths: &str) -> usize {
+///
+/// # Examples
+/// ```
+/// use rust_aoc_2023::days::day12;
+///
+/// assert_eq!(day12::count_possibilities("#.???.###.#??.#????", "1,1,1,3,2,1,1"), 3);
+/// ```
+///
+/// ```
+/// use rust_aoc_2023::days::day12;
+///
+/// assert_eq!(day12::count_possibilities("?###????????", "3,2,1"), 10);
+/// ```
+///
+/// ```
+/// use rust_aoc_2023::days::day12;
+///
+/// assert_eq!(day12::count_possibilities("????.######..#####.", "1,6,5"), 4);
+/// ```
+///
+/// ```
+/// use rust_aoc_2023::days::day12;
+///
+/// assert_eq!(day12::count_possibilities("???.###????.###????.###????.###????.###", "1,1,3,1,1,3,1,1,3,1,1,3,1,1,3"), 1);
+/// ```
+///
+/// ```
+/// use rust_aoc_2023::days::day12;
+///
+/// assert_eq!(day12::count_possibilities(".??..??...?##.?.??..??...?##.?.??..??...?##.?.??..??...?##.?.??..??...?##.", "1,1,3,1,1,3,1,1,3,1,1,3,1,1,3"), 16384);
+/// ```
+pub fn count_possibilities(map_line: &str, lengths: &str) -> usize {
     let states: Vec<SpringState> = map_line
         .chars()
         .map(|c| match c {

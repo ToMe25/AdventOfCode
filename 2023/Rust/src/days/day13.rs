@@ -302,14 +302,14 @@ impl Pattern {
         self.dirty = false;
     }
 
-	/// The internal function containing the logic for finding a mirror axis.
-	///
-	/// Finds and returns a mirror axis, disregarding those included in the given blacklist.  
-	/// Does not modify the pattern's internal state.
-	///
-	/// For external use see [`find_mirror`].
-	///
-	/// [`find_mirror`]: Self#method.find_mirror
+    /// The internal function containing the logic for finding a mirror axis.
+    ///
+    /// Finds and returns a mirror axis, disregarding those included in the given blacklist.  
+    /// Does not modify the pattern's internal state.
+    ///
+    /// For external use see [`find_mirror`].
+    ///
+    /// [`find_mirror`]: Self#method.find_mirror
     fn find_mirror_internal(&self, blacklist: Option<&HashSet<MirrorAxis>>) -> MirrorAxis {
         let height = self.map.len();
         for i in 0..(height - 1) {
