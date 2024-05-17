@@ -1,17 +1,17 @@
 pub mod argparser {
-	//! Commandline argument handler.
-	//!
-	//! This module contains the code for parsing the commandline arguments,
-	//! and a struct to handle the parsed arguments.
-	//!
-	//! Since this is a specific purpose parser, it is not possible to add more arguments to parse
-	//! without modifying [Arguments].
-	//!
-	//! # Examples
-	//!
-	//! The default use of this module is to parse the args from [env::args](std::env::args).
-	//! ```
-	//! use std::env;
+    //! Commandline argument handler.
+    //!
+    //! This module contains the code for parsing the commandline arguments,
+    //! and a struct to handle the parsed arguments.
+    //!
+    //! Since this is a specific purpose parser, it is not possible to add more arguments to parse
+    //! without modifying [Arguments].
+    //!
+    //! # Examples
+    //!
+    //! The default use of this module is to parse the args from [env::args](std::env::args).
+    //! ```
+    //! use std::env;
     //! use rust_aoc_2023::argparser::Arguments;
     //!
     //! let args = Arguments::parse(env::args());
@@ -81,18 +81,24 @@ pub mod argparser {
         /// #
         /// // The first argument will be ignored.
         /// let argstrs: Vec<&str> = vec!["", "--time", "--day", "17"];
-        /// let args = Arguments::parse(argstrs.iter().map(|str| str.to_string())).unwrap();
+        /// let args = Arguments::parse(argstrs).unwrap();
         ///
         /// # assert_eq!(args, Arguments {days: vec![17], time: true, help: false});
         /// ```
-        pub fn parse(mut args: impl Iterator<Item = String>) -> Result<Arguments, Box<dyn Error>> {
-            args.next();
+        pub fn parse<Iter>(args: Iter) -> Result<Arguments, Box<dyn Error>>
+        where
+            Iter: IntoIterator,
+            Iter::Item: AsRef<str>,
+        {
+            let mut argi = args.into_iter();
+            // Ignore executable path.
+            argi.next();
             let mut days: Vec<u8> = Vec::new();
             let mut help = false;
             let mut time = false;
             let mut next_days = false;
-            for mut arg in args {
-                arg = arg.trim().to_owned();
+            for arg in argi {
+                let mut arg = arg.as_ref().trim();
                 if next_days {
                     next_days = false;
                     let elements: Vec<&str> = arg.split('-').collect();
@@ -116,7 +122,8 @@ pub mod argparser {
                         return Err(Box::new(UnknownArgError::new(arg, None)));
                     }
                 } else if arg.starts_with("--") {
-                    arg = arg.to_lowercase();
+                    let argl = arg.to_lowercase();
+                    arg = argl.as_ref();
                     if arg == "--help" {
                         help = true;
                     } else if arg == "--time" {
@@ -199,12 +206,36 @@ pub mod argparser {
         /// ```
         /// # use rust_aoc_2023::argparser::UnknownArgError;
         /// #
-        /// let error = UnknownArgError::new(String::from("--test"), None);
-        /// # assert_eq!(error.to_string(), "Received unknown argument \"--test\"!");
+        /// let error = UnknownArgError::new("--test", None);
+        /// assert_eq!(error.to_string(), "Received unknown argument \"--test\"!");
         /// ```
-        pub fn new(arg: String, index: Option<usize>) -> UnknownArgError {
-            // TODO validate index.
-            UnknownArgError { arg, index }
+        ///
+        /// An UnknonwArgError representing a single character being invalid:
+        /// ```
+        /// # use rust_aoc_2023::argparser::UnknownArgError;
+        /// #
+        /// let error = UnknownArgError::new("-xvh", Some(2));
+        /// assert_eq!(error.to_string(), "Received unknown argument \"-v\"!");
+        /// ```
+        ///
+        /// An index after the end of the argument means the entire argument will be considered invalid:
+        /// ```
+        /// # use rust_aoc_2023::argparser::UnknownArgError;
+        /// #
+        /// let error = UnknownArgError::new("-vht", Some(4));
+        /// assert_eq!(error.to_string(), "Received unknown argument \"-vht\"!");
+        /// ```
+        pub fn new(arg: impl AsRef<str>, mut index: Option<usize>) -> UnknownArgError {
+            let arg_str = arg.as_ref().to_owned();
+            if let Some(i) = index {
+                if i >= arg_str.len() {
+                    index = None;
+                }
+            }
+            UnknownArgError {
+                arg: arg_str,
+                index,
+            }
         }
     }
 
@@ -224,6 +255,7 @@ pub mod argparser {
     // TODO add unit tests.
 }
 
+use std::borrow::Borrow;
 use std::env;
 use std::io;
 use std::path::PathBuf;
@@ -370,9 +402,9 @@ pub fn print_help() {
 /// ```
 /// use rust_aoc_2023;
 /// use rust_aoc_2023::days;
-/// 
+///
 /// days::init(true);
-/// rust_aoc_2023::run_days([1, 7, 4].iter(), false);
+/// rust_aoc_2023::run_days([1, 7, 4], false);
 /// ```
 ///
 /// Timing day executions:
@@ -381,15 +413,20 @@ pub fn print_help() {
 /// # use rust_aoc_2023::days;
 /// #
 /// # days::init(true);
-/// rust_aoc_2023::run_days([7, 9, 1].iter(), true);
+/// rust_aoc_2023::run_days([7, 9, 1], true);
 /// ```
-pub fn run_days<'a, I: Iterator<Item = &'a u8>>(days: I, time: bool) {
-	// TODO move code executing a single day to its own function
+pub fn run_days<Iter>(days: Iter, time: bool)
+where
+    Iter: IntoIterator,
+    Iter::Item: Borrow<u8>,
+{
+    // TODO move code executing a single day to its own function
     let start = Instant::now();
     for day in days {
-    	if *day == 0 || *day > 25 {
-    		panic!("Received invalid day {}!", *day);
-    	}
+        let day = day.borrow();
+        if *day == 0 || *day > 25 {
+            panic!("Received invalid day {}!", *day);
+        }
 
         let runner = days::get_day_runner(*day).unwrap_or_else(|err| {
             eprintln!(
