@@ -142,16 +142,20 @@ impl RangeMap {
     /// use rust_aoc_2023::days::day5::RangeMap;
     ///
     /// let lines = ["15 3 19", "19 22 7"];
-    /// let map = RangeMap::parse_lines(lines.iter().map(|line| *line));
+    /// let map = RangeMap::parse_lines(lines);
     /// #
     /// # let mut ref_map = RangeMap::new();
     /// # ref_map.insert_raw(3, 21, 12);
     /// # ref_map.insert_raw(22, 28, -3);
     /// # assert_eq!(map, ref_map);
     /// ```
-    pub fn parse_lines<'a, I: Iterator<Item = &'a str>>(lines: I) -> RangeMap {
+    pub fn parse_lines<'a, I>(lines: I) -> RangeMap
+    where
+        I: IntoIterator<Item = &'a str>,
+    {
         let mut map = RangeMap::new();
         lines
+            .into_iter()
             .filter(|line| !line.is_empty())
             .map(|line| line.split_whitespace().map(|nr| nr.parse::<u64>().unwrap()))
             .map(|mut line| {
