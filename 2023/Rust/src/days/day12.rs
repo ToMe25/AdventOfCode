@@ -174,17 +174,17 @@ where
                     while cur_pos < pos_len && !positions[cur_pos].contains(i) {
                         cur_pos += 1;
                         if cur_pos >= pos_len
-                            || positions[cur_pos - 1].start <= positions[cur_pos].end + 1
+                            || positions[cur_pos].start <= positions[cur_pos - 1].end + 1
+                            || positions[cur_pos].start > (i as u32)
                         {
                             valid = false;
                             break;
                         }
-
-                        if cur_pos >= pos_len || positions[cur_pos].start > (i as u32) {
-                            valid = false;
-                            break;
-                        }
                     }
+                }
+
+                if !valid {
+                    break;
                 }
             }
 
