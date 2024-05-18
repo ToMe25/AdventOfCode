@@ -149,22 +149,22 @@ impl RangeMap {
     /// # ref_map.insert_raw(22, 28, -3);
     /// # assert_eq!(map, ref_map);
     /// ```
-    pub fn parse_lines<'a, I>(lines: I) -> RangeMap
+    pub fn parse_lines<I>(lines: I) -> RangeMap
     where
-        I: IntoIterator<Item = &'a str>,
+        I: IntoIterator,
+        I::Item: AsRef<str>,
     {
         let mut map = RangeMap::new();
         lines
             .into_iter()
-            .filter(|line| !line.is_empty())
-            .map(|line| line.split_whitespace().map(|nr| nr.parse::<u64>().unwrap()))
-            .map(|mut line| {
-                (
-                    line.next().unwrap(),
-                    line.next().unwrap(),
-                    line.next().unwrap(),
-                )
+            .filter(|line| !line.as_ref().is_empty())
+            .map(|line| {
+                line.as_ref()
+                    .split_whitespace()
+                    .map(|nr| nr.parse::<u64>().unwrap())
+                    .collect::<Vec<u64>>()
             })
+            .map(|line| (line[0], line[1], line[2]))
             .for_each(|(start_out, start_in, len)| map.insert(start_in, start_out, len));
         map
     }

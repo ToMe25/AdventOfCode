@@ -2,7 +2,6 @@
 //!
 //! This module contains my solution to the [Advent of Code](https://adventofcode.com/) [2023](https://adventofcode.com/2023/) [Day 13](https://adventofcode.com/2023/day/13).
 
-use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::error::Error;
 use std::fmt::Display;
@@ -169,15 +168,16 @@ impl Pattern {
     /// let pattern = Pattern::parse(&vec!("#..#", "", ".##.", "", "...#"));
     /// assert_eq!(pattern, Pattern::parse(&vec!("#..#", ".##.", "...#")));
     /// ```
-    pub fn parse<'a, I>(lines: I) -> Pattern
+    pub fn parse<I>(lines: I) -> Pattern
     where
         I: IntoIterator,
-        I::Item: Borrow<&'a str>,
+        I::Item: AsRef<str>,
     {
         let materials: Vec<Vec<Material>> = lines
             .into_iter()
             .map(|line| {
-                line.borrow().chars()
+                line.as_ref()
+                    .chars()
                     .filter_map(|c| match c {
                         '#' => Some(Material::Rock),
                         '.' => Some(Material::Ash),

@@ -111,13 +111,15 @@ impl DayRunner for Day12Runner {
 /// assert_eq!(day12::count_possibilities(".??..??...?##.?.??..??...?##.?.??..??...?##.?.??..??...?##.?.??..??...?##.",
 ///                                       &vec!(1, 1, 3, 1, 1, 3, 1, 1, 3, 1, 1, 3, 1, 1, 3)), 16384);
 /// ```
-pub fn count_possibilities<'a, I, IItem, IIter>(map_line: &str, lengths: &'a I) -> usize
+pub fn count_possibilities<'a, Str, I, IItem, IIter>(map_line: Str, lengths: &'a I) -> usize
 where
+    Str: AsRef<str>,
     &'a I: IntoIterator<Item = IItem, IntoIter = IIter>,
     IItem: Borrow<u8>,
     IIter: DoubleEndedIterator<Item = IItem>,
 {
     let states: Vec<SpringState> = map_line
+        .as_ref()
         .chars()
         .map(|c| match c {
             '.' => SpringState::Operational,
@@ -127,14 +129,15 @@ where
         })
         .collect();
 
-    let mut last_start = states.len() as u8 + 1;
+    let mut last_start = states.len() + 1;
     let mut positions: Vec<Position> = lengths
         .into_iter()
         .rev()
         .map(|len| {
-            let pos = find_last_position_before(&states, len.borrow().to_owned(), last_start - 1);
+            let pos =
+                find_last_position_before(&states, len.borrow().to_owned().into(), last_start - 1);
             if let Some(p) = pos {
-                last_start = p.start as u8;
+                last_start = p.start as usize;
             }
             pos.unwrap_or_else(|| {
                 panic!(
@@ -146,11 +149,12 @@ where
         .collect();
 
     positions.reverse();
+    let pos_len = positions.len();
 
-    if positions.len() != lengths.into_iter().count() {
+    if pos_len != lengths.into_iter().count() {
         panic!(
             "A solution for line \"{} {}\" could not be found!",
-            map_line,
+            map_line.as_ref(),
             lengths
                 .into_iter()
                 .map(|len| len.borrow().to_string())
@@ -164,23 +168,19 @@ where
     while modified {
         {
             let mut valid = true;
-            let mut pos_it = positions.iter().peekable();
+            let mut cur_pos = 0;
             for (i, state) in states.iter().enumerate() {
                 if state == &SpringState::Damaged {
-                    while !pos_it.peek().is_some_and(|pos| pos.contains(i)) {
-                        let pos = pos_it
-                            .next()
-                            .map(|pos| pos.to_owned())
-                            .unwrap_or(Position::build(u32::MAX, u32::MAX).unwrap());
-                        if pos_it
-                            .peek()
-                            .map(|pos| pos.start)
-                            .is_some_and(|start| start <= pos.end + 1 && start != u32::MAX)
+                    while cur_pos < pos_len && !positions[cur_pos].contains(i) {
+                        cur_pos += 1;
+                        if cur_pos >= pos_len
+                            || positions[cur_pos - 1].start <= positions[cur_pos].end + 1
                         {
                             valid = false;
                             break;
                         }
-                        if (i as u32) < pos.start {
+
+                        if cur_pos >= pos_len || positions[cur_pos].start > (i as u32) {
                             valid = false;
                             break;
                         }
@@ -194,7 +194,7 @@ where
         }
 
         modified = false;
-        for i in 0..positions.len() {
+        for i in 0..pos_len {
             let pos = find_last_position_before(
                 &states,
                 (positions[i].end - positions[i].start + 1) as usize,
@@ -203,7 +203,7 @@ where
 
             if let Some(p) = pos {
                 let collides = (i > 0 && positions[i - 1].end + 1 >= p.start)
-                    || (i < positions.len() - 1 && p.end + 1 >= positions[i + 1].start);
+                    || (i < pos_len - 1 && p.end + 1 >= positions[i + 1].start);
 
                 if !collides {
                     positions[i] = p;
@@ -215,6 +215,7 @@ where
                             (positions[j + 1].start - 1) as usize,
                         );
                         if let Some(np) = new_pos {
+                            // Even if one position didn't change, the ones before it might.
                             positions[j] = np;
                         }
                     }
@@ -292,24 +293,22 @@ where
 /// let position = day12::find_last_position_before(&states, 2, states.len());
 /// assert_eq!(position.unwrap(), Position::build(0u8, 1u8).unwrap());
 /// ```
-pub fn find_last_position_before<'a, I, T>(states: I, len: T, before: T) -> Option<Position>
+pub fn find_last_position_before<'a, I>(states: I, len: usize, before: usize) -> Option<Position>
 where
     I: IntoIterator<Item = &'a SpringState>,
     I::IntoIter: DoubleEndedIterator + ExactSizeIterator,
-    T: Into<usize>,
 {
-    let len = len.into();
-    let before = before.into();
-
     let mut start_min: Option<usize> = None;
     let mut start_max: Option<usize> = None;
-    let mut states_since_start: Vec<SpringState> = Vec::new();
-    let mut states_it: Box<dyn ExactSizeIterator<Item = (usize, I::Item)>> =
-        Box::new(states.into_iter().enumerate().rev());
+    let mut states_since_start: Vec<&SpringState> = Vec::new();
+    let mut states_it = states.into_iter().enumerate().rev();
+    let silen = states_it.len();
+    states_since_start.reserve(silen / 8);
     if states_it.len() > before {
-        let silen = states_it.len();
-        states_it = Box::new(states_it.skip(silen - before - 1));
-        if states_it.next().unwrap_or((0, &SpringState::Unknown)).1 == &SpringState::Damaged {
+        if states_it
+            .nth(silen - before - 1)
+            .is_some_and(|(_, state)| state == &SpringState::Damaged)
+        {
             start_min = Some(usize::MAX);
             start_max = Some(usize::MAX);
         }
@@ -323,23 +322,23 @@ where
             start_max = Some(i);
         }
 
-        if state != &SpringState::Damaged && start_min.is_some() && start_min.unwrap() - i >= len {
-            while start_max.is_some() && start_max.unwrap() > len + i {
+        if state != &SpringState::Damaged && start_min.is_some_and(|start| start >= len + i) {
+            while start_max.is_some_and(|start| start > len + i) {
                 let mut damaged_start = false;
                 let mut damaged_end = false;
                 let start_min_old = start_min.unwrap();
                 for (j, s) in states_since_start.iter().enumerate() {
-                    if !damaged_start && s == &SpringState::Damaged {
+                    if !damaged_start && s == &&SpringState::Damaged {
                         damaged_start = true;
                     }
 
-                    if damaged_start && s != &SpringState::Damaged {
+                    if damaged_start && s != &&SpringState::Damaged {
                         damaged_end = true;
                     }
 
                     if damaged_end {
                         start_min = Some(start_min_old - j);
-                        if s == &SpringState::Damaged {
+                        if s == &&SpringState::Damaged {
                             start_max = Some(start_min_old - j);
                         } else {
                             start_max = None;
@@ -355,7 +354,7 @@ where
                 }
             }
 
-            if start_min.is_some() && start_min.unwrap() - i >= len {
+            if start_min.is_some_and(|start| start >= len + i) {
                 return Some(Position::build((i + 1) as u32, (i + len) as u32).unwrap());
             }
         }
@@ -367,14 +366,13 @@ where
         }
 
         if start_min.is_some() {
-            states_since_start.push(state.to_owned());
+            states_since_start.push(state);
         }
     }
 
     // Check for a match in the first position
-    if start_min.is_some()
-        && start_min.unwrap() >= len - 1
-        && (start_max.is_none() || start_max.unwrap() <= len - 1)
+    if start_min.is_some_and(|start| start >= len - 1)
+        && !start_max.is_some_and(|start| start > len - 1)
     {
         return Some(Position::build(0u32, (len - 1) as u32).unwrap());
     }
