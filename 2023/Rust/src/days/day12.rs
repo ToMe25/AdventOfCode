@@ -111,12 +111,12 @@ impl DayRunner for Day12Runner {
 /// assert_eq!(day12::count_possibilities(".??..??...?##.?.??..??...?##.?.??..??...?##.?.??..??...?##.?.??..??...?##.",
 ///                                       &vec!(1, 1, 3, 1, 1, 3, 1, 1, 3, 1, 1, 3, 1, 1, 3)), 16384);
 /// ```
-pub fn count_possibilities<'a, Str, I, IItem, IIter>(map_line: Str, lengths: &'a I) -> usize
+pub fn count_possibilities<'a, Str, Iter>(map_line: Str, lengths: &'a Iter) -> usize
 where
     Str: AsRef<str>,
-    &'a I: IntoIterator<Item = IItem, IntoIter = IIter>,
-    IItem: Borrow<u8>,
-    IIter: DoubleEndedIterator<Item = IItem>,
+    &'a Iter: IntoIterator,
+    <&'a Iter as IntoIterator>::Item: Borrow<u8>,
+    <&'a Iter as IntoIterator>::IntoIter: DoubleEndedIterator,
 {
     let states: Vec<SpringState> = map_line
         .as_ref()
