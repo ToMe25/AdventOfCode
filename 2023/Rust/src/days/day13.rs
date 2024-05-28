@@ -229,13 +229,13 @@ impl Pattern {
     /// Finds the mirror axis in a pattern and stores it in the pattern object.
     ///
     /// Will not run again if a mirror axis was already found,  
-    /// unless a new row was added using [`add_row`].
+    /// unless a new row was added using [`add_row`](Self::add_row).
     ///
     /// If some lines are shorter, those missing positions are considered to match any material.
     ///
     /// Note that this method only finds the first mirror axis.
     ///
-    /// Use [`get_mirror`] to retrieve the mirror axis found by this function.
+    /// Use [`get_mirror`](Self::get_mirror) to retrieve the mirror axis found by this function.
     ///
     /// # Examples
     /// ```
@@ -291,9 +291,6 @@ impl Pattern {
     /// pattern.find_mirror();
     /// assert_eq!(pattern.get_mirror(), &MirrorAxis::Vertical(2));
     /// ```
-    ///
-    /// [`add_row`]: Self#method.add_row
-    /// [`get_mirror`]: Self#method.get_mirror
     pub fn find_mirror(&mut self) {
         if !self.dirty {
             return;
@@ -308,9 +305,7 @@ impl Pattern {
     /// Finds and returns a mirror axis, disregarding those included in the given blacklist.  
     /// Does not modify the pattern's internal state.
     ///
-    /// For external use see [`find_mirror`].
-    ///
-    /// [`find_mirror`]: Self#method.find_mirror
+    /// For external use see [`find_mirror`](Self::find_mirror).
     fn find_mirror_internal(&self, blacklist: Option<&HashSet<MirrorAxis>>) -> MirrorAxis {
         let height = self.map.len();
         for i in 0..(height - 1) {
@@ -354,10 +349,7 @@ impl Pattern {
 
     /// Gets the mirror axis of this pattern.
     ///
-    /// Will be [`Unknown`] if [`find_mirror`] was not yet called, or if no mirror axis could be found.
-    ///
-    /// [`Unknown`]: self::MirrorAxis#variant.Unknown
-    /// [`find_mirror`]: Self#method.find_mirror
+    /// Will be [`Unknown`](self::MirrorAxis::Unknown) if [`find_mirror`](Self::find_mirror) was not yet called, or if no mirror axis could be found.
     pub fn get_mirror(&self) -> &MirrorAxis {
         &self.mirror_axis
     }
@@ -388,16 +380,13 @@ impl Pattern {
     /// assert_eq!(pattern.summarize(), Some(3));
     /// ```
     ///
-    /// An example with an unknown mirror axis, in this case because [`find_mirror`] wasn't run yet:
+    /// An example with an unknown mirror axis, in this case because [`find_mirror`](Self::find_mirror) wasn't run yet:
     /// ```
     /// use rust_aoc_2023::days::day13::Pattern;
     ///
     /// let pattern = Pattern::parse(&vec!("..##..", "##..##", "######"));
     /// assert_eq!(pattern.summarize(), None);
     /// ```
-    ///
-    /// [`None`]: Option#variant.None
-    /// [`find_mirror`]: Self#method.find_mirror
     pub fn summarize(&self) -> Option<usize> {
         match self.mirror_axis {
             MirrorAxis::Horizontal(y) => Some((y + 1) * 100),
@@ -409,7 +398,7 @@ impl Pattern {
     /// Changes a the material in a single position, such that a different mirror axis becomes valid.
     ///
     /// Attempts to change a single material, until it finds one such that the new mirror axis does not match the old mirror axis.  
-    /// After this the pattern will know its mirror axis, so there is no need to call [`find_mirror`].
+    /// After this the pattern will know its mirror axis, so there is no need to call [`find_mirror`](Self::find_mirror).
     ///
     /// Returns `true` if a fix was found, and `false` if not.
     ///
@@ -437,8 +426,6 @@ impl Pattern {
     /// assert_eq!(pattern.fix(), false);
     /// assert_eq!(pattern.get_mirror(), &MirrorAxis::Vertical(1));
     /// ```
-    ///
-    /// [`find_mirror`]: Self#method.find_mirror
     pub fn fix(&mut self) -> bool {
         if self.dirty {
             self.find_mirror();

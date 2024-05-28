@@ -8,11 +8,11 @@ fn main() {
         process::exit(1)
     });
 
-    if args.help || args.days.is_empty() {
+    if args.help || args.get_days().is_empty() {
         rust_aoc_2023::print_help();
         return;
     }
 
     days::init(true);
-    rust_aoc_2023::run_days(args.days.iter(), args.time);
+    rust_aoc_2023::run_days_from_args(&args);
 }
