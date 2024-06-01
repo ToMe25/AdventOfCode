@@ -822,6 +822,14 @@ pub fn run_days_from_args(args: &Arguments) {
                     Ok(_) => (),
                 }
 
+                if args.time {
+                    println!(
+                        "Day {} initialization took {}.",
+                        day,
+                        format_duration(&init_start.elapsed())
+                    );
+                }
+
                 let run_part_1 = args.run_part(1).expect("part 1 unknown");
                 let part_1_failed = run_part_1 && !run_runner_part(&run, *day, 1, args.time);
                 if !part_1_failed && args.run_part(2).expect("part 2 unknown") {
