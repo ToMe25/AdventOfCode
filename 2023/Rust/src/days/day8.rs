@@ -5,6 +5,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fmt::{Debug, Display};
 use std::fs;
 use std::rc::Rc;
 
@@ -40,7 +41,7 @@ impl DayRunner for Day8Runner {
             .map(|(from, to)| {
                 (
                     from,
-                    to.trim_matches(&[' ', '\t', '(', ')'][..])
+                    to.trim_matches([' ', '\t', '(', ')'])
                         .split_once(',')
                         .unwrap(),
                 )
@@ -50,16 +51,7 @@ impl DayRunner for Day8Runner {
 
         self.nodes = nodes
             .keys()
-            .map(|name| {
-                (
-                    (*name).to_owned(),
-                    Rc::new(RefCell::new(Node {
-                        name: (*name).to_owned(),
-                        left: None,
-                        right: None,
-                    })),
-                )
-            })
+            .map(|name| ((*name).to_owned(), Rc::new(RefCell::new(Node::new(*name)))))
             .collect();
 
         nodes.iter().for_each(|(key, (left, right))| {
@@ -73,7 +65,7 @@ impl DayRunner for Day8Runner {
 
     fn part1(&self) -> Result<Option<String>, Box<dyn Error>> {
         let mut insts = self.instructions.iter().cycle();
-        let mut current = self.nodes.get("AAA").unwrap().clone();
+        let mut current = self.nodes.get("AAA").expect("Node AAA not found").clone();
         let mut steps: usize = 0;
         while current.borrow().name != "ZZZ" {
             if *insts.next().unwrap() {
@@ -88,17 +80,20 @@ impl DayRunner for Day8Runner {
     }
 
     fn part2(&self) -> Result<Option<String>, Box<dyn Error>> {
-    	// FIXME find a solution that is fast enough to finish before the end of time.
+        // FIXME find a solution that is fast enough to finish before the end of time.
         let mut insts = self.instructions.iter().cycle();
         let mut current: Vec<Rc<RefCell<Node>>> = self
             .nodes
-            .iter()
-            .filter(|(key, _)| key.ends_with('A'))
-            .map(|(_, node)| node.clone())
+            .values()
+            .filter(|val| val.borrow().node_type == NodeType::Start)
+            .map(|node| node.clone())
             .collect();
 
         let mut steps: usize = 0;
-        while !current.iter().all(|pos| pos.borrow().name.ends_with('Z')) {
+        while !current
+            .iter()
+            .all(|pos| pos.borrow().node_type == NodeType::End)
+        {
             let right = *insts.next().unwrap();
             current = current
                 .iter()
@@ -121,9 +116,68 @@ impl DayRunner for Day8Runner {
 ///
 /// A single node from the input data.  
 /// Contains its name, its left next node, and its right next node.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq)]
 struct Node {
-    name: String,
-    left: Option<Rc<RefCell<Node>>>,
-    right: Option<Rc<RefCell<Node>>>,
+    pub name: String,
+    pub left: Option<Rc<RefCell<Node>>>,
+    pub right: Option<Rc<RefCell<Node>>>,
+    pub node_type: NodeType,
+}
+
+impl Node {
+    pub fn new(name: &str) -> Self {
+        let node_type = match name.chars().last().expect("Received empty string") {
+            'A' | 'a' => NodeType::Start,
+            'Z' | 'z' => NodeType::End,
+            _ => NodeType::Normal,
+        };
+        Self {
+            name: name.to_owned(),
+            left: None,
+            right: None,
+            node_type,
+        }
+    }
+}
+
+impl Debug for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let left_str = match &self.left {
+            Some(x) => format!("Some(Node {{ name: \"{}\", .. }})", x.borrow().name),
+            None => String::from("None"),
+        };
+        let right_str = match &self.right {
+            Some(x) => format!("Some(Node {{ name: \"{}\", .. }})", x.borrow().name),
+            None => String::from("None"),
+        };
+        write!(
+            f,
+            "Node: {{ name: {:?}, left: {left_str}, right: {right_str}, node_type: {:?} }}",
+            self.name, self.node_type
+        )
+    }
+}
+
+impl Display for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+/// The type of a node.
+///
+/// A value of [`Start`](Self::Start) represents a node with a name ending with an `A`,  
+/// and a value of [`End`](Self::End) represents a name ending with a `Z`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum NodeType {
+    #[default]
+    Normal,
+    Start,
+    End,
+}
+
+impl Display for NodeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(self, f)
+    }
 }
