@@ -159,6 +159,8 @@ static DAY_RUNNERS: RwLock<Vec<Option<Box<dyn Fn() -> Box<dyn DayRunner> + Send 
 /// #     assert!(part2.is_none());
 /// }
 /// ```
+///
+/// TODO find a way for implementations to communicate that a part isn't implemented.
 pub trait DayRunner {
     /// The initialization function.
     ///

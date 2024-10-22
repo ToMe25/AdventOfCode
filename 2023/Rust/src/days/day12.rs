@@ -171,7 +171,7 @@ where
             let mut cur_pos = 0;
             for (i, state) in states.iter().enumerate() {
                 if state == &SpringState::Damaged {
-                    while cur_pos < pos_len && !positions[cur_pos].contains(i) {
+                    while cur_pos < pos_len && !positions[cur_pos].contains(&i) {
                         cur_pos += 1;
                         if cur_pos >= pos_len
                             || positions[cur_pos].start <= positions[cur_pos - 1].end + 1
@@ -442,20 +442,21 @@ impl Position {
     /// assert_eq!(Position::build(15u32, 30u32)?.contains(30), true);
     /// # Ok::<(), PositionEndBeforeStartError>(())
     /// ```
-    pub fn contains<T>(&self, pos: T) -> bool
+    pub fn contains<'a, T>(&self, pos: &'a T) -> bool
     where
-        T: TryFrom<u32> + TryInto<u32> + Ord + Copy,
+        &'a T: ToOwned,
+		T: TryFrom<u32> + TryInto<u32> + Ord + Copy,
     {
-        let p = pos.try_into();
+        let p = pos.to_owned().try_into();
         match p {
             Ok(pos) => pos >= self.start && pos <= self.end,
             Err(_) => {
-                pos >= self
+                pos >= &self
                     .start
                     .try_into()
                     .unwrap_or_else(|_| panic!("cannot convert self.start to other type"))
                     && pos
-                        <= self
+                        <= &self
                             .end
                             .try_into()
                             .unwrap_or_else(|_| panic!("cannot convert self.end to other type"))
@@ -491,10 +492,10 @@ impl Position {
     /// ```
     pub fn overlaps<T: TryInto<Position> + Clone>(&self, other: &T) -> Result<bool, T::Error> {
         let o: Self = other.clone().try_into()?;
-        Ok(self.contains(o.start)
-            || self.contains(o.end)
-            || o.contains(self.start)
-            || o.contains(self.end))
+        Ok(self.contains(&o.start)
+            || self.contains(&o.end)
+            || o.contains(&self.start)
+            || o.contains(&self.end))
     }
 }
 

@@ -83,7 +83,6 @@ impl DayRunner for Day8Runner {
     }
 
     fn part2(&self) -> Result<Option<String>, Box<dyn Error>> {
-        // FIXME find a solution that is fast enough to finish before the end of time.
         let mut insts = self.instructions.iter().cycle();
         let mut patterns: Vec<MovementPattern> = self
             .nodes
