@@ -12,12 +12,15 @@ use super::DayRunner;
 ///
 /// The [DayRunner] implementation for the aoc day 14.
 #[derive(Debug, Clone, Default)]
-pub struct Day14Runner {}
+pub struct Day14Runner {
+    /// The positions of all the rocks in the input data.
+    initial_map: Vec<Vec<Option<Rock>>>,
+}
 
 impl DayRunner for Day14Runner {
-    fn part1(&self) -> Result<Option<String>, Box<dyn Error>> {
+    fn init(&mut self) -> Result<(), Box<dyn Error>> {
         let input_data = fs::read_to_string(get_input_file(14)?)?;
-        let mut map: Vec<Vec<Option<Rock>>> = input_data
+        self.initial_map = input_data
             .lines()
             .enumerate()
             .map(|(y, line)| {
@@ -36,9 +39,30 @@ impl DayRunner for Day14Runner {
             })
             .collect();
 
-        map = tilt_platform(&map, Direction::North);
+        Ok(())
+    }
+
+    fn part1(&self) -> Result<Option<String>, Box<dyn Error>> {
+        let map = tilt_platform(&self.initial_map, Direction::North);
         let load = calculate_load(&map, Direction::North);
-        return Ok(Some(load.to_string()));
+        Ok(Some(load.to_string()))
+    }
+
+    fn part2(&self) -> Result<Option<String>, Box<dyn Error>> {
+        let mut map = self.initial_map.clone();
+        for _ in 0..1000000000 {
+            for dir in [
+                Direction::North,
+                Direction::West,
+                Direction::South,
+                Direction::East,
+            ] {
+                map = tilt_platform(&map, dir);
+            }
+        }
+
+        let load = calculate_load(&map, Direction::North);
+        Ok(Some(load.to_string()))
     }
 }
 
@@ -49,35 +73,87 @@ pub fn tilt_platform(
     platform: &Vec<Vec<Option<Rock>>>,
     direction: Direction,
 ) -> Vec<Vec<Option<Rock>>> {
-    let mut new_map: Vec<Vec<Option<Rock>>> = Vec::with_capacity(platform.len());
+    let mut new_map: Vec<Vec<Option<Rock>>> = platform
+        .iter()
+        .map(|row| (0..row.len()).map(|_| None).collect())
+        .collect();
     match direction {
         Direction::North => platform.iter().enumerate().for_each(|(y, row)| {
-            row.iter().enumerate().for_each(|(x, rock)| {
-                if new_map.get(y).is_none() {
-                    new_map.push(Vec::with_capacity(row.len()));
-                }
-                if !rock.is_some_and(|rock| rock.can_roll()) {
-                    new_map
-                        .get_mut(y)
-                        .expect("Invalid new_map")
-                        .push(rock.clone());
-                } else {
-                    new_map.get_mut(y).expect("Invalid new_map").push(None);
-                    let new_y = (0..y)
-                        .rev()
-                        .take_while(|pos| new_map[*pos][x].is_none())
-                        .last()
-                        .unwrap_or(y);
-                    assert!(new_map[new_y][x].is_none(), "Overriding another rock");
-                    new_map[new_y][x] = Some(Rock::new(
-                        rock.expect("Checked a few lines above").get_shape(),
-                        x as u32,
-                        new_y as u32,
-                    ));
-                }
-            })
+            row.iter()
+                .enumerate()
+                .filter_map(|(x, rock)| rock.map(|r| (x, r)))
+                .for_each(|(x, rock)| {
+                    if !rock.can_roll() {
+                        new_map.get_mut(y).expect("Invalid new_map")[x] = Some(rock.clone());
+                    } else {
+                        let new_y = (0..y)
+                            .rev()
+                            .take_while(|pos| new_map[*pos][x].is_none())
+                            .last()
+                            .unwrap_or(y);
+                        assert!(new_map[new_y][x].is_none(), "Overriding another rock");
+                        new_map[new_y][x] =
+                            Some(Rock::new(rock.get_shape(), x as u32, new_y as u32));
+                    }
+                })
         }),
-        _ => unimplemented!("Only North is implemented at this time."),
+        Direction::South => platform.iter().enumerate().rev().for_each(|(y, row)| {
+            let max_y = platform.len();
+            row.iter()
+                .enumerate()
+                .filter_map(|(x, rock)| rock.map(|r| (x, r)))
+                .for_each(|(x, rock)| {
+                    if !rock.can_roll() {
+                        new_map.get_mut(y).expect("Invalid new_map")[x] = Some(rock.clone());
+                    } else {
+                        let new_y = (y + 1..max_y)
+                            .take_while(|pos| new_map[*pos][x].is_none())
+                            .last()
+                            .unwrap_or(y);
+                        assert!(new_map[new_y][x].is_none(), "Overriding another rock");
+                        new_map[new_y][x] =
+                            Some(Rock::new(rock.get_shape(), x as u32, new_y as u32));
+                    }
+                })
+        }),
+        Direction::West => platform.iter().enumerate().for_each(|(y, row)| {
+            row.iter()
+                .enumerate()
+                .filter_map(|(x, rock)| rock.map(|r| (x, r)))
+                .for_each(|(x, rock)| {
+                    if !rock.can_roll() {
+                        new_map.get_mut(y).expect("Invalid new_map")[x] = Some(rock.clone());
+                    } else {
+                        let new_x = (0..x)
+                            .rev()
+                            .take_while(|pos| new_map[y][*pos].is_none())
+                            .last()
+                            .unwrap_or(x);
+                        assert!(new_map[y][new_x].is_none(), "Overriding another rock");
+                        new_map[y][new_x] =
+                            Some(Rock::new(rock.get_shape(), new_x as u32, y as u32));
+                    }
+                })
+        }),
+        Direction::East => platform.iter().enumerate().for_each(|(y, row)| {
+            row.iter()
+                .enumerate()
+                .rev()
+                .filter_map(|(x, rock)| rock.map(|r| (x, r)))
+                .for_each(|(x, rock)| {
+                    if !rock.can_roll() {
+                        new_map.get_mut(y).expect("Invalid new_map")[x] = Some(rock.clone());
+                    } else {
+                        let new_x = (x + 1..row.len())
+                            .take_while(|pos| new_map[y][*pos].is_none())
+                            .last()
+                            .unwrap_or(x);
+                        assert!(new_map[y][new_x].is_none(), "Overriding another rock");
+                        new_map[y][new_x] =
+                            Some(Rock::new(rock.get_shape(), new_x as u32, y as u32));
+                    }
+                })
+        }),
     }
 
     new_map
@@ -108,7 +184,52 @@ pub fn calculate_load(platform: &Vec<Vec<Option<Rock>>>, side: Direction) -> u64
                 })
                 .sum()
         }
-        _ => unimplemented!("Only North is implemented at this time."),
+        Direction::South => platform
+            .iter()
+            .enumerate()
+            .map(|(y, row)| {
+                row.iter()
+                    .map(|rock| {
+                        if rock.is_some_and(|rock| rock.can_roll()) {
+                            (y + 1).try_into().expect("Distance out of range")
+                        } else {
+                            0u64
+                        }
+                    })
+                    .sum::<u64>()
+            })
+            .sum(),
+        Direction::West => platform
+            .iter()
+            .map(|row| {
+                let max_dist = row.len();
+                row.iter()
+                    .enumerate()
+                    .map(|(x, rock)| {
+                        if rock.is_some_and(|rock| rock.can_roll()) {
+                            (max_dist - x).try_into().expect("Distance out of range")
+                        } else {
+                            0u64
+                        }
+                    })
+                    .sum::<u64>()
+            })
+            .sum(),
+        Direction::East => platform
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .enumerate()
+                    .map(|(x, rock)| {
+                        if rock.is_some_and(|rock| rock.can_roll()) {
+                            (x + 1).try_into().expect("Distance out of range")
+                        } else {
+                            0u64
+                        }
+                    })
+                    .sum::<u64>()
+            })
+            .sum(),
     }
 }
 
