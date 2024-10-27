@@ -415,7 +415,7 @@ impl Position {
     /// use rust_aoc_2023::days::day12::Position;
     /// # use rust_aoc_2023::days::day12::PositionEndBeforeStartError;
     ///
-    /// assert_eq!(Position::build(5u8, 7u8)?.contains(4u32), false);
+    /// assert_eq!(Position::build(5u8, 7u8)?.contains(&4u32), false);
     /// # Ok::<(), PositionEndBeforeStartError>(())
     /// ```
     ///
@@ -423,7 +423,7 @@ impl Position {
     /// use rust_aoc_2023::days::day12::Position;
     /// # use rust_aoc_2023::days::day12::PositionEndBeforeStartError;
     ///
-    /// assert_eq!(Position::build(3u16, 180u16)?.contains(3u8), true);
+    /// assert_eq!(Position::build(3u16, 180u16)?.contains(&3u8), true);
     /// # Ok::<(), PositionEndBeforeStartError>(())
     /// ```
     ///
@@ -431,7 +431,7 @@ impl Position {
     /// use rust_aoc_2023::days::day12::Position;
     /// # use rust_aoc_2023::days::day12::PositionEndBeforeStartError;
     ///
-    /// assert_eq!(Position::build(125u32, 166u32)?.contains(130u16), true);
+    /// assert_eq!(Position::build(125u32, 166u32)?.contains(&130u16), true);
     /// # Ok::<(), PositionEndBeforeStartError>(())
     /// ```
     ///
@@ -439,7 +439,7 @@ impl Position {
     /// use rust_aoc_2023::days::day12::Position;
     /// # use rust_aoc_2023::days::day12::PositionEndBeforeStartError;
     ///
-    /// assert_eq!(Position::build(15u32, 30u32)?.contains(30), true);
+    /// assert_eq!(Position::build(15u32, 30u32)?.contains(&30), true);
     /// # Ok::<(), PositionEndBeforeStartError>(())
     /// ```
     pub fn contains<'a, T>(&self, pos: &'a T) -> bool
