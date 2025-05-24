@@ -44,16 +44,16 @@ impl Day14Runner {
                 (0..map.get_width()).for_each(|column| {
                     map.col_iter_mut(column)
                         .expect("Invalid column")
-                        .scan(None, |last_rock, rock| {
+                        .fold((None, 0), |(mut last_rock, count), rock| {
                             if let Some(rock) = rock {
                                 if rock.can_roll() {
                                     rock.get_pos_mut().set_y(last_rock.map_or(0, |y| y + 1));
                                 }
                                 last_rock.replace(rock.get_pos().get_y());
                             }
-                            Some(rock)
+                            (last_rock, count + 1)
                         })
-                        .count();
+                        .1;
                 });
             }
             Direction::South => {
@@ -62,7 +62,7 @@ impl Day14Runner {
                     map.col_iter_mut(column)
                         .expect("Invalid column")
                         .rev()
-                        .scan(None, |last_rock, rock| {
+                        .fold((None, 0), |(mut last_rock, count), rock| {
                             if let Some(rock) = rock {
                                 if rock.can_roll() {
                                     rock.get_pos_mut()
@@ -70,25 +70,25 @@ impl Day14Runner {
                                 }
                                 last_rock.replace(rock.get_pos().get_y());
                             }
-                            Some(rock)
+                            (last_rock, count + 1)
                         })
-                        .count();
+                        .1;
                 });
             }
             Direction::West => {
                 (0..map.get_height()).for_each(|row| {
                     map.row_iter_mut(row)
                         .expect("Invalid row")
-                        .scan(None, |last_rock, rock| {
+                        .fold((None, 0), |(mut last_rock, count), rock| {
                             if let Some(rock) = rock {
                                 if rock.can_roll() {
                                     rock.get_pos_mut().set_x(last_rock.map_or(0, |x| x + 1));
                                 }
                                 last_rock.replace(rock.get_pos().get_x());
                             }
-                            Some(rock)
+                            (last_rock, count + 1)
                         })
-                        .count();
+                        .1;
                 });
             }
             Direction::East => {
@@ -97,7 +97,7 @@ impl Day14Runner {
                     map.row_iter_mut(row)
                         .expect("Invalid row")
                         .rev()
-                        .scan(None, |last_rock, rock| {
+                        .fold((None, 0), |(mut last_rock, count), rock| {
                             if let Some(rock) = rock {
                                 if rock.can_roll() {
                                     rock.get_pos_mut()
@@ -105,9 +105,9 @@ impl Day14Runner {
                                 }
                                 last_rock.replace(rock.get_pos().get_x());
                             }
-                            Some(rock)
+                            (last_rock, count + 1)
                         })
-                        .count();
+                        .1;
                 });
             }
         }
@@ -1715,6 +1715,7 @@ impl<'a> FusedIterator for RowIter<'a> {}
 /// assert_eq!(map.get(Position::new(0, 2))?, &Some(Rock::new(RockShape::Cube, 0, 2)));
 /// assert_eq!(map.get(Position::new(0, 3))?, &None);
 /// assert_eq!(map.get(Position::new(0, 4))?, &Some(Rock::new(RockShape::Round, 0, 4)));
+/// assert_eq!(map.get(Position::new(0, 5))?, &Some(Rock::new(RockShape::Round, 0, 5)));
 /// #
 /// # Result::<(), RockMapError>::Ok(())
 /// ```
@@ -1741,6 +1742,7 @@ impl<'a> FusedIterator for RowIter<'a> {}
 /// assert_eq!(map.get(Position::new(0, 2))?, &Some(Rock::new(RockShape::Cube, 0, 2)));
 /// assert_eq!(map.get(Position::new(0, 3))?, &None);
 /// assert_eq!(map.get(Position::new(0, 4))?, &Some(Rock::new(RockShape::Round, 0, 4)));
+/// assert_eq!(map.get(Position::new(0, 5))?, &Some(Rock::new(RockShape::Round, 0, 5)));
 /// #
 /// # Result::<(), RockMapError>::Ok(())
 /// ```
@@ -1791,6 +1793,48 @@ impl<'a> RowIterMut<'a> {
             index_back: 0,
         }
     }
+
+    /// Updates the rock at the given position.
+    fn update_idx(&mut self, idx: usize) {
+        let new_pos = if let Some(last_rock) = &self.map.rocks[idx] {
+            Some(last_rock.get_pos().clone())
+        } else {
+            None
+        };
+        if let Some(new_pos) = new_pos {
+            let new_idx = (new_pos.y * self.map.width + new_pos.x)
+                .try_into()
+                .expect("New index outside usize range");
+            if idx != new_idx {
+                if !self
+                    .map
+                    .get(new_pos)
+                    .expect("New rock position out of map range")
+                    .is_none()
+                {
+                    panic!("New rock position already occupied");
+                }
+                self.map.rocks.swap(idx, new_idx);
+            }
+        }
+    }
+
+    /// Updates the last returned rocks position, if it changed.
+    ///
+    /// This function tries to update the last rock returned by nth and nth_back.
+    fn update_last(&mut self) {
+        // Update last front index
+        if self.index_front > 0 {
+            let idx = self.offset_front + (self.index_front - 1) * self.distance;
+            self.update_idx(idx);
+        }
+        // Update last back index
+        if self.index_back > 0 {
+            let idx =
+                self.map.rocks.len() - 1 - self.offset_back - (self.index_back - 1) * self.distance;
+            self.update_idx(idx);
+        }
+    }
 }
 
 impl<'a> Iterator for RowIterMut<'a> {
@@ -1814,6 +1858,9 @@ impl<'a> Iterator for RowIterMut<'a> {
         {
             None
         } else {
+            if self.index_front > 0 {
+                self.update_last();
+            }
             let rock: *mut Option<Rock> =
                 &mut self.map.rocks[self.offset_front + (self.index_front + n) * self.distance];
             self.index_front += n + 1;
@@ -1834,6 +1881,9 @@ impl<'a> DoubleEndedIterator for RowIterMut<'a> {
         {
             None
         } else {
+            if self.index_back > 0 {
+                self.update_last();
+            }
             let idx =
                 self.map.rocks.len() - 1 - self.offset_back - (self.index_back + n) * self.distance;
             let rock: *mut Option<Rock> = &mut self.map.rocks[idx];
@@ -1852,31 +1902,8 @@ impl<'a> Drop for RowIterMut<'a> {
     fn drop(&mut self) {
         if panicking() {
             return;
-        }
-
-        let total_len =
-            (self.map.rocks.len() - self.offset_front - self.offset_back).div_ceil(self.distance);
-        // Elements between index_front and index_back weren't returned, so they can't have been modified.
-        for pos in (0..self.index_front).chain(((total_len - self.index_back)..total_len).rev()) {
-            let old_idx = self.offset_front + pos * self.distance;
-            if let Some(rock) = self.map.rocks[old_idx].as_ref() {
-                let new_idx: usize = (rock.get_pos().get_x()
-                    + rock.get_pos().get_y() * self.map.width)
-                    .try_into()
-                    .expect("New rock position out of bounds");
-                if new_idx != old_idx {
-                    if self
-                        .map
-                        .get(rock.get_pos())
-                        .expect("New rock position out of bounds")
-                        .is_none()
-                    {
-                        self.map.rocks.swap(old_idx, new_idx);
-                    } else {
-                        panic!("New rock position already occupied");
-                    }
-                }
-            }
+        } else {
+            self.update_last();
         }
     }
 }
