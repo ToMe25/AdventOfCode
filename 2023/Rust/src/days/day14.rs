@@ -5,15 +5,34 @@
 use std::borrow::Borrow;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
+use std::io::Write;
 use std::iter::FusedIterator;
 use std::num::NonZero;
 use std::ops::{Index, IndexMut};
 use std::slice::ChunksExact;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{LazyLock, RwLock};
 use std::thread::panicking;
-use std::{fs, mem};
+use std::time::{Duration, Instant};
+use std::{array, fs, io, mem};
 
 use super::super::get_input_file;
 use super::DayRunner;
+
+/// Whether or not to enable profiling code.
+/// I'm considering changing this to a start argument, thats why I'm not using cfg.
+const ENABLE_PROFILING: bool = false;
+
+/// The [ProfilingSegment::SIZE](`SIZE`) segment, manually converted size [`Into`] isn't const.
+const PROFILING_SEGMENTS_COUNT: usize = ProfilingSegment::SIZE as usize;
+
+/// The times at which each profiling segment was entered.
+static PROFILING_STARTS: LazyLock<[RwLock<Option<Instant>>; PROFILING_SEGMENTS_COUNT]> =
+    LazyLock::new(|| array::from_fn(|_| RwLock::new(None)));
+
+/// The time spent in each profiling segment in nanoseconds.
+static PROFILING_TIMES: LazyLock<[AtomicU64; PROFILING_SEGMENTS_COUNT]> =
+    LazyLock::new(|| array::from_fn(|_| AtomicU64::new(0)));
 
 /// The day 14 runner.
 ///
@@ -41,74 +60,112 @@ impl Day14Runner {
     pub fn tilt_platform(&self, map: &mut RockMap, direction: Direction) {
         match direction {
             Direction::North => {
+                profiling_start(ProfilingSegment::North);
                 (0..map.get_width()).for_each(|column| {
                     map.col_iter_mut(column)
                         .expect("Invalid column")
-                        .fold((None, 0), |(mut last_rock, count), rock| {
+                        .fold((None, 0), |(mut last_rock_y, count), rock| {
                             if let Some(rock) = rock {
                                 if rock.can_roll() {
-                                    rock.get_pos_mut().set_y(last_rock.map_or(0, |y| y + 1));
+                                    profiling_start(ProfilingSegment::RockPosUpdate);
+                                    let new_y = match last_rock_y {
+                                        Some(rock) => rock + 1,
+                                        None => 0,
+                                    };
+                                    if new_y != rock.get_pos().get_y() {
+                                        rock.get_pos_mut().set_y(new_y);
+                                    }
+                                    profiling_end(ProfilingSegment::RockPosUpdate);
                                 }
-                                last_rock.replace(rock.get_pos().get_y());
+                                last_rock_y.replace(rock.get_pos().get_y());
                             }
-                            (last_rock, count + 1)
+                            (last_rock_y, count + 1)
                         })
                         .1;
                 });
+                profiling_end(ProfilingSegment::North);
             }
             Direction::South => {
+                profiling_start(ProfilingSegment::South);
                 let map_height = map.get_height();
                 (0..map.get_width()).for_each(|column| {
                     map.col_iter_mut(column)
                         .expect("Invalid column")
                         .rev()
-                        .fold((None, 0), |(mut last_rock, count), rock| {
+                        .fold((None, 0), |(mut last_rock_y, count), rock| {
                             if let Some(rock) = rock {
                                 if rock.can_roll() {
-                                    rock.get_pos_mut()
-                                        .set_y(last_rock.map_or(map_height - 1, |y| y - 1));
+                                    profiling_start(ProfilingSegment::RockPosUpdate);
+                                    let new_y = match last_rock_y {
+                                        Some(rock) => rock - 1,
+                                        None => map_height - 1,
+                                    };
+                                    if new_y != rock.get_pos().get_y() {
+                                        rock.get_pos_mut().set_y(new_y);
+                                    }
+                                    profiling_end(ProfilingSegment::RockPosUpdate);
                                 }
-                                last_rock.replace(rock.get_pos().get_y());
+                                last_rock_y.replace(rock.get_pos().get_y());
                             }
-                            (last_rock, count + 1)
+                            (last_rock_y, count + 1)
                         })
                         .1;
                 });
+                profiling_end(ProfilingSegment::South);
             }
             Direction::West => {
+                profiling_start(ProfilingSegment::West);
                 (0..map.get_height()).for_each(|row| {
                     map.row_iter_mut(row)
                         .expect("Invalid row")
-                        .fold((None, 0), |(mut last_rock, count), rock| {
+                        .fold((None, 0), |(mut last_rock_x, count), rock| {
                             if let Some(rock) = rock {
                                 if rock.can_roll() {
-                                    rock.get_pos_mut().set_x(last_rock.map_or(0, |x| x + 1));
+                                    profiling_start(ProfilingSegment::RockPosUpdate);
+                                    let new_x = match last_rock_x {
+                                        Some(rock) => rock + 1,
+                                        None => 0,
+                                    };
+                                    if new_x != rock.get_pos().get_x() {
+                                        rock.get_pos_mut().set_x(new_x);
+                                    }
+                                    profiling_end(ProfilingSegment::RockPosUpdate);
                                 }
-                                last_rock.replace(rock.get_pos().get_x());
+                                last_rock_x.replace(rock.get_pos().get_x());
                             }
-                            (last_rock, count + 1)
+                            (last_rock_x, count + 1)
                         })
                         .1;
                 });
+                profiling_end(ProfilingSegment::West);
             }
             Direction::East => {
+                profiling_start(ProfilingSegment::East);
                 let map_width = map.get_width();
                 (0..map.get_height()).for_each(|row| {
                     map.row_iter_mut(row)
                         .expect("Invalid row")
                         .rev()
-                        .fold((None, 0), |(mut last_rock, count), rock| {
+                        .fold((None, 0), |(mut last_rock_x, count), rock| {
                             if let Some(rock) = rock {
                                 if rock.can_roll() {
-                                    rock.get_pos_mut()
-                                        .set_x(last_rock.map_or(map_width - 1, |x| x - 1));
+                                    profiling_start(ProfilingSegment::RockPosUpdate);
+                                    let new_x = match last_rock_x {
+                                        Some(rock) => rock - 1,
+                                        None => map_width - 1,
+                                    };
+                                    if new_x != rock.get_pos().get_x() {
+                                        rock.get_pos_mut().set_x(new_x);
+                                    }
+                                    profiling_end(ProfilingSegment::RockPosUpdate);
                                 }
-                                last_rock.replace(rock.get_pos().get_x());
+                                last_rock_x.replace(rock.get_pos().get_x());
                             }
-                            (last_rock, count + 1)
+                            (last_rock_x, count + 1)
                         })
                         .1;
                 });
+                profiling_end(ProfilingSegment::East);
             }
         }
     }
@@ -176,6 +233,7 @@ impl DayRunner for Day14Runner {
         }
 
         let load = self.calculate_load(&map, Direction::North);
+        profiling_print(&mut io::stdout());
         Ok(Some(load.to_string()))
     }
 }
@@ -1146,6 +1204,7 @@ impl RockMap {
     /// # Result::<(), RockMapError>::Ok(())
     /// ```
     pub fn insert_rock(&mut self, rock: Rock) -> Result<(), RockMapError> {
+        profiling_start(ProfilingSegment::RockMapUpdate);
         if rock.get_pos().get_x() >= self.width || rock.get_pos().get_y() >= self.height {
             self.grow(
                 self.width.max(rock.get_pos().get_x() + 1),
@@ -1157,6 +1216,7 @@ impl RockMap {
             rock.get_pos().get_x() + rock.get_pos().get_y() * self.width,
         )
         .expect("Size checked above");
+        profiling_end(ProfilingSegment::RockMapUpdate);
         if self.rocks[idx].is_some() {
             Err(RockMapError::PositionOccupied(rock.get_pos().clone()))
         } else {
@@ -1806,6 +1866,7 @@ impl<'a> RowIterMut<'a> {
                 .try_into()
                 .expect("New index outside usize range");
             if idx != new_idx {
+                profiling_start(ProfilingSegment::RockMapUpdate);
                 if !self
                     .map
                     .get(new_pos)
@@ -1815,6 +1876,7 @@ impl<'a> RowIterMut<'a> {
                     panic!("New rock position already occupied");
                 }
                 self.map.rocks.swap(idx, new_idx);
+                profiling_end(ProfilingSegment::RockMapUpdate);
             }
         }
     }
@@ -1905,5 +1967,151 @@ impl<'a> Drop for RowIterMut<'a> {
         } else {
             self.update_last();
         }
+    }
+}
+
+macro_rules! make_enum_usize {
+    {
+        $( #[$meta:meta] )*
+        $vis:vis enum $enum_name:ident {
+            $($(#[$var_meta:meta])*
+				$name:ident ,)*
+        }
+    } => {
+        $( #[$meta] )*
+        $vis enum $enum_name {
+            $($(#[$var_meta])*
+				$name ,)*
+        }
+		impl From<$enum_name> for usize {
+			fn from(value: $enum_name) -> Self {
+				value as usize
+			}
+        }
+
+		impl TryFrom<usize> for $enum_name {
+			type Error = &'static str;
+
+			fn try_from(value: usize) -> Result<Self, Self::Error> {
+				use $enum_name::*;
+				const ARR: &[$enum_name] = &[ $($name ,)* ];
+				if ARR.len() > value {
+					Ok(ARR[value])
+				} else {
+					Err("Enum value out of range")
+				}
+			}
+		}
+    }
+}
+
+make_enum_usize!(
+    /// The current segment of the code for profiling.
+    #[repr(usize)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum ProfilingSegment {
+        /// The handling of rolling stones towards the north.
+        North,
+        /// The handling of rolling stones towards the south.
+        South,
+        /// The handling of rolling stones towards the east.
+        West,
+        /// The handling of rolling stones towards the west.
+        East,
+        /// Updating the position in a rock.
+        RockPosUpdate,
+        /// Updating the rock map.
+        RockMapUpdate,
+        /// The number of profiling segments.
+        SIZE,
+    }
+);
+
+impl Display for ProfilingSegment {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self, f)
+    }
+}
+
+impl<T> Index<ProfilingSegment> for [T; PROFILING_SEGMENTS_COUNT] {
+    type Output = T;
+
+    fn index(&self, index: ProfilingSegment) -> &Self::Output {
+        &self[Into::<usize>::into(index)]
+    }
+}
+
+impl<T> IndexMut<ProfilingSegment> for [T; PROFILING_SEGMENTS_COUNT] {
+    fn index_mut(&mut self, index: ProfilingSegment) -> &mut Self::Output {
+        &mut self[Into::<usize>::into(index)]
+    }
+}
+
+/// Stores the time at which the program entered a profiling segment.
+///
+/// Also prints a warning if the segment was already marked as entered.
+fn profiling_start(segment: ProfilingSegment) {
+    if ENABLE_PROFILING {
+        let mut start = PROFILING_STARTS[segment]
+            .write()
+            .expect("Borrowing segment start failed");
+        if start.is_some() {
+            eprintln!("Start time for segment {} already exists. This likely means there is a 'profiling_end' call missing somewhere.", segment);
+        }
+        start.replace(Instant::now());
+    }
+}
+
+/// Stores the time spent in a profiling segment.
+///
+/// Prints a warning if the segment wasn't marked as entered.
+fn profiling_end(segment: ProfilingSegment) {
+    if ENABLE_PROFILING {
+        let mut start = PROFILING_STARTS[segment]
+            .write()
+            .expect("Borrowing segment start failed");
+        if let Some(start) = *start {
+            let time_ns = start.elapsed().as_nanos();
+            PROFILING_TIMES[segment].fetch_add(
+                time_ns
+                    .try_into()
+                    .expect("Failed to convert time spent to u64."),
+                Ordering::AcqRel,
+            );
+        } else {
+            eprintln!("Start time for segment {} doesn't exist. This likely means there is a 'profiling_start' call missing somewhere.", segment);
+        }
+        start.take();
+    }
+}
+
+/// Writes the profiling data to the given output stream.
+fn profiling_print(out: &mut impl Write) {
+    if ENABLE_PROFILING {
+        writeln!(out, "Profiling results:").expect("Writing failed.");
+        let segs: Vec<ProfilingSegment> = (0..ProfilingSegment::SIZE.into())
+            .map(|i| TryInto::<ProfilingSegment>::try_into(i).expect("Size guaranteed by range"))
+            .collect();
+        let max_len = segs
+            .iter()
+            .map(|s| s.to_string().len())
+            .max()
+            .expect("Max len required")
+            + 1;
+        segs.iter().for_each(|s| {
+            let seg_str = s.to_string();
+            write!(out, "{seg_str}").expect("Writing failed.");
+            (seg_str.len()..max_len).for_each(|_| {
+                write!(out, " ").expect("Writing failed.");
+            });
+            writeln!(
+                out,
+                "{}",
+                super::super::format_duration(&Duration::from_nanos(
+                    PROFILING_TIMES[*s].load(Ordering::Acquire)
+                ))
+            )
+            .expect("Writing failed.");
+        });
     }
 }
