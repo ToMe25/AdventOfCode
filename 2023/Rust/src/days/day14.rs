@@ -3,15 +3,15 @@
 //! This module contains my solution to the [Advent of Code](https://adventofcode.com/) [2023](https://adventofcode.com/2023/) [Day 14](https://adventofcode.com/2023/day/14).
 
 use std::borrow::Borrow;
+use std::cell::Cell;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::io::Write;
 use std::iter::FusedIterator;
 use std::num::NonZero;
 use std::ops::{Index, IndexMut};
-use std::slice::ChunksExact;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{LazyLock, RwLock};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::LazyLock;
 use std::thread::panicking;
 use std::time::{Duration, Instant};
 use std::{array, fs, io, mem};
@@ -26,13 +26,18 @@ const ENABLE_PROFILING: bool = false;
 /// The [ProfilingSegment::SIZE](`SIZE`) segment, manually converted size [`Into`] isn't const.
 const PROFILING_SEGMENTS_COUNT: usize = ProfilingSegment::SIZE as usize;
 
-/// The times at which each profiling segment was entered.
-static PROFILING_STARTS: LazyLock<[RwLock<Option<Instant>>; PROFILING_SEGMENTS_COUNT]> =
-    LazyLock::new(|| array::from_fn(|_| RwLock::new(None)));
+thread_local! {
+    /// The times at which each profiling segment was entered.
+    static PROFILING_STARTS: [Cell<Option<Instant>>; PROFILING_SEGMENTS_COUNT] = array::from_fn(|_| Cell::new(None));
+}
 
 /// The time spent in each profiling segment in nanoseconds.
 static PROFILING_TIMES: LazyLock<[AtomicU64; PROFILING_SEGMENTS_COUNT]> =
     LazyLock::new(|| array::from_fn(|_| AtomicU64::new(0)));
+
+/// The number of times each profiling segment was entered.
+static PROFILING_COUNTS: LazyLock<[AtomicUsize; PROFILING_SEGMENTS_COUNT]> =
+    LazyLock::new(|| array::from_fn(|_| AtomicUsize::new(0)));
 
 /// The day 14 runner.
 ///
@@ -1251,7 +1256,7 @@ impl RockMap {
     /// #
     /// # Result::<(), RockMapError>::Ok(())
     /// ```
-    pub fn iter(&self) -> ChunksExact<'_, Option<Rock>> {
+    pub fn iter(&self) -> impl Iterator<Item = &[Option<Rock>]> {
         self.rocks.chunks_exact(
             self.width
                 .try_into()
@@ -1527,14 +1532,15 @@ impl Display for RockMap {
     }
 }
 
-impl<'a> IntoIterator for &'a RockMap {
+// FIXME reimplement later
+/*impl<'a> IntoIterator for &'a RockMap {
     type Item = &'a [Option<Rock>];
-    type IntoIter = ChunksExact<'a, Option<Rock>>;
+    type IntoIter = impl Iterator<Item = &'a [Option<Rock>]>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
-}
+}*/
 
 /*impl<'a> IntoIterator for &'a mut RockMap {
     type Item = &'a mut [Option<Rock>];
@@ -1975,7 +1981,7 @@ macro_rules! make_enum_usize {
         $( #[$meta:meta] )*
         $vis:vis enum $enum_name:ident {
             $($(#[$var_meta:meta])*
-				$name:ident ,)*
+                $name:ident ,)*
         }
     } => {
         $( #[$meta] )*
@@ -1987,7 +1993,7 @@ macro_rules! make_enum_usize {
 			fn from(value: $enum_name) -> Self {
 				value as usize
 			}
-        }
+		}
 
 		impl TryFrom<usize> for $enum_name {
 			type Error = &'static str;
@@ -2052,13 +2058,11 @@ impl<T> IndexMut<ProfilingSegment> for [T; PROFILING_SEGMENTS_COUNT] {
 /// Also prints a warning if the segment was already marked as entered.
 fn profiling_start(segment: ProfilingSegment) {
     if ENABLE_PROFILING {
-        let mut start = PROFILING_STARTS[segment]
-            .write()
-            .expect("Borrowing segment start failed");
+        PROFILING_COUNTS[segment].fetch_add(1, Ordering::AcqRel);
+        let start = PROFILING_STARTS.with(|starts| starts[segment].replace(Some(Instant::now())));
         if start.is_some() {
             eprintln!("Start time for segment {} already exists. This likely means there is a 'profiling_end' call missing somewhere.", segment);
         }
-        start.replace(Instant::now());
     }
 }
 
@@ -2067,10 +2071,8 @@ fn profiling_start(segment: ProfilingSegment) {
 /// Prints a warning if the segment wasn't marked as entered.
 fn profiling_end(segment: ProfilingSegment) {
     if ENABLE_PROFILING {
-        let mut start = PROFILING_STARTS[segment]
-            .write()
-            .expect("Borrowing segment start failed");
-        if let Some(start) = *start {
+        let start = PROFILING_STARTS.with(|starts| starts[segment].take());
+        if let Some(start) = start {
             let time_ns = start.elapsed().as_nanos();
             PROFILING_TIMES[segment].fetch_add(
                 time_ns
@@ -2081,7 +2083,6 @@ fn profiling_end(segment: ProfilingSegment) {
         } else {
             eprintln!("Start time for segment {} doesn't exist. This likely means there is a 'profiling_start' call missing somewhere.", segment);
         }
-        start.take();
     }
 }
 
@@ -2092,26 +2093,56 @@ fn profiling_print(out: &mut impl Write) {
         let segs: Vec<ProfilingSegment> = (0..ProfilingSegment::SIZE.into())
             .map(|i| TryInto::<ProfilingSegment>::try_into(i).expect("Size guaranteed by range"))
             .collect();
-        let max_len = segs
+        let mut lines: Vec<String> = segs.iter().map(|seg| seg.to_string()).collect();
+        let mut max_len = lines
             .iter()
-            .map(|s| s.to_string().len())
+            .map(|s| s.len())
             .max()
             .expect("Max len required")
             + 1;
-        segs.iter().for_each(|s| {
-            let seg_str = s.to_string();
-            write!(out, "{seg_str}").expect("Writing failed.");
-            (seg_str.len()..max_len).for_each(|_| {
-                write!(out, " ").expect("Writing failed.");
-            });
-            writeln!(
-                out,
-                "{}",
-                super::super::format_duration(&Duration::from_nanos(
-                    PROFILING_TIMES[*s].load(Ordering::Acquire)
-                ))
-            )
-            .expect("Writing failed.");
-        });
+
+        let seg_times: Vec<u64> = segs
+            .iter()
+            .map(|s| PROFILING_TIMES[*s].load(Ordering::Acquire))
+            .collect();
+        lines = lines
+            .into_iter()
+            .zip(seg_times.iter())
+            .map(|(s, time)| {
+                let mut line = s;
+                (line.len()..max_len).for_each(|_| {
+                    line += " ";
+                });
+                line += &super::super::format_duration(&Duration::from_nanos(*time));
+                line
+            })
+            .collect();
+        max_len = lines
+            .iter()
+            .map(|s| s.len())
+            .max()
+            .expect("Max len required")
+            + 1;
+
+        let seg_counts: Vec<usize> = segs
+            .iter()
+            .map(|s| PROFILING_COUNTS[*s].load(Ordering::Acquire))
+            .collect();
+        lines = lines
+            .into_iter()
+            .zip(seg_counts.iter())
+            .map(|(s, count)| {
+                let mut line = s;
+                (line.len()..max_len).for_each(|_| {
+                    line += " ";
+                });
+                line += &count.to_string();
+                line += " times";
+                line
+            })
+            .collect();
+        lines
+            .iter()
+            .for_each(|line| writeln!(out, "{line}").expect("Writing failed"));
     }
 }
