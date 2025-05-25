@@ -12,7 +12,6 @@ use std::num::NonZero;
 use std::ops::{Index, IndexMut};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::LazyLock;
-use std::thread::panicking;
 use std::time::{Duration, Instant};
 use std::{array, fs, io, mem};
 
@@ -23,7 +22,7 @@ use super::DayRunner;
 /// I'm considering changing this to a start argument, thats why I'm not using cfg.
 const ENABLE_PROFILING: bool = false;
 
-/// The [ProfilingSegment::SIZE](`SIZE`) segment, manually converted size [`Into`] isn't const.
+/// The [ProfilingSegment::SIZE](`SIZE`) segment, manually converted because [`Into`] isn't const.
 const PROFILING_SEGMENTS_COUNT: usize = ProfilingSegment::SIZE as usize;
 
 thread_local! {
@@ -1629,14 +1628,11 @@ pub struct RowIter<'a> {
     map: &'a RockMap,
     /// The offset of the first item to return from the front of the rocks Vec.
     offset_front: usize,
-    /// The offset of the last item to return from the end of the rocks Vec.
-    offset_back: usize,
     /// The step size for getting the next element.
     distance: usize,
     /// The index of the next element `next` should return.
     index_front: usize,
     /// The index of the next element `next_back` should return.  
-    /// TODO invert to be the index of the next element to be returned, rather than the distance from the end.
     index_back: usize,
 }
 
@@ -1645,12 +1641,14 @@ impl<'a> RowIter<'a> {
         RowIter {
             map,
             offset_front: (row * map.width).try_into().expect("Guaranteed by the map"),
-            offset_back: ((map.height - row - 1) * map.width)
-                .try_into()
-                .expect("Guaranteed by the map"),
             distance: 1,
             index_front: 0,
-            index_back: 0,
+            index_back: map
+                .width
+                .checked_sub(1)
+                .expect("Zero width map")
+                .try_into()
+                .expect("Guaranteed by the map"),
         }
     }
 
@@ -1658,12 +1656,14 @@ impl<'a> RowIter<'a> {
         RowIter {
             map,
             offset_front: column.try_into().expect("Guaranteed by the map"),
-            offset_back: (map.width - column - 1)
-                .try_into()
-                .expect("Guaranteed by the map"),
             distance: map.width.try_into().expect("Guaranteed by the map"),
             index_front: 0,
-            index_back: 0,
+            index_back: map
+                .height
+                .checked_sub(1)
+                .expect("Zero height map")
+                .try_into()
+                .expect("Guaranteed by the map"),
         }
     }
 }
@@ -1676,17 +1676,12 @@ impl<'a> Iterator for RowIter<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = (self.map.rocks.len() - self.offset_back - self.offset_front)
-            .div_ceil(self.distance)
-            - self.index_front
-            - self.index_back;
+        let len = self.index_back + 1 - self.index_front;
         (len, Some(len))
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        if (self.index_front + self.index_back + n) * self.distance
-            >= self.map.rocks.len() - self.offset_back - self.offset_front
-        {
+        if self.index_front + n > self.index_back {
             None
         } else {
             let result =
@@ -1703,18 +1698,18 @@ impl<'a> DoubleEndedIterator for RowIter<'a> {
     }
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
-        if (self.index_front + self.index_back + n) * self.distance
-            >= self.map.rocks.len() - self.offset_back - self.offset_front
-        {
+        if n > self.index_back || self.index_back - n < self.index_front {
             None
         } else {
-            let result = Some(
-                &self.map.rocks[self.map.rocks.len()
-                    - 1
-                    - self.offset_back
-                    - (self.index_back + n) * self.distance],
-            );
-            self.index_back += n + 1;
+            let result =
+                Some(&self.map.rocks[self.offset_front + (self.index_back - n) * self.distance]);
+            // Handle returning the first element.
+            if let Some(result) = self.index_back.checked_sub(n + 1) {
+                self.index_back = result;
+            } else {
+                self.index_back = 0;
+                self.index_front += 1;
+            }
             result
         }
     }
@@ -1819,44 +1814,47 @@ pub struct RowIterMut<'a> {
     map: &'a mut RockMap,
     /// The offset of the first item to return from the front of the rocks Vec.
     offset_front: usize,
-    /// The offset of the last item to return from the end of the rocks Vec.
-    offset_back: usize,
     /// The step size for getting the next element.
     distance: usize,
     /// The index of the next element `next` should return.
     index_front: usize,
     /// The index of the next element `next_back` should return.  
-    /// TODO invert to be the index of the next element to be returned, rather than the distance from the end.
     index_back: usize,
+    /// The index of the last returned element.
+    last_idx: Option<usize>,
 }
 
 impl<'a> RowIterMut<'a> {
     fn new_row(map: &'a mut RockMap, row: u32) -> RowIterMut<'a> {
         let map_width = map.width;
-        let map_height = map.height;
         RowIterMut {
             map,
             offset_front: (row * map_width).try_into().expect("Guaranteed by the map"),
-            offset_back: ((map_height - row - 1) * map_width)
-                .try_into()
-                .expect("Guaranteed by the map"),
             distance: 1,
             index_front: 0,
-            index_back: 0,
+            index_back: map_width
+                .checked_sub(1)
+                .expect("Zero width map")
+                .try_into()
+                .expect("Guaranteed by the map"),
+            last_idx: None,
         }
     }
 
     fn new_col(map: &'a mut RockMap, column: u32) -> RowIterMut<'a> {
         let map_width = map.width;
+        let map_height = map.height;
         RowIterMut {
             map,
             offset_front: column.try_into().expect("Guaranteed by the map"),
-            offset_back: (map_width - column - 1)
-                .try_into()
-                .expect("Guaranteed by the map"),
             distance: map_width.try_into().expect("Guaranteed by the map"),
             index_front: 0,
-            index_back: 0,
+            index_back: map_height
+                .checked_sub(1)
+                .expect("Zero height map")
+                .try_into()
+                .expect("Guaranteed by the map"),
+            last_idx: None,
         }
     }
 
@@ -1891,16 +1889,8 @@ impl<'a> RowIterMut<'a> {
     ///
     /// This function tries to update the last rock returned by nth and nth_back.
     fn update_last(&mut self) {
-        // Update last front index
-        if self.index_front > 0 {
-            let idx = self.offset_front + (self.index_front - 1) * self.distance;
-            self.update_idx(idx);
-        }
-        // Update last back index
-        if self.index_back > 0 {
-            let idx =
-                self.map.rocks.len() - 1 - self.offset_back - (self.index_back - 1) * self.distance;
-            self.update_idx(idx);
+        if let Some(last) = self.last_idx {
+            self.update_idx(last);
         }
     }
 }
@@ -1913,24 +1903,18 @@ impl<'a> Iterator for RowIterMut<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = (self.map.rocks.len() - self.offset_back - self.offset_front)
-            .div_ceil(self.distance)
-            - self.index_front
-            - self.index_back;
+        let len = self.index_back + 1 - self.index_front;
         (len, Some(len))
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        if (self.index_front + self.index_back + n) * self.distance
-            >= self.map.rocks.len() - self.offset_back - self.offset_front
-        {
+        if self.index_front + n > self.index_back {
             None
         } else {
-            if self.index_front > 0 {
-                self.update_last();
-            }
-            let rock: *mut Option<Rock> =
-                &mut self.map.rocks[self.offset_front + (self.index_front + n) * self.distance];
+            self.update_last();
+            let idx = self.offset_front + (self.index_front + n) * self.distance;
+            self.last_idx.replace(idx);
+            let rock: *mut Option<Rock> = &mut self.map.rocks[idx];
             self.index_front += n + 1;
             // SAFETY: Nothing else can point to the same Rock.
             unsafe { Some(&mut *rock) }
@@ -1944,18 +1928,20 @@ impl<'a> DoubleEndedIterator for RowIterMut<'a> {
     }
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
-        if (self.index_front + self.index_back + n) * self.distance
-            >= self.map.rocks.len() - self.offset_back - self.offset_front
-        {
+        if n > self.index_back || self.index_back - n < self.index_front {
             None
         } else {
-            if self.index_back > 0 {
-                self.update_last();
-            }
-            let idx =
-                self.map.rocks.len() - 1 - self.offset_back - (self.index_back + n) * self.distance;
+            self.update_last();
+            let idx = self.offset_front + (self.index_back - n) * self.distance;
+            self.last_idx.replace(idx);
             let rock: *mut Option<Rock> = &mut self.map.rocks[idx];
-            self.index_back += n + 1;
+            // Handle returning the first element.
+            if let Some(result) = self.index_back.checked_sub(n + 1) {
+                self.index_back = result;
+            } else {
+                self.index_back = 0;
+                self.index_front += 1;
+            }
             // SAFETY: Nothing else can point to the same Rock.
             unsafe { Some(&mut *rock) }
         }
@@ -1968,11 +1954,7 @@ impl<'a> FusedIterator for RowIterMut<'a> {}
 
 impl<'a> Drop for RowIterMut<'a> {
     fn drop(&mut self) {
-        if panicking() {
-            return;
-        } else {
-            self.update_last();
-        }
+        self.update_last();
     }
 }
 
