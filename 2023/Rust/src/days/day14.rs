@@ -3,17 +3,14 @@
 //! This module contains my solution to the [Advent of Code](https://adventofcode.com/) [2023](https://adventofcode.com/2023/) [Day 14](https://adventofcode.com/2023/day/14).
 
 use std::borrow::Borrow;
-use std::cell::Cell;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
-use std::io::Write;
 use std::iter::FusedIterator;
 use std::num::NonZero;
 use std::ops::{Index, IndexMut};
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::LazyLock;
-use std::time::{Duration, Instant};
-use std::{array, fs, io, mem};
+use std::{fs, io, mem};
+
+use profiling::ProfilingSegment;
 
 use super::super::get_input_file;
 use super::DayRunner;
@@ -21,22 +18,6 @@ use super::DayRunner;
 /// Whether or not to enable profiling code.
 /// I'm considering changing this to a start argument, thats why I'm not using cfg.
 const ENABLE_PROFILING: bool = false;
-
-/// The [ProfilingSegment::SIZE](`SIZE`) segment, manually converted because [`Into`] isn't const.
-const PROFILING_SEGMENTS_COUNT: usize = ProfilingSegment::SIZE as usize;
-
-thread_local! {
-    /// The times at which each profiling segment was entered.
-    static PROFILING_STARTS: [Cell<Option<Instant>>; PROFILING_SEGMENTS_COUNT] = array::from_fn(|_| Cell::new(None));
-}
-
-/// The time spent in each profiling segment in nanoseconds.
-static PROFILING_TIMES: LazyLock<[AtomicU64; PROFILING_SEGMENTS_COUNT]> =
-    LazyLock::new(|| array::from_fn(|_| AtomicU64::new(0)));
-
-/// The number of times each profiling segment was entered.
-static PROFILING_COUNTS: LazyLock<[AtomicUsize; PROFILING_SEGMENTS_COUNT]> =
-    LazyLock::new(|| array::from_fn(|_| AtomicUsize::new(0)));
 
 /// The day 14 runner.
 ///
@@ -64,14 +45,14 @@ impl Day14Runner {
     pub fn tilt_platform(&self, map: &mut RockMap, direction: Direction) {
         match direction {
             Direction::North => {
-                profiling_start(ProfilingSegment::North);
+                profiling::profiling_start(ProfilingSegment::North);
                 (0..map.get_width()).for_each(|column| {
-                    map.col_iter_mut(column)
-                        .expect("Invalid column")
-                        .fold((None, 0), |(mut last_rock_y, count), rock| {
+                    map.col_iter_mut(column).expect("Invalid column").fold(
+                        None,
+                        |mut last_rock_y, rock| {
                             if let Some(rock) = rock {
                                 if rock.can_roll() {
-                                    profiling_start(ProfilingSegment::RockPosUpdate);
+                                    profiling::profiling_start(ProfilingSegment::RockPosUpdate);
                                     let new_y = match last_rock_y {
                                         Some(rock) => rock + 1,
                                         None => 0,
@@ -79,27 +60,27 @@ impl Day14Runner {
                                     if new_y != rock.get_pos().get_y() {
                                         rock.get_pos_mut().set_y(new_y);
                                     }
-                                    profiling_end(ProfilingSegment::RockPosUpdate);
+                                    profiling::profiling_end(ProfilingSegment::RockPosUpdate);
                                 }
                                 last_rock_y.replace(rock.get_pos().get_y());
                             }
-                            (last_rock_y, count + 1)
-                        })
-                        .1;
+                            last_rock_y
+                        },
+                    );
                 });
-                profiling_end(ProfilingSegment::North);
+                profiling::profiling_end(ProfilingSegment::North);
             }
             Direction::South => {
-                profiling_start(ProfilingSegment::South);
+                profiling::profiling_start(ProfilingSegment::South);
                 let map_height = map.get_height();
                 (0..map.get_width()).for_each(|column| {
                     map.col_iter_mut(column)
                         .expect("Invalid column")
                         .rev()
-                        .fold((None, 0), |(mut last_rock_y, count), rock| {
+                        .fold(None, |mut last_rock_y, rock| {
                             if let Some(rock) = rock {
                                 if rock.can_roll() {
-                                    profiling_start(ProfilingSegment::RockPosUpdate);
+                                    profiling::profiling_start(ProfilingSegment::RockPosUpdate);
                                     let new_y = match last_rock_y {
                                         Some(rock) => rock - 1,
                                         None => map_height - 1,
@@ -107,25 +88,24 @@ impl Day14Runner {
                                     if new_y != rock.get_pos().get_y() {
                                         rock.get_pos_mut().set_y(new_y);
                                     }
-                                    profiling_end(ProfilingSegment::RockPosUpdate);
+                                    profiling::profiling_end(ProfilingSegment::RockPosUpdate);
                                 }
                                 last_rock_y.replace(rock.get_pos().get_y());
                             }
-                            (last_rock_y, count + 1)
-                        })
-                        .1;
+                            last_rock_y
+                        });
                 });
-                profiling_end(ProfilingSegment::South);
+                profiling::profiling_end(ProfilingSegment::South);
             }
             Direction::West => {
-                profiling_start(ProfilingSegment::West);
+                profiling::profiling_start(ProfilingSegment::West);
                 (0..map.get_height()).for_each(|row| {
-                    map.row_iter_mut(row)
-                        .expect("Invalid row")
-                        .fold((None, 0), |(mut last_rock_x, count), rock| {
+                    map.row_iter_mut(row).expect("Invalid row").fold(
+                        None,
+                        |mut last_rock_x, rock| {
                             if let Some(rock) = rock {
                                 if rock.can_roll() {
-                                    profiling_start(ProfilingSegment::RockPosUpdate);
+                                    profiling::profiling_start(ProfilingSegment::RockPosUpdate);
                                     let new_x = match last_rock_x {
                                         Some(rock) => rock + 1,
                                         None => 0,
@@ -133,27 +113,26 @@ impl Day14Runner {
                                     if new_x != rock.get_pos().get_x() {
                                         rock.get_pos_mut().set_x(new_x);
                                     }
-                                    profiling_end(ProfilingSegment::RockPosUpdate);
+                                    profiling::profiling_end(ProfilingSegment::RockPosUpdate);
                                 }
                                 last_rock_x.replace(rock.get_pos().get_x());
                             }
-                            (last_rock_x, count + 1)
-                        })
-                        .1;
+                            last_rock_x
+                        },
+                    );
                 });
-                profiling_end(ProfilingSegment::West);
+                profiling::profiling_end(ProfilingSegment::West);
             }
             Direction::East => {
-                profiling_start(ProfilingSegment::East);
+                profiling::profiling_start(ProfilingSegment::East);
                 let map_width = map.get_width();
                 (0..map.get_height()).for_each(|row| {
-                    map.row_iter_mut(row)
-                        .expect("Invalid row")
-                        .rev()
-                        .fold((None, 0), |(mut last_rock_x, count), rock| {
+                    map.row_iter_mut(row).expect("Invalid row").rev().fold(
+                        None,
+                        |mut last_rock_x, rock| {
                             if let Some(rock) = rock {
                                 if rock.can_roll() {
-                                    profiling_start(ProfilingSegment::RockPosUpdate);
+                                    profiling::profiling_start(ProfilingSegment::RockPosUpdate);
                                     let new_x = match last_rock_x {
                                         Some(rock) => rock - 1,
                                         None => map_width - 1,
@@ -161,15 +140,15 @@ impl Day14Runner {
                                     if new_x != rock.get_pos().get_x() {
                                         rock.get_pos_mut().set_x(new_x);
                                     }
-                                    profiling_end(ProfilingSegment::RockPosUpdate);
+                                    profiling::profiling_end(ProfilingSegment::RockPosUpdate);
                                 }
                                 last_rock_x.replace(rock.get_pos().get_x());
                             }
-                            (last_rock_x, count + 1)
-                        })
-                        .1;
+                            last_rock_x
+                        },
+                    );
                 });
-                profiling_end(ProfilingSegment::East);
+                profiling::profiling_end(ProfilingSegment::East);
             }
         }
     }
@@ -237,7 +216,7 @@ impl DayRunner for Day14Runner {
         }
 
         let load = self.calculate_load(&map, Direction::North);
-        profiling_print(&mut io::stdout());
+        profiling::profiling_print(&mut io::stdout());
         Ok(Some(load.to_string()))
     }
 }
@@ -1208,7 +1187,7 @@ impl RockMap {
     /// # Result::<(), RockMapError>::Ok(())
     /// ```
     pub fn insert_rock(&mut self, rock: Rock) -> Result<(), RockMapError> {
-        profiling_start(ProfilingSegment::RockMapUpdate);
+        profiling::profiling_start(ProfilingSegment::RockMapUpdate);
         if rock.get_pos().get_x() >= self.width || rock.get_pos().get_y() >= self.height {
             self.grow(
                 self.width.max(rock.get_pos().get_x() + 1),
@@ -1220,7 +1199,7 @@ impl RockMap {
             rock.get_pos().get_x() + rock.get_pos().get_y() * self.width,
         )
         .expect("Size checked above");
-        profiling_end(ProfilingSegment::RockMapUpdate);
+        profiling::profiling_end(ProfilingSegment::RockMapUpdate);
         if self.rocks[idx].is_some() {
             Err(RockMapError::PositionOccupied(rock.get_pos().clone()))
         } else {
@@ -1870,7 +1849,7 @@ impl<'a> RowIterMut<'a> {
                 .try_into()
                 .expect("New index outside usize range");
             if idx != new_idx {
-                profiling_start(ProfilingSegment::RockMapUpdate);
+                profiling::profiling_start(ProfilingSegment::RockMapUpdate);
                 if !self
                     .map
                     .get(new_pos)
@@ -1880,7 +1859,7 @@ impl<'a> RowIterMut<'a> {
                     panic!("New rock position already occupied");
                 }
                 self.map.rocks.swap(idx, new_idx);
-                profiling_end(ProfilingSegment::RockMapUpdate);
+                profiling::profiling_end(ProfilingSegment::RockMapUpdate);
             }
         }
     }
@@ -1958,7 +1937,36 @@ impl<'a> Drop for RowIterMut<'a> {
     }
 }
 
-macro_rules! make_enum_usize {
+mod profiling {
+    //! A submodule containing the code related the the profiling of the day 14 solution.
+    //!
+    //! Call [`profiling_init`] to initialize the profiler before using.  
+    //! Then use [`profiling_start`] to inform the profiler that a profiling segment was entered, and [`profiling_end`] to inform it of leaving that segment.  
+    //! The same segment cannot be entered again while a thread is already inside it, but other segments can be entered.
+    //!
+    //! Use [`profiling_print`] to print the current profiling data.
+
+    use std::array;
+    use std::cell::Cell;
+    use std::fmt::{Debug, Display, Formatter};
+    use std::io::Write;
+    use std::ops::{Index, IndexMut};
+    use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+    use std::sync::LazyLock;
+    use std::time::{Duration, Instant};
+
+    /// The [ProfilingSegment::SIZE](`SIZE`) segment, manually converted because [`Into`] isn't const.
+    const PROFILING_SEGMENTS_COUNT: usize = ProfilingSegment::SIZE as usize;
+
+    thread_local! {
+        /// The times at which each profiling segment was entered.
+        static PROFILING_STARTS: [Cell<Option<Instant>>; PROFILING_SEGMENTS_COUNT] = array::from_fn(|_| Cell::new(None));
+    }
+
+    /// The current profiling data(time spent and times entered per segment).
+    static PROFILING_DATA: LazyLock<ProfilingData> = LazyLock::new(|| ProfilingData::new());
+
+    macro_rules! make_enum_usize {
     {
         $( #[$meta:meta] )*
         $vis:vis enum $enum_name:ident {
@@ -1993,138 +2001,185 @@ macro_rules! make_enum_usize {
     }
 }
 
-make_enum_usize!(
-    /// The current segment of the code for profiling.
-    #[repr(usize)]
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    enum ProfilingSegment {
-        /// The handling of rolling stones towards the north.
-        North,
-        /// The handling of rolling stones towards the south.
-        South,
-        /// The handling of rolling stones towards the east.
-        West,
-        /// The handling of rolling stones towards the west.
-        East,
-        /// Updating the position in a rock.
-        RockPosUpdate,
-        /// Updating the rock map.
-        RockMapUpdate,
-        /// The number of profiling segments.
-        SIZE,
-    }
-);
+    make_enum_usize!(
+        /// The current segment of the code for profiling.
+        #[repr(usize)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        pub(super) enum ProfilingSegment {
+            /// The handling of rolling stones towards the north.
+            North,
+            /// The handling of rolling stones towards the south.
+            South,
+            /// The handling of rolling stones towards the east.
+            West,
+            /// The handling of rolling stones towards the west.
+            East,
+            /// Updating the position in a rock.
+            RockPosUpdate,
+            /// Updating the rock map.
+            RockMapUpdate,
+            /// The number of profiling segments.
+            SIZE,
+        }
+    );
 
-impl Display for ProfilingSegment {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&self, f)
-    }
-}
-
-impl<T> Index<ProfilingSegment> for [T; PROFILING_SEGMENTS_COUNT] {
-    type Output = T;
-
-    fn index(&self, index: ProfilingSegment) -> &Self::Output {
-        &self[Into::<usize>::into(index)]
-    }
-}
-
-impl<T> IndexMut<ProfilingSegment> for [T; PROFILING_SEGMENTS_COUNT] {
-    fn index_mut(&mut self, index: ProfilingSegment) -> &mut Self::Output {
-        &mut self[Into::<usize>::into(index)]
-    }
-}
-
-/// Stores the time at which the program entered a profiling segment.
-///
-/// Also prints a warning if the segment was already marked as entered.
-fn profiling_start(segment: ProfilingSegment) {
-    if ENABLE_PROFILING {
-        PROFILING_COUNTS[segment].fetch_add(1, Ordering::AcqRel);
-        let start = PROFILING_STARTS.with(|starts| starts[segment].replace(Some(Instant::now())));
-        if start.is_some() {
-            eprintln!("Start time for segment {} already exists. This likely means there is a 'profiling_end' call missing somewhere.", segment);
+    impl Display for ProfilingSegment {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            Debug::fmt(&self, f)
         }
     }
-}
 
-/// Stores the time spent in a profiling segment.
-///
-/// Prints a warning if the segment wasn't marked as entered.
-fn profiling_end(segment: ProfilingSegment) {
-    if ENABLE_PROFILING {
-        let start = PROFILING_STARTS.with(|starts| starts[segment].take());
-        if let Some(start) = start {
-            let time_ns = start.elapsed().as_nanos();
-            PROFILING_TIMES[segment].fetch_add(
-                time_ns
-                    .try_into()
-                    .expect("Failed to convert time spent to u64."),
-                Ordering::AcqRel,
-            );
-        } else {
-            eprintln!("Start time for segment {} doesn't exist. This likely means there is a 'profiling_start' call missing somewhere.", segment);
+    impl<T> Index<ProfilingSegment> for [T; PROFILING_SEGMENTS_COUNT] {
+        type Output = T;
+
+        fn index(&self, index: ProfilingSegment) -> &Self::Output {
+            &self[Into::<usize>::into(index)]
         }
     }
-}
 
-/// Writes the profiling data to the given output stream.
-fn profiling_print(out: &mut impl Write) {
-    if ENABLE_PROFILING {
-        writeln!(out, "Profiling results:").expect("Writing failed.");
-        let segs: Vec<ProfilingSegment> = (0..ProfilingSegment::SIZE.into())
-            .map(|i| TryInto::<ProfilingSegment>::try_into(i).expect("Size guaranteed by range"))
-            .collect();
-        let mut lines: Vec<String> = segs.iter().map(|seg| seg.to_string()).collect();
-        let mut max_len = lines
-            .iter()
-            .map(|s| s.len())
-            .max()
-            .expect("Max len required")
-            + 1;
+    impl<T> IndexMut<ProfilingSegment> for [T; PROFILING_SEGMENTS_COUNT] {
+        fn index_mut(&mut self, index: ProfilingSegment) -> &mut Self::Output {
+            &mut self[Into::<usize>::into(index)]
+        }
+    }
 
-        let seg_times: Vec<u64> = segs
-            .iter()
-            .map(|s| PROFILING_TIMES[*s].load(Ordering::Acquire))
-            .collect();
-        lines = lines
-            .into_iter()
-            .zip(seg_times.iter())
-            .map(|(s, time)| {
-                let mut line = s;
-                (line.len()..max_len).for_each(|_| {
-                    line += " ";
-                });
-                line += &super::super::format_duration(&Duration::from_nanos(*time));
-                line
-            })
-            .collect();
-        max_len = lines
-            .iter()
-            .map(|s| s.len())
-            .max()
-            .expect("Max len required")
-            + 1;
+    /// A struct storing the actual internal profiling data.
+    #[derive(Debug)]
+    struct ProfilingData {
+        times: [AtomicU64; PROFILING_SEGMENTS_COUNT],
+        counts: [AtomicUsize; PROFILING_SEGMENTS_COUNT],
+    }
 
-        let seg_counts: Vec<usize> = segs
-            .iter()
-            .map(|s| PROFILING_COUNTS[*s].load(Ordering::Acquire))
-            .collect();
-        lines = lines
-            .into_iter()
-            .zip(seg_counts.iter())
-            .map(|(s, count)| {
-                let mut line = s;
-                (line.len()..max_len).for_each(|_| {
-                    line += " ";
-                });
-                line += &count.to_string();
-                line += " times";
-                line
-            })
-            .collect();
-        lines
-            .iter()
-            .for_each(|line| writeln!(out, "{line}").expect("Writing failed"));
+    impl ProfilingData {
+        /// Creates a new instance filled with zeroes.
+        pub fn new() -> ProfilingData {
+            ProfilingData {
+                times: array::from_fn(|_| AtomicU64::new(0)),
+                counts: array::from_fn(|_| AtomicUsize::new(0)),
+            }
+        }
+
+        /// Gets the current counter value for a given [`segment`](ProfilingSegment).
+        pub fn count(&self, segment: ProfilingSegment) -> usize {
+            self.counts[segment].load(Ordering::Acquire)
+        }
+
+        /// Increases the count for a given [`segment`](ProfilingSegment).
+        pub fn count_inc(&self, segment: ProfilingSegment) {
+            self.counts[segment].fetch_add(1, Ordering::AcqRel);
+        }
+
+        /// Gets the time spent in a given [`segment`](ProfilingSegment) in ns.
+        pub fn time(&self, segment: ProfilingSegment) -> u64 {
+            self.times[segment].load(Ordering::Acquire)
+        }
+
+        /// Increases the time spent in a given [`segment`](ProfilingSegment) by a given amount in ns.
+        pub fn time_add(&self, segment: ProfilingSegment, time: u64) {
+            self.times[segment].fetch_add(time, Ordering::AcqRel);
+        }
+    }
+
+    impl Clone for ProfilingData {
+        fn clone(&self) -> Self {
+            ProfilingData {
+                times: array::from_fn(|i| AtomicU64::new(self.times[i].load(Ordering::Acquire))),
+                counts: array::from_fn(|i| {
+                    AtomicUsize::new(self.counts[i].load(Ordering::Acquire))
+                }),
+            }
+        }
+    }
+
+    /// Stores the time at which the program entered a profiling segment.
+    ///
+    /// Also prints a warning if the segment was already marked as entered.
+    pub(super) fn profiling_start(segment: ProfilingSegment) {
+        if super::ENABLE_PROFILING {
+            PROFILING_DATA.count_inc(segment);
+            let start =
+                PROFILING_STARTS.with(|starts| starts[segment].replace(Some(Instant::now())));
+            if start.is_some() {
+                eprintln!("Start time for segment {} already exists. This likely means there is a 'profiling_end' call missing somewhere.", segment);
+            }
+        }
+    }
+
+    /// Stores the time spent in a profiling segment.
+    ///
+    /// Prints a warning if the segment wasn't marked as entered.
+    pub(super) fn profiling_end(segment: ProfilingSegment) {
+        if super::ENABLE_PROFILING {
+            let start = PROFILING_STARTS.with(|starts| starts[segment].take());
+            if let Some(start) = start {
+                let time_ns = start.elapsed().as_nanos();
+                PROFILING_DATA.time_add(
+                    segment,
+                    time_ns
+                        .try_into()
+                        .expect("Failed to convert time spent to u64."),
+                );
+            } else {
+                eprintln!("Start time for segment {} doesn't exist. This likely means there is a 'profiling_start' call missing somewhere.", segment);
+            }
+        }
+    }
+
+    /// Writes the profiling data to the given output stream.
+    pub(super) fn profiling_print(out: &mut impl Write) {
+        if super::ENABLE_PROFILING {
+            let data_snapshot = PROFILING_DATA.clone();
+            writeln!(out, "Profiling results:").expect("Writing failed.");
+            let segs: Vec<ProfilingSegment> = (0..ProfilingSegment::SIZE.into())
+                .map(|i| {
+                    TryInto::<ProfilingSegment>::try_into(i).expect("Size guaranteed by range")
+                })
+                .collect();
+            let mut lines: Vec<String> = segs.iter().map(|seg| seg.to_string()).collect();
+            let mut max_len = lines
+                .iter()
+                .map(|s| s.len())
+                .max()
+                .expect("Max len required")
+                + 1;
+
+            let seg_times: Vec<u64> = segs.iter().map(|&s| data_snapshot.time(s)).collect();
+            lines = lines
+                .into_iter()
+                .zip(seg_times.iter())
+                .map(|(s, time)| {
+                    let mut line = s;
+                    (line.len()..max_len).for_each(|_| {
+                        line += " ";
+                    });
+                    line += &crate::format_duration(&Duration::from_nanos(*time));
+                    line
+                })
+                .collect();
+            max_len = lines
+                .iter()
+                .map(|s| s.len())
+                .max()
+                .expect("Max len required")
+                + 1;
+
+            let seg_counts: Vec<usize> = segs.iter().map(|&s| data_snapshot.count(s)).collect();
+            lines = lines
+                .into_iter()
+                .zip(seg_counts.iter())
+                .map(|(s, count)| {
+                    let mut line = s;
+                    (line.len()..max_len).for_each(|_| {
+                        line += " ";
+                    });
+                    line += &count.to_string();
+                    line += " times";
+                    line
+                })
+                .collect();
+            lines
+                .iter()
+                .for_each(|line| writeln!(out, "{line}").expect("Writing failed"));
+        }
     }
 }
