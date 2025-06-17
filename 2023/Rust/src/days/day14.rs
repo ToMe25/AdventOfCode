@@ -172,6 +172,8 @@ impl Day14Runner {
 
 impl DayRunner for Day14Runner {
     fn init(&mut self) -> Result<(), Box<dyn Error>> {
+        profiling::profiling_init();
+
         let input_data = fs::read_to_string(get_input_file(14)?)?;
         self.map = input_data
             .lines()
@@ -199,6 +201,7 @@ impl DayRunner for Day14Runner {
         let mut map = self.map.clone();
         self.tilt_platform(&mut map, Direction::North);
         let load = self.calculate_load(&map, Direction::North);
+        profiling::profiling_print(&mut io::stdout());
         Ok(Some(load.to_string()))
     }
 
@@ -217,6 +220,7 @@ impl DayRunner for Day14Runner {
 
         let load = self.calculate_load(&map, Direction::North);
         profiling::profiling_print(&mut io::stdout());
+		profiling::profiling_shutdown();
         Ok(Some(load.to_string()))
     }
 }
@@ -1946,25 +1950,24 @@ mod profiling {
     //!
     //! Use [`profiling_print`] to print the current profiling data.
 
-    use std::array;
-    use std::cell::Cell;
     use std::fmt::{Debug, Display, Formatter};
     use std::io::Write;
     use std::ops::{Index, IndexMut};
     use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-    use std::sync::LazyLock;
+    use std::sync::mpsc::{Receiver, Sender};
+    use std::sync::{mpsc, Mutex, OnceLock};
+    use std::thread::Thread;
     use std::time::{Duration, Instant};
+    use std::{array, thread};
 
     /// The [ProfilingSegment::SIZE](`SIZE`) segment, manually converted because [`Into`] isn't const.
     const PROFILING_SEGMENTS_COUNT: usize = ProfilingSegment::SIZE as usize;
 
-    thread_local! {
-        /// The times at which each profiling segment was entered.
-        static PROFILING_STARTS: [Cell<Option<Instant>>; PROFILING_SEGMENTS_COUNT] = array::from_fn(|_| Cell::new(None));
-    }
-
     /// The current profiling data(time spent and times entered per segment).
-    static PROFILING_DATA: LazyLock<ProfilingData> = LazyLock::new(|| ProfilingData::new());
+    static PROFILING_DATA: Mutex<Option<ProfilingData>> = Mutex::new(None);
+
+	/// The sender for the profiling event channel.
+	static EVENT_CHANNEL_SENDER: OnceLock<Sender<ProfilingEventMessage>> = OnceLock::new();
 
     macro_rules! make_enum_usize {
     {
@@ -2091,17 +2094,34 @@ mod profiling {
         }
     }
 
+    /// Initializes everything required for this profiler to work.
+    ///
+    /// See also: [`profiling_start`] and [`profiling_end`]
+    pub(super) fn profiling_init() {
+        if super::ENABLE_PROFILING {
+            let (sender, receiver) = mpsc::channel::<ProfilingEventMessage>();
+            EVENT_CHANNEL_SENDER
+				.set(sender.clone()).expect("Failed to set sender");
+            thread::Builder::new()
+                .name("Profiling Thread".to_owned())
+                .spawn(move || profiling_thread_main(receiver))
+                .expect("Failed to spawn profiler thread");
+            thread::Builder::new()
+                .name("Timestamp Generator".to_owned())
+                .spawn(move || timestamp_generator_main(sender.clone()))
+                .expect("Failed to spawn Timestamp Generator");
+        }
+    }
+
     /// Stores the time at which the program entered a profiling segment.
     ///
     /// Also prints a warning if the segment was already marked as entered.
     pub(super) fn profiling_start(segment: ProfilingSegment) {
         if super::ENABLE_PROFILING {
-            PROFILING_DATA.count_inc(segment);
-            let start =
-                PROFILING_STARTS.with(|starts| starts[segment].replace(Some(Instant::now())));
-            if start.is_some() {
-                eprintln!("Start time for segment {} already exists. This likely means there is a 'profiling_end' call missing somewhere.", segment);
-            }
+			EVENT_CHANNEL_SENDER.get()
+                    .expect("Profiling channel sender uninitialized")
+                    .send(ProfilingEventMessage::SegmentEnter(segment))
+                    .expect("Failed to send profiling event");
         }
     }
 
@@ -2110,25 +2130,48 @@ mod profiling {
     /// Prints a warning if the segment wasn't marked as entered.
     pub(super) fn profiling_end(segment: ProfilingSegment) {
         if super::ENABLE_PROFILING {
-            let start = PROFILING_STARTS.with(|starts| starts[segment].take());
-            if let Some(start) = start {
-                let time_ns = start.elapsed().as_nanos();
-                PROFILING_DATA.time_add(
-                    segment,
-                    time_ns
-                        .try_into()
-                        .expect("Failed to convert time spent to u64."),
-                );
-            } else {
-                eprintln!("Start time for segment {} doesn't exist. This likely means there is a 'profiling_start' call missing somewhere.", segment);
-            }
+			EVENT_CHANNEL_SENDER.get()
+                    .expect("Profiling channel sender uninitialized")
+                    .send(ProfilingEventMessage::SegmentExit(segment))
+                    .expect("Failed to send profiling event");
         }
     }
+
+    /// Exits the profiler.
+    ///
+    /// Cannot be undone at this time.  
+    /// This generally doesn't need to be run, but it may be necessary in some cases.
+    #[allow(dead_code)]
+    pub(super) fn profiling_shutdown() {
+		if super::ENABLE_PROFILING {
+			EVENT_CHANNEL_SENDER.get()
+		            .expect("Profiling channel sender uninitialized")
+		            .send(ProfilingEventMessage::Terminate)
+		            .expect("Failed to send profiling event");
+		}
+	}
 
     /// Writes the profiling data to the given output stream.
     pub(super) fn profiling_print(out: &mut impl Write) {
         if super::ENABLE_PROFILING {
-            let data_snapshot = PROFILING_DATA.clone();
+            let ct = thread::current();
+			EVENT_CHANNEL_SENDER.get()
+                    .expect("Profiling channel sender uninitialized")
+                    .send(ProfilingEventMessage::RequestDataSync(ct))
+                    .expect("Failed to send profiling event");
+
+            let mut data = None;
+            while data.is_none() {
+                thread::park();
+                if let Some(d) = PROFILING_DATA
+                    .lock()
+                    .expect("Profiling Data Mutex poisoned")
+                    .take()
+                {
+                    data = Some(d);
+                }
+            }
+            let data_snapshot = data.unwrap();
             writeln!(out, "Profiling results:").expect("Writing failed.");
             let segs: Vec<ProfilingSegment> = (0..ProfilingSegment::SIZE.into())
                 .map(|i| {
@@ -2180,6 +2223,93 @@ mod profiling {
             lines
                 .iter()
                 .for_each(|line| writeln!(out, "{line}").expect("Writing failed"));
+        }
+    }
+
+    /// The message types to be sent over the profiling event channel to the profiling thread.
+    #[derive(Debug, Clone)]
+    enum ProfilingEventMessage {
+        /// A thread entered a profiling segment.
+        SegmentEnter(ProfilingSegment),
+        /// A thread exited a profiiling segment.
+        SegmentExit(ProfilingSegment),
+        /// The timestamp generator thread provided a timestamp.
+        Timestamp(Instant),
+        /// The given thread requests the profiling data.
+        RequestDataSync(Thread),
+        /// Permanently and irreversibly terminates the profiler thread.
+        Terminate,
+    }
+
+    /// The main function for the profiler thread.
+    ///
+    /// Mainly handles messages on the event channel.
+    fn profiling_thread_main(event_receiver: Receiver<ProfilingEventMessage>) {
+        let mut profiling_starts: [Option<Instant>; PROFILING_SEGMENTS_COUNT] =
+            [None; PROFILING_SEGMENTS_COUNT];
+        let profiling_data = ProfilingData::new();
+        let mut missing_ends = [false; PROFILING_SEGMENTS_COUNT];
+        let mut missing_starts = [false; PROFILING_SEGMENTS_COUNT];
+        let mut exit = false;
+        let mut now = Instant::now();
+        while !exit {
+            match event_receiver.recv() {
+                Ok(ProfilingEventMessage::SegmentEnter(segment)) => {
+                    profiling_data.count_inc(segment);
+                    let old_start = profiling_starts[segment].replace(now.clone());
+                    if old_start.is_some() && !missing_ends[segment] {
+                        missing_ends[segment] = true;
+                        eprintln!("Start time for segment {} already exists. This likely means there is a 'profiling_end' call missing somewhere.", segment);
+                    }
+                }
+                Ok(ProfilingEventMessage::SegmentExit(segment)) => {
+                    let start = profiling_starts[segment].take();
+                    if let Some(start) = start {
+                        let time_ns = (start - now)
+                            .as_nanos()
+                            .try_into()
+                            .expect("Failed to convert time spent to u64.");
+                        profiling_data.time_add(segment, time_ns);
+                    } else if !missing_starts[segment] {
+                        missing_starts[segment] = true;
+                        eprintln!("Start time for segment {} doesn't exist. This likely means there is a 'profiling_start' call missing somewhere.", segment);
+                    }
+                }
+                Ok(ProfilingEventMessage::Timestamp(ts)) => {
+                    now = ts;
+                }
+                Ok(ProfilingEventMessage::RequestDataSync(thread)) => {
+                    PROFILING_DATA
+                        .lock()
+                        .expect("Profiling Data Mutex poisoned")
+                        .replace(profiling_data.clone());
+                    thread.unpark();
+                }
+                Ok(ProfilingEventMessage::Terminate) => {
+                    println!("Terminating profiling thread.");
+                    return;
+                }
+                Err(_) => {
+                    // This most likely means there was an error on the main thread, so further error messages wont be helpful.
+                    exit = true;
+                }
+            }
+        }
+    }
+
+    /// The main function of the thread generating timestamps for the profiler.
+    fn timestamp_generator_main(event_sender: Sender<ProfilingEventMessage>) {
+        let mut exit = false;
+        let mut last = Instant::now();
+        while !exit {
+            let now = Instant::now();
+            if event_sender
+                .send(ProfilingEventMessage::Timestamp(now.clone()))
+                .is_err()
+            {
+                exit = true;
+            };
+            last = now;
         }
     }
 }
