@@ -941,7 +941,7 @@ impl RockMap {
                 .rocks
                 .get(
                     TryInto::<usize>::try_into(pb.get_x() + pb.get_y() * self.width)
-                        .expect("Size checked above"),
+                        .expect("Guaranteed by the map"),
                 )
                 .expect("Size checked above"))
         }
@@ -1914,6 +1914,14 @@ impl<'a> RowIterMut<'a> {
                 .expect("Guaranteed by the map"),
         }
     }
+
+    /// Calculates the index of a position in the map rocks list.
+    #[inline]
+    fn get_pos_idx(&self, pos: &Position) -> usize {
+        (pos.get_x() + pos.get_y() * self.map.width)
+            .try_into()
+            .expect("Guaranteed by the map")
+    }
 }
 
 impl<'a> Iterator for RowIterMut<'a> {
@@ -1976,65 +1984,41 @@ impl<'a> Drop for RowIterMut<'a> {
         }
 
         let map_width: usize = self.map.width.try_into().expect("Guaranteed by the map");
+        let map_height: usize = self.map.height.try_into().expect("Garanteed by the map");
         let total_len = if self.distance == 1 {
             map_width
         } else {
-            self.map.height.try_into().expect("Garanteed by the map")
+            map_height
         };
 
-        let temp_row = &mut vec![None; total_len][..];
-        let mut moved = Vec::<usize>::with_capacity(total_len);
-        for i in 0..total_len {
-            let old_idx = self.offset_front + i * self.distance;
-            let rock = &mut self.map.rocks[old_idx];
+        let mut idx = self.offset_front;
+        let last = self.offset_front + (total_len - 1) * self.distance;
+        while idx <= last {
+            let rock = &self.map.rocks[idx];
             let new_idx = if let Some(rock) = rock {
-                Some(
-                    TryInto::<usize>::try_into(
-                        rock.get_pos().get_x() + rock.get_pos().get_y() * self.map.width,
-                    )
-                    .expect("Guaranteed by the map"),
-                )
+                self.get_pos_idx(rock.get_pos())
             } else {
-                None
+                idx += self.distance;
+                continue;
             };
 
-            if let Some(new_idx) = new_idx {
-                if old_idx != new_idx {
-                    let (old_x, old_y) = (old_idx % map_width, old_idx / map_width);
-                    let (new_x, new_y) = (new_idx % map_width, new_idx / map_width);
-                    // Swap directly if a rock was moved to a different row.
-                    if (self.distance == 1 && new_y != old_y)
-                        || (self.distance != 1 && new_x != old_x)
-                    {
-                        let new_pos = &mut self.map.rocks[new_idx];
-                        assert!(
-                            new_pos.is_none(),
-                            "Trying to move a rock to an occupied position"
-                        );
-                        self.map.rocks.swap(new_idx, old_idx);
-                    } else {
-                        let rock_pos: usize = if self.distance == 1 { new_x } else { new_y };
-                        let temp_pos = &mut temp_row[rock_pos];
-                        assert!(
-                            temp_pos.is_none(),
-                            "Trying to move a rock to an occupied position"
-                        );
-                        mem::swap(rock, temp_pos);
-                        moved.push(rock_pos);
-                    }
-                }
+            if idx == new_idx {
+                idx += self.distance;
+                continue;
             }
-        }
 
-        for old_idx in moved.iter() {
-            let rock = &mut temp_row[*old_idx];
-            let new_idx = self.offset_front + old_idx * self.distance;
-            let new_pos = &mut self.map.rocks[new_idx];
-            assert!(
-                new_pos.is_none(),
-                "Trying to move a rock to an occupied position"
-            );
-            mem::swap(rock, new_pos);
+            let target_rock = &self.map.rocks[new_idx];
+            if let Some(target_rock) = target_rock {
+                assert_ne!(
+                    new_idx,
+                    self.get_pos_idx(target_rock.get_pos()),
+                    "Trying to move a rock to an occupied position"
+                );
+                self.map.rocks.swap(idx, new_idx);
+            } else {
+                self.map.rocks.swap(idx, new_idx);
+                idx += self.distance;
+            }
         }
     }
 }
