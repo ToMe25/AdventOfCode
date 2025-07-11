@@ -2,6 +2,7 @@
 //!
 //! This module contains my solution to the [Advent of Code](https://adventofcode.com/) [2023](https://adventofcode.com/2023/) [Day 14](https://adventofcode.com/2023/day/14).
 
+use core::slice;
 use std::borrow::Borrow;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
@@ -99,54 +100,48 @@ impl Day14Runner {
             }
             Direction::West => {
                 profiling::profiling_start(ProfilingSegment::West);
-                (0..map.get_height()).for_each(|row| {
-                    map.row_iter_mut(row).expect("Invalid row").fold(
-                        None,
-                        |mut last_rock_x, rock| {
-                            if let Some(rock) = rock {
-                                if rock.can_roll() {
-                                    profiling::profiling_start(ProfilingSegment::RockPosUpdate);
-                                    let new_x = match last_rock_x {
-                                        Some(rock) => rock + 1,
-                                        None => 0,
-                                    };
-                                    if new_x != rock.get_pos().get_x() {
-                                        rock.get_pos_mut().set_x(new_x);
-                                    }
-                                    profiling::profiling_end(ProfilingSegment::RockPosUpdate);
+                map.iter_mut().for_each(|row| {
+                    row.into_iter().fold(None, |mut last_rock_x, rock| {
+                        if let Some(rock) = rock {
+                            if rock.can_roll() {
+                                profiling::profiling_start(ProfilingSegment::RockPosUpdate);
+                                let new_x = match last_rock_x {
+                                    Some(rock) => rock + 1,
+                                    None => 0,
+                                };
+                                if new_x != rock.get_pos().get_x() {
+                                    rock.get_pos_mut().set_x(new_x);
                                 }
-                                last_rock_x.replace(rock.get_pos().get_x());
+                                profiling::profiling_end(ProfilingSegment::RockPosUpdate);
                             }
-                            last_rock_x
-                        },
-                    );
+                            last_rock_x.replace(rock.get_pos().get_x());
+                        }
+                        last_rock_x
+                    });
                 });
                 profiling::profiling_end(ProfilingSegment::West);
             }
             Direction::East => {
                 profiling::profiling_start(ProfilingSegment::East);
                 let map_width = map.get_width();
-                (0..map.get_height()).for_each(|row| {
-                    map.row_iter_mut(row).expect("Invalid row").rev().fold(
-                        None,
-                        |mut last_rock_x, rock| {
-                            if let Some(rock) = rock {
-                                if rock.can_roll() {
-                                    profiling::profiling_start(ProfilingSegment::RockPosUpdate);
-                                    let new_x = match last_rock_x {
-                                        Some(rock) => rock - 1,
-                                        None => map_width - 1,
-                                    };
-                                    if new_x != rock.get_pos().get_x() {
-                                        rock.get_pos_mut().set_x(new_x);
-                                    }
-                                    profiling::profiling_end(ProfilingSegment::RockPosUpdate);
+                map.iter_mut().for_each(|row| {
+                    row.into_iter().rev().fold(None, |mut last_rock_x, rock| {
+                        if let Some(rock) = rock {
+                            if rock.can_roll() {
+                                profiling::profiling_start(ProfilingSegment::RockPosUpdate);
+                                let new_x = match last_rock_x {
+                                    Some(rock) => rock - 1,
+                                    None => map_width - 1,
+                                };
+                                if new_x != rock.get_pos().get_x() {
+                                    rock.get_pos_mut().set_x(new_x);
                                 }
-                                last_rock_x.replace(rock.get_pos().get_x());
+                                profiling::profiling_end(ProfilingSegment::RockPosUpdate);
                             }
-                            last_rock_x
-                        },
-                    );
+                            last_rock_x.replace(rock.get_pos().get_x());
+                        }
+                        last_rock_x
+                    });
                 });
                 profiling::profiling_end(ProfilingSegment::East);
             }
@@ -1262,9 +1257,53 @@ impl RockMap {
         self.into_iter()
     }
 
-    /*pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut [Option<Rock>]> + ExactSizeIterator {
-        RowSliceIterMut::new(self)
-    }*/
+    /// Creates an iterator mutably iterating over the rows of this map.
+    ///
+    /// Each row is returned as a mutable reference to a slice of type <code>[Option]<[Rock]></code>.
+    ///
+    /// Modifying a [Rock] in the iterator causes it to be moved in the [`map`](RockMap).  
+    /// Note that the map is updated after, not during iteration.
+    ///
+    ///	# Panics
+    ///
+    /// This function doesn't panic, but the returned iterator **MAY** panic.  
+    /// The iterator panics if a [rock](Rock) is moved outside of the area of the map,  
+    /// or to a position where a [rock](Rock) is already present.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```
+    /// use rust_aoc_2023::days::day14::Position;
+    /// use rust_aoc_2023::days::day14::Rock;
+    /// use rust_aoc_2023::days::day14::RockMap;
+    /// # use rust_aoc_2023::days::day14::RockMapError;
+    /// use rust_aoc_2023::days::day14::RockShape;
+    ///
+    /// let mut map = RockMap::new();
+    /// map.add_rock((0, 1), RockShape::Round);
+    /// map.add_rock((1, 1), RockShape::Cube);
+    /// map.add_rock((0, 2), RockShape::Cube);
+    /// map.add_rock((1, 2), RockShape::Round);
+    ///
+    /// map.iter_mut().for_each(|row| {
+    ///     row.into_iter().filter_map(|rock| rock.as_mut()).for_each(|rock| {
+    ///         rock.set_pos(Position::new(rock.get_pos().get_x(), rock.get_pos().get_y() - 1));
+    ///     });
+    /// });
+    /// let mut iter = map.iter();
+    /// assert_eq!(iter.next(), Some(&[Some(Rock::new(RockShape::Round, 0, 0)), Some(Rock::new(RockShape::Cube, 1, 0))][..]));
+    /// assert_eq!(iter.next(), Some(&[Some(Rock::new(RockShape::Cube, 0, 1)), Some(Rock::new(RockShape::Round, 1, 1))][..]));
+    /// assert_eq!(iter.next(), Some(&[None, None][..]));
+    /// assert_eq!(iter.next(), None);
+    /// #
+    /// # Result::<(), RockMapError>::Ok(())
+    /// ```
+    pub fn iter_mut(
+        &mut self,
+    ) -> impl Iterator<Item = &mut [Option<Rock>]> + DoubleEndedIterator + ExactSizeIterator {
+        self.into_iter()
+    }
 
     // TODO implement (mutable) iterators over all rows/columns
 
@@ -1364,6 +1403,9 @@ impl RockMap {
 
     /// Creates an iterator that mutably iterates over a single row of this map.
     ///
+    /// Modifying a [Rock] in the iterator causes it to be moved in the [`map`](RockMap).  
+    /// Note that the map is updated after, not during iteration.
+    ///
     /// # Errors
     ///
     /// This function returns an error if the given row is outside the map.
@@ -1435,6 +1477,9 @@ impl RockMap {
     }
 
     /// Creates an iterator that mutably iterates over a single column of this map.
+    ///
+    /// Modifying a [Rock] in the iterator causes it to be moved in the [`map`](RockMap).  
+    /// Note that the map is updated after, not during iteration.
     ///
     /// # Errors
     ///
@@ -1534,15 +1579,14 @@ impl<'a> IntoIterator for &'a RockMap {
     }
 }
 
-/*impl<'a> IntoIterator for &'a mut RockMap {
+impl<'a> IntoIterator for &'a mut RockMap {
     type Item = &'a mut [Option<Rock>];
-    type IntoIter = ChunksExactMut<'a, Option<Rock>>;
+    type IntoIter = RowSliceIterMut<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        // TODO requires iter_mut
-        self.iter_mut()
+        RowSliceIterMut::new(self)
     }
-}*/
+}
 
 impl<I: Into<Position>> Index<I> for RockMap {
     type Output = Option<Rock>;
@@ -2138,6 +2182,219 @@ impl<'a> DoubleEndedIterator for RowSliceIter<'a> {
 impl<'a> ExactSizeIterator for RowSliceIter<'a> {}
 
 impl<'a> FusedIterator for RowSliceIter<'a> {}
+
+/// An iterator mutably iterating over the rows of a [`RockMap`] as slices.
+///
+/// Modifying a [Rock] in the iterator causes it to be moved in the [`map`](RockMap).  
+/// Note that the map is updated after, not during iteration.
+///
+/// # Panics
+///
+/// When a [`Rock`] is moved to a position where a rock is already present.  
+/// And when a [Rock] is moved outside the area of the [map](RockMap).
+///
+/// # Examples
+///
+/// Basic Usage:
+/// ```
+/// use rust_aoc_2023::days::day14::Rock;
+/// use rust_aoc_2023::days::day14::RockMap;
+/// # use rust_aoc_2023::days::day14::RockMapError;
+/// use rust_aoc_2023::days::day14::RockShape;
+///
+/// let mut map = RockMap::new();
+/// map.add_rock((0, 0), RockShape::Round)?;
+/// map.add_rock((2, 0), RockShape::Cube)?;
+/// map.add_rock((3, 0), RockShape::Cube)?;
+/// map.add_rock((1, 2), RockShape::Round)?;
+/// map.add_rock((2, 2), RockShape::Cube)?;
+/// map.add_rock((3, 2), RockShape::Round)?;
+/// map.add_rock((1, 3), RockShape::Round)?;
+///
+/// {
+///     let mut iter = map.iter_mut();
+///     assert_eq!(iter.next(), Some(&mut [Some(Rock::new(RockShape::Round, 0, 0)), None, Some(Rock::new(RockShape::Cube, 2, 0)), Some(Rock::new(RockShape::Cube, 3, 0))][..]));
+///     assert_eq!(iter.next_back(), Some(&mut [None, Some(Rock::new(RockShape::Round, 1, 3)), None, None][..]));
+///     assert_eq!(iter.next(), Some(&mut [None, None, None, None][..]));
+///     iter.next_back().unwrap()[2].as_mut().unwrap().set_pos((1, 1));
+///     assert_eq!(iter.next(), None);
+/// }
+///
+/// assert_eq!(map[(1, 1)], Some(Rock::new(RockShape::Cube, 1, 1)));
+/// assert_eq!(map[(2, 2)], None);
+/// #
+/// # Result::<(), RockMapError>::Ok(())
+/// ```
+///
+/// An empty map will create a zero size iterator:
+/// ```
+/// use rust_aoc_2023::days::day14::RockMap;
+///
+/// let mut map = RockMap::new();
+///
+/// let mut iter = map.iter();
+/// assert_eq!(iter.len(), 0);
+/// assert_eq!(iter.next(), None);
+/// ```
+///
+/// Editing one row after requesting the next:
+/// ```
+/// use rust_aoc_2023::days::day14::Rock;
+/// use rust_aoc_2023::days::day14::RockMap;
+/// # use rust_aoc_2023::days::day14::RockMapError;
+/// use rust_aoc_2023::days::day14::RockShape;
+///
+/// let mut map = RockMap::new();
+/// map.add_rock((1, 0), RockShape::Cube);
+/// map.add_rock((2, 0), RockShape::Round);
+/// map.add_rock((3, 1), RockShape::Cube);
+/// map.add_rock((0, 2), RockShape::Cube);
+/// map.add_rock((2, 2), RockShape::Round);
+///
+/// {
+///     let mut iter = map.iter_mut();
+///     let slice = iter.next().unwrap();
+///     assert_eq!(iter.next(), Some(&mut [None, None, None, Some(Rock::new(RockShape::Cube, 3, 1))][..]));
+///     slice[2].as_mut().unwrap().set_pos((1, 1));
+/// }
+///
+/// let mut iter = map.iter();
+/// assert_eq!(iter.next(), Some(&[None, Some(Rock::new(RockShape::Cube, 1, 0)), None, None][..]));
+/// assert_eq!(iter.next(), Some(&[None, Some(Rock::new(RockShape::Round, 1, 1)), None, Some(Rock::new(RockShape::Cube, 3, 1))][..]));
+/// assert_eq!(iter.next(), Some(&[Some(Rock::new(RockShape::Cube, 0, 2)), None, Some(Rock::new(RockShape::Round, 2, 2)), None][..]));
+/// assert_eq!(iter.next(), None);
+/// #
+/// # Result::<(), RockMapError>::Ok(())
+/// ```
+#[must_use]
+#[derive(Debug, PartialEq, Eq)]
+pub struct RowSliceIterMut<'a> {
+    /// The map to iterator over.
+    map: &'a mut RockMap,
+    /// The index of the row the next call to `next` should return.
+    index_front: usize,
+    /// The indeex of the row the next call to `next_back` should return.
+    index_back: usize,
+}
+
+impl<'a> RowSliceIterMut<'a> {
+    /// Creates a new iterator iterating mutably over rows of the given map.
+    ///
+    /// An empty map will create a zero size iterator.
+    fn new(map: &'a mut RockMap) -> RowSliceIterMut<'a> {
+        let map_height = map.height;
+        RowSliceIterMut {
+            map,
+            index_front: (map_height == 0).into(),
+            index_back: map_height
+                .saturating_sub(1)
+                .try_into()
+                .expect("Guaranteed by the map"),
+        }
+    }
+
+    /// Calculates the index of a position in the map rocks list.
+    #[inline]
+    fn get_pos_idx(&self, pos: &Position) -> usize {
+        (pos.get_x() + pos.get_y() * self.map.width)
+            .try_into()
+            .expect("Guaranteed by the map")
+    }
+}
+
+impl<'a> Iterator for RowSliceIterMut<'a> {
+    type Item = &'a mut [Option<Rock>];
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.nth(0)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.index_back + 1 - self.index_front;
+        (len, Some(len))
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        if self.index_back < self.index_front {
+            None
+        } else {
+            let width: usize = self.map.width.try_into().expect("Garanteed by the map");
+            let start_idx = (self.index_front + n) * width;
+            self.index_front += 1 + n;
+            let slice_ptr: *mut Option<Rock> = &mut self.map.rocks[start_idx];
+            // SAFETY: This iterator has exclusive access to the map and never returns the same position twice.
+            let slice = unsafe { slice::from_raw_parts_mut(slice_ptr, width) };
+            Some(slice)
+        }
+    }
+}
+
+impl<'a> DoubleEndedIterator for RowSliceIterMut<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.nth_back(0)
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        if self.index_back < self.index_front {
+            None
+        } else {
+            let width: usize = self.map.width.try_into().expect("Garanteed by the map");
+            let start_idx = (self.index_back + n) * width;
+            // Handle returning the first element.
+            if let Some(result) = self.index_back.checked_sub(n + 1) {
+                self.index_back = result;
+            } else {
+                self.index_back = 0;
+                self.index_front += 1;
+            }
+            let slice_ptr: *mut Option<Rock> = &mut self.map.rocks[start_idx];
+            // SAFETY: This iterator has exclusive access to the map and never returns the same position twice.
+            let slice = unsafe { slice::from_raw_parts_mut(slice_ptr, width) };
+            Some(slice)
+        }
+    }
+}
+
+impl<'a> ExactSizeIterator for RowSliceIterMut<'a> {}
+
+impl<'a> FusedIterator for RowSliceIterMut<'a> {}
+
+impl<'a> Drop for RowSliceIterMut<'a> {
+    fn drop(&mut self) {
+        if thread::panicking() {
+            return;
+        }
+
+        let mut idx = 0;
+        while idx < self.map.rocks.len() {
+            let rock = &self.map.rocks[idx];
+            let new_idx = if let Some(rock) = rock {
+                self.get_pos_idx(rock.get_pos())
+            } else {
+                idx += 1;
+                continue;
+            };
+
+            if idx == new_idx {
+                idx += 1;
+                continue;
+            }
+
+            let target_rock = &self.map.rocks[new_idx];
+            if let Some(target_rock) = target_rock {
+                assert_ne!(
+                    new_idx,
+                    self.get_pos_idx(target_rock.get_pos()),
+                    "Trying to move a rock to an occupied position"
+                );
+                self.map.rocks.swap(idx, new_idx);
+            } else {
+                self.map.rocks.swap(idx, new_idx);
+                idx += 1;
+            }
+        }
+    }
+}
 
 mod profiling {
     //! A submodule containing the code related the the profiling of the day 14 solution.
