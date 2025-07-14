@@ -201,8 +201,11 @@ impl DayRunner for Day14Runner {
     }
 
     fn part2(&self) -> Result<Option<String>, Box<dyn Error>> {
+        let iterations: usize = 1000000000;
         let mut map = self.map.clone();
-        for _ in 0..1000000000 {
+        let mut states = Vec::with_capacity(10000);
+        let mut stable_loop: Option<(usize, usize)> = None;
+        for i in 0..iterations {
             for dir in [
                 Direction::North,
                 Direction::West,
@@ -211,6 +214,31 @@ impl DayRunner for Day14Runner {
             ] {
                 self.tilt_platform(&mut map, dir);
             }
+
+            if i % 10000 == 0 && i > 0 {
+                println!("Simulated {i} rotations.");
+                states.reserve(10000);
+            }
+            let compressed = map.compress();
+            let found = states
+                .iter()
+                .enumerate()
+                .find(|(_, item)| item == &compressed);
+            if let Some((start, _)) = found {
+                stable_loop = Some((start, i - start));
+                println!(
+                    "Stable loop detected; start: {}, length: {}",
+                    stable_loop.expect("Set just above").0,
+                    stable_loop.expect("Set just above").1
+                );
+                break;
+            }
+
+            states.push(compressed.clone());
+        }
+
+        if let Some((offset, length)) = stable_loop {
+            map = states[offset + (iterations - offset) % length - 1].decompress();
         }
 
         let load = self.calculate_load(&map, Direction::North);
@@ -1550,6 +1578,64 @@ impl RockMap {
             Ok(RowIterMut::new_col(self, column))
         }
     }
+
+    /// A helper function to convert a single  position of the map to a base3 degit.
+    fn slot_to_base3(slot: &Option<Rock>) -> u8 {
+        match slot {
+            None => 0,
+            Some(Rock { shape, pos: _ }) if shape == &RockShape::Cube => 1,
+            Some(_) => 2,
+        }
+    }
+
+    /// Converts this map to a compressed binary format, to save memory.
+    ///
+    /// Compressed maps should be treated as opaque objects that can only be compared and decompressed.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```
+    /// use rust_aoc_2023::days::day14::Rock;
+    /// use rust_aoc_2023::days::day14::RockMap;
+    /// use rust_aoc_2023::days::day14::RockShape;
+    ///
+    /// let mut map = RockMap::new();
+    /// map.add_rock((1, 2), RockShape::Cube);
+    /// map.add_rock((2, 2), RockShape::Round);
+    /// map.add_rock((0, 3), RockShape::Cube);
+    /// map.add_rock((3, 3), RockShape::Round);
+    ///
+    /// let compressed = map.compress();
+    /// assert_eq!(map, compressed.decompress());
+    /// ```
+    pub fn compress(&self) -> CompressedMap {
+        let mut data = Vec::with_capacity(
+            (self.width * self.height)
+                .div_ceil(40)
+                .try_into()
+                .expect("Guaranteed by the Map"),
+        );
+        let mut int: u64 = 0;
+        for idx in 0..self.rocks.len() {
+            if idx % 40 == 0 && idx > 0 {
+                data.push(int);
+                int = 0;
+            }
+            int += TryInto::<u64>::try_into(
+                Into::<usize>::into(Self::slot_to_base3(&self.rocks[idx]))
+                    * 3usize.pow((idx % 40).try_into().expect("40 < u32::MAX")),
+            )
+            .expect("Guaranteed by the Map");
+        }
+        data.push(int);
+
+        CompressedMap {
+            map: data,
+            width: self.width,
+            height: self.height,
+        }
+    }
 }
 
 impl Display for RockMap {
@@ -1659,6 +1745,74 @@ impl<'a> FromIterator<&'a Option<Rock>> for RockMap {
         let mut map = RockMap::new();
         map.extend(iter);
         map
+    }
+}
+
+/// A compressed version of a [`RockMap`].
+///
+/// A compressed map should be treated as an opaque object that can only be compared and decompressed.
+#[derive(Debug, Clone, Eq)]
+pub struct CompressedMap {
+    /// The compressed data representing the rock positions in the map.
+    map: Vec<u64>,
+    /// The width of the compressed map.
+    width: u32,
+    /// The height of the compressed map.
+    height: u32,
+}
+
+impl CompressedMap {
+    /// Turns a compressed map back into a normal [`RockMap`].
+    pub fn decompress(&self) -> RockMap {
+        let map: RockMap = self
+            .map
+            .iter()
+            .flat_map(|i| (0..40).map(move |j| i / (3u64.pow(j)) % 3))
+            .enumerate()
+            .take(
+                (self.width * self.height)
+                    .try_into()
+                    .expect("Guaranteed by the Map"),
+            )
+            .map(|(idx, i)| {
+                let x = TryInto::<u32>::try_into(
+                    idx % TryInto::<usize>::try_into(self.width)
+                        .expect("Let's not use <32bit pointers"),
+                )
+                .expect("Guaranteed by math");
+                let y = TryInto::<u32>::try_into(
+                    idx / TryInto::<usize>::try_into(self.width)
+                        .expect("Let's not use <32bit pointers"),
+                )
+                .expect("Guaranteed by the map");
+                match i {
+                    0 => None,
+                    1 => Some(Rock::new(RockShape::Cube, x, y)),
+                    2 => Some(Rock::new(RockShape::Round, x, y)),
+                    i => panic!("Unexpected value {i} while parsing compressed data"),
+                }
+            })
+            .collect();
+
+        map
+    }
+}
+
+impl PartialEq for CompressedMap {
+    fn eq(&self, other: &Self) -> bool {
+        self.map == other.map && self.width == other.width && self.height == other.height
+    }
+}
+
+impl PartialEq<&CompressedMap> for CompressedMap {
+    fn eq(&self, other: &&Self) -> bool {
+        self.map == other.map && self.width == other.width && self.height == other.height
+    }
+}
+
+impl<'a> PartialEq<CompressedMap> for &'a CompressedMap {
+    fn eq(&self, other: &CompressedMap) -> bool {
+        self.map == other.map && self.width == other.width && self.height == other.height
     }
 }
 
