@@ -267,7 +267,9 @@ pub fn print_map(map: &Vec<Vec<Option<Rock>>>) {
 /// A position on a two dimensional map.
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub struct Position {
+    /// The X coordinate of the position.
     x: u32,
+    /// The Y coordinate of the position.
     y: u32,
 }
 
@@ -301,6 +303,18 @@ impl Position {
 impl Display for Position {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}", self.x, self.y)
+    }
+}
+
+impl PartialEq<&Position> for Position {
+    fn eq(&self, other: &&Position) -> bool {
+        &self == other
+    }
+}
+
+impl<'a> PartialEq<Position> for &'a Position {
+    fn eq(&self, other: &Position) -> bool {
+        self == &other
     }
 }
 
