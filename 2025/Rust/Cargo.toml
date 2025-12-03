@@ -1,0 +1,13 @@
+[package]
+name = "rust_aoc_2025"
+version = "0.1.0"
+edition = "2024"
+description = "My Advent of Code 2025 solutions in Rust."
+repository = "https://github.com/ToMe25/AdventOfCode/tree/master/2025/Rust"
+license = "MIT"
+
+[dependencies]
+
+[profile.release]
+debug = "full"
+split-debuginfo = "packed"
