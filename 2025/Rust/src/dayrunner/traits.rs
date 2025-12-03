@@ -4,7 +4,7 @@ use std::error::Error;
 
 use super::RunContext;
 
-/// A runner that executes the solution for a single day of the [Advent of Code](https://adventofcode.com/2025).
+/// A runner that executes the solution for a single day of the [Advent of Code 2025](https://adventofcode.com/2025).
 pub trait DayRunner {
     /// The constructor for a runner for this day.
     ///
@@ -30,7 +30,7 @@ pub trait DayRunnerDate {
     const DAY: u8;
 }
 
-/// A runner that implements a solution for part one of a day of the [Advent of Code](https://adventofcode.com/2025).
+/// A runner that implements a solution for part one of a day of the [Advent of Code 2025](https://adventofcode.com/2025).
 pub trait Part1Runner: DayRunner {
     /// The function running the solution for part one of the current day.
     ///
@@ -44,7 +44,7 @@ pub trait Part1Runner: DayRunner {
     fn part1(&self, ctx: &RunContext) -> Result<String, Box<dyn Error>>;
 }
 
-/// A runner that implements a solution for part two of a day of the [Advent of Code](https://adventofcode.com/2025).
+/// A runner that implements a solution for part two of a day of the [Advent of Code 2025](https://adventofcode.com/2025).
 pub trait Part2Runner: DayRunner {
     /// The function running the solution for part two of the current day.
     ///
