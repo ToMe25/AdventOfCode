@@ -5,6 +5,7 @@
 //! # Examples
 //!
 //! Registering a runner:
+//!
 //! ```
 //! # use std::error::Error;
 //! #
@@ -41,15 +42,16 @@
 //! register_runner!(ExampleRunner);
 //!```
 
+use std::array;
+use std::error::Error;
 use std::fmt;
 use std::marker::PhantomData;
 use std::sync::{LazyLock, OnceLock};
-use std::{array, error::Error};
 
 use super::{BothPartsRunner, DayRunnerDate, Part1Runner, Part2Runner, RunContext};
 
 /// The number of days that exist for the current [Advent of Code](https://adventofcode.com/).
-const MAX_DAY: u8 = 12;
+pub const MAX_DAY: u8 = 12;
 
 static REGISTRY: LazyLock<[OnceLock<RunnerData>; MAX_DAY as usize + 1]> =
     LazyLock::new(|| array::from_fn(|_| OnceLock::new()));
@@ -64,7 +66,7 @@ static REGISTRY: LazyLock<[OnceLock<RunnerData>; MAX_DAY as usize + 1]> =
 /// See the [module level docs](crate::dayrunner::registry).
 #[macro_export]
 macro_rules! register_runner {
-    ($t:ty) => {
+    ($t:ty) => {{
         use std::marker::PhantomData;
         #[allow(unused_imports)]
         use $crate::dayrunner::registry::DayRunnerBothPartsTrait;
@@ -73,12 +75,13 @@ macro_rules! register_runner {
         #[allow(unused_imports)]
         use $crate::dayrunner::registry::DayRunnerPart2Trait;
         (&PhantomData::<$t>::default()).register()
-    };
+    }};
 }
 
 /// A helper enum to store which days have implementaions for which parts.
 pub(super) enum RunnerType {
     // An implementation that has neither a part 1 implementation nor a part 2 implementation.
+    //#[allow(unused)]
     //None(Box<dyn DayRunner>),
     /// A day runner that has a part 1 implementation, but no part 2 implementation.
     #[allow(unused)]
@@ -229,11 +232,11 @@ pub(super) fn get_runner_for_day(ctx: &RunContext) -> Option<Result<RunnerType, 
 
 macro_rules! register_part_impl {
     ($part_trait:path,$trait_name:ident,$register_fn:ident,$($ref:tt)?) => {
-		/// A helper trait for [`Autoref Specialization`](https://github.com/dtolnay/case-studies/blob/master/autoref-specialization/README.md)
+        /// A helper trait for [`Autoref Specialization`](https://github.com/dtolnay/case-studies/blob/master/autoref-specialization/README.md)
         #[allow(unused)]
-		#[doc(hidden)]
+        #[doc(hidden)]
         pub trait $trait_name {
-			/// Registers the given runner type to the global runner registry.
+            /// Registers the given runner type to the global runner registry.
             fn register(&self);
         }
 
@@ -268,8 +271,8 @@ impl<T: DayRunner + DayRunnerDate + 'static> DayRunnerNoPartTrait for &&PhantomD
 mod test {
     use std::error::Error;
 
-    use super::get_runner_for_day;
     use super::super::{DayRunner, DayRunnerDate, Part1Runner, Part2Runner, RunContext};
+    use super::get_runner_for_day;
 
     struct TestRunnerPart1();
 
@@ -324,7 +327,7 @@ mod test {
 
     #[test]
     fn run_part1() {
-        register_runner!(TestRunnerBothParts);
+        register_runner!(TestRunnerPart1);
         let ctx = RunContext::create_default_for_day(7);
         let runner = get_runner_for_day(&ctx);
         assert!(
