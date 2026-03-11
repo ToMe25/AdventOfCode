@@ -100,3 +100,32 @@ pub fn get_input_file_path(day: u8) -> Result<PathBuf, io::Error> {
     input.push(format!("Day{}.txt", day));
     Ok(input)
 }
+
+#[cfg(test)]
+mod test {
+    use std::time::Duration;
+
+    #[test]
+    fn format_h_ms() {
+        let dur = Duration::from_hours(12) + Duration::from_millis(55);
+        assert_eq!(super::format_duration(&dur), "12h 55ms 0µs");
+    }
+
+    #[test]
+    fn format_one_week() {
+        let dur = Duration::from_hours(24 * 7);
+        assert_eq!(super::format_duration(&dur), "168h 0µs");
+    }
+
+    #[test]
+    fn format_m_us() {
+        let dur = Duration::from_mins(7) + Duration::from_micros(16);
+        assert_eq!(super::format_duration(&dur), "7m 16µs");
+    }
+
+    #[test]
+    fn format_zero() {
+        let dur = Duration::from_micros(0);
+        assert_eq!(super::format_duration(&dur), "0µs");
+    }
+}

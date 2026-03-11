@@ -274,33 +274,65 @@ mod test {
     use super::super::{DayRunner, DayRunnerDate, Part1Runner, Part2Runner, RunContext};
     use super::get_runner_for_day;
 
-    struct TestRunnerPart1();
+    /// Generates a runner struct implementing [`DayRunner`] and [`DayRunnerDate`].
+    #[macro_export]
+    macro_rules! base_test_runner {
+        ($runner_name:ident,$day:expr) => {
+            struct $runner_name();
 
-    impl DayRunner for TestRunnerPart1 {
-        fn init(_ctx: &RunContext) -> Result<Self, Box<dyn Error>>
-        where
-            Self: Sized,
-        {
-            Ok(TestRunnerPart1())
-        }
+            impl DayRunner for $runner_name {
+                fn init(_: &RunContext) -> Result<Self, Box<dyn Error>>
+                where
+                    Self: Sized,
+                {
+                    Ok($runner_name())
+                }
+            }
+
+            impl DayRunnerDate for $runner_name {
+                const DAY: u8 = $day;
+            }
+        };
     }
 
-    impl DayRunnerDate for TestRunnerPart1 {
-        const DAY: u8 = 7;
+    /// Generates a part 1 or part 2 implementation for the given runner struct.
+    #[macro_export]
+    macro_rules! test_runner_part {
+        ($runner_name:ident,1) => {
+            $crate::test_runner_part!($runner_name, Part1Runner, part1, 1);
+        };
+        ($runner_name:ident,2) => {
+            $crate::test_runner_part!($runner_name, Part2Runner, part2, 2);
+        };
+        ($runner_name:ident,$runner_part_trait:ident,$part_fn:ident,$part_nr:literal) => {
+            impl $runner_part_trait for $runner_name {
+                fn $part_fn(&self, ctx: &RunContext) -> Result<String, Box<dyn Error>> {
+                    assert_eq!(
+                        Self::DAY,
+                        ctx.day,
+                        "This runner was designed for day {}, but run for day {}.",
+                        Self::DAY,
+                        ctx.day
+                    );
+                    assert!(
+                        ctx.$part_fn,
+                        concat!(
+                            "This runner was desinged for part ",
+                            stringify!($part_nr),
+                            " but run without it enabled."
+                        )
+                    );
+                    Ok(
+                        format!(concat!("Day {} part ", stringify!($part_nr)), Self::DAY)
+                            .to_owned(),
+                    )
+                }
+            }
+        };
     }
 
-    impl Part1Runner for TestRunnerPart1 {
-        fn part1(&self, ctx: &RunContext) -> Result<String, Box<dyn Error>> {
-            assert_eq!(
-                Self::DAY,
-                ctx.day,
-                "This runner was designed for  day {}, but run for day {}.",
-                Self::DAY,
-                ctx.day
-            );
-            Ok(format!("Day {} part 1", Self::DAY).to_owned())
-        }
-    }
+    base_test_runner!(TestRunnerPart1, 7);
+    test_runner_part!(TestRunnerPart1, 1);
 
     #[test]
     fn register_part_1_runner() {
@@ -365,46 +397,46 @@ mod test {
         assert!(runner.is_none(), "Runner {:?} wasn't None.", runner);
     }
 
-    struct TestRunnerBothParts();
+    base_test_runner!(TestRunnerPart2, 9);
+    test_runner_part!(TestRunnerPart2, 2);
 
-    impl DayRunner for TestRunnerBothParts {
-        fn init(_ctx: &RunContext) -> Result<Self, Box<dyn Error>>
-        where
-            Self: Sized,
-        {
-            Ok(TestRunnerBothParts())
-        }
+    #[test]
+    fn run_part2() {
+        register_runner!(TestRunnerPart2);
+        let ctx = RunContext::create_default_for_day(9);
+        let runner = get_runner_for_day(&ctx);
+        assert!(
+            runner.is_some(),
+            "There wasn't a runner for day {}.",
+            ctx.day
+        );
+        assert!(
+            runner.as_ref().unwrap().is_ok(),
+            "Initializing a runner for day {} failed with error {:?}",
+            ctx.day,
+            runner.as_ref().unwrap().as_ref().unwrap_err()
+        );
+        let part_1_result = runner.as_ref().unwrap().as_ref().unwrap().part1(&ctx);
+        assert!(
+            part_1_result.is_none(),
+            "Part 1 was detected to be implemented."
+        );
+        let part_2_result = runner.as_ref().unwrap().as_ref().unwrap().part2(&ctx);
+        assert!(
+            part_2_result.is_some(),
+            "Part 2 wasn't detected to be implemented."
+        );
+        assert!(part_2_result.as_ref().unwrap().is_ok(), "Part 2 failed.");
+        assert_eq!(
+            part_2_result.as_ref().unwrap().as_ref().unwrap(),
+            &format!("Day {} part 2", ctx.day),
+            "Runner part 2 result mismatch"
+        );
     }
 
-    impl DayRunnerDate for TestRunnerBothParts {
-        const DAY: u8 = 11;
-    }
-
-    impl Part1Runner for TestRunnerBothParts {
-        fn part1(&self, ctx: &RunContext) -> Result<String, Box<dyn Error>> {
-            assert_eq!(
-                Self::DAY,
-                ctx.day,
-                "This runner was designed for  day {}, but run for day {}.",
-                Self::DAY,
-                ctx.day
-            );
-            Ok(format!("Day {} part 1", Self::DAY).to_owned())
-        }
-    }
-
-    impl Part2Runner for TestRunnerBothParts {
-        fn part2(&self, ctx: &RunContext) -> Result<String, Box<dyn Error>> {
-            assert_eq!(
-                Self::DAY,
-                ctx.day,
-                "This runner was designed for  day {}, but run for day {}.",
-                Self::DAY,
-                ctx.day
-            );
-            Ok(format!("Day {} part 2", Self::DAY).to_owned())
-        }
-    }
+    base_test_runner!(TestRunnerBothParts, 11);
+    test_runner_part!(TestRunnerBothParts, 1);
+    test_runner_part!(TestRunnerBothParts, 2);
 
     #[test]
     fn run_both_parts() {

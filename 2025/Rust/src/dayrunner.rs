@@ -388,56 +388,78 @@ fn run_day(ctx: &RunContext) {
 mod test {
     use std::error::Error;
 
-    use crate::register_runner;
+    use crate::{base_test_runner, register_runner, test_runner_part};
 
-    use super::{DayRunner, DayRunnerDate, Part1Runner, Part2Runner, RunContext, run_day_parts};
+    use super::super::args;
+    use super::{
+        DayRunner, DayRunnerDate, Part1Runner, Part2Runner, RunContext, run_day, run_day_parts,
+    };
 
-    struct TestRunnerBothParts();
+    base_test_runner!(TestRunnerBothParts, 3);
+    test_runner_part!(TestRunnerBothParts, 1);
+    test_runner_part!(TestRunnerBothParts, 2);
 
-    impl DayRunner for TestRunnerBothParts {
-        fn init(_ctx: &RunContext) -> Result<Self, Box<dyn Error>>
-        where
-            Self: Sized,
-        {
-            Ok(TestRunnerBothParts())
-        }
-    }
+    base_test_runner!(TestRunnerPart2, 4);
+    test_runner_part!(TestRunnerPart2, 2);
 
-    impl DayRunnerDate for TestRunnerBothParts {
-        const DAY: u8 = 3;
-    }
-
-    impl Part1Runner for TestRunnerBothParts {
-        fn part1(&self, ctx: &RunContext) -> Result<String, Box<dyn Error>> {
-            assert_eq!(
-                Self::DAY,
-                ctx.day,
-                "This runner was designed for  day {}, but run for day {}.",
-                Self::DAY,
-                ctx.day
-            );
-            Ok(format!("Day {} part 1", Self::DAY).to_owned())
-        }
-    }
-
-    impl Part2Runner for TestRunnerBothParts {
-        fn part2(&self, ctx: &RunContext) -> Result<String, Box<dyn Error>> {
-            assert_eq!(
-                Self::DAY,
-                ctx.day,
-                "This runner was designed for  day {}, but run for day {}.",
-                Self::DAY,
-                ctx.day
-            );
-            Ok(format!("Day {} part 2", Self::DAY).to_owned())
-        }
+    /// Registers the test runners for the tests in this module.
+    fn register_runners() {
+        register_runner!(TestRunnerBothParts);
+        register_runner!(TestRunnerPart2);
     }
 
     #[test]
-    fn test_run() {
-        register_runner!(TestRunnerBothParts);
+    fn run_both_parts() {
+        register_runners();
         run_day_parts(3, true, true);
     }
 
-    // TODO add more unit tests.
+    #[test]
+    fn run_one_part() {
+        register_runners();
+        run_day_parts(3, true, false);
+    }
+
+    #[test]
+    fn run_missing_part() {
+        register_runners();
+        run_day_parts(4, true, false);
+    }
+
+    #[test]
+    fn run_timed() {
+        let mut ctx = RunContext::create_default_for_day(3);
+        ctx.time = true;
+        run_day(&ctx);
+    }
+
+    #[test]
+    fn get_parts_from_args() {
+        let args = args::parse_arguments(vec!["-vtp 2", "--part 3"]).unwrap();
+        let parts = super::get_parts_from_args(args);
+        assert!(!parts.0, "Part 1 was incorrectly detected as enabled.");
+        assert!(parts.1, "Part 2 wasn't correctly detected as enabled.");
+    }
+
+    #[test]
+    fn get_no_parts_from_args() {
+        let args = args::parse_arguments(Vec::<String>::new()).unwrap();
+        let parts = super::get_parts_from_args(args);
+        assert!(!parts.0, "Part 1 was incorrectly detected as enabled.");
+        assert!(!parts.1, "Part 2 was incorrectly detected as enabled.");
+    }
+
+    #[test]
+    fn get_days_from_args() {
+        let args = args::parse_arguments(vec!["-d 7-15", "--day 3", "-d 13,2,7,1,9"]).unwrap();
+        let days = super::get_days_from_args(args);
+        assert_eq!(days, vec![7, 8, 9, 10, 11, 12, 3, 2, 7, 1, 9]);
+    }
+
+    #[test]
+    fn run_days_from_args() {
+        register_runners();
+        let args = args::parse_arguments(vec!["-d 2-53", "-v"]).unwrap();
+        super::run_days_from_args(args);
+    }
 }
