@@ -48,7 +48,7 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::sync::{LazyLock, OnceLock};
 
-use super::{BothPartsRunner, DayRunnerDate, Part1Runner, Part2Runner, RunContext};
+use super::{BothPartsRunner, DayRunner, DayRunnerDate, Part1Runner, Part2Runner, RunContext};
 
 /// The number of days that exist for the current [Advent of Code](https://adventofcode.com/).
 pub const MAX_DAY: u8 = 12;
@@ -58,8 +58,7 @@ static REGISTRY: LazyLock<[OnceLock<RunnerData>; MAX_DAY as usize + 1]> =
 
 /// Registers a [`DayRunner`](crate::dayrunner::DayRunner) to be used with this registry.
 ///
-/// Can only handle registering runners that implement at least one of the two parts.  
-/// TODO find a way to handle the none case.
+/// A runner of that type can then be used with [`dayrunner::run_day_parts`](super::run_day_parts) or [`dayrunner::run_days_from_args`](super::run_days_from_args).
 ///
 /// # Examples
 ///
@@ -74,15 +73,21 @@ macro_rules! register_runner {
         use $crate::dayrunner::registry::DayRunnerPart1Trait;
         #[allow(unused_imports)]
         use $crate::dayrunner::registry::DayRunnerPart2Trait;
-        (&PhantomData::<$t>::default()).register()
+        let phantom = &PhantomData::<$t>::default();
+        if !phantom.register_both_runner()
+            && !phantom.register_part_1_runner()
+            && !phantom.register_part_2_runner()
+        {
+            $crate::dayrunner::registry::register_none_runner::<$t>();
+        }
     }};
 }
 
 /// A helper enum to store which days have implementaions for which parts.
 pub(super) enum RunnerType {
-    // An implementation that has neither a part 1 implementation nor a part 2 implementation.
-    //#[allow(unused)]
-    //None(Box<dyn DayRunner>),
+    /// An implementation that has neither a part 1 implementation nor a part 2 implementation.
+    #[allow(unused)]
+    None(Box<dyn DayRunner>),
     /// A day runner that has a part 1 implementation, but no part 2 implementation.
     #[allow(unused)]
     Part1(Box<dyn Part1Runner>),
@@ -100,6 +105,7 @@ impl fmt::Debug for RunnerType {
             f,
             "{}",
             match self {
+                RunnerType::None(_) => "None",
                 RunnerType::Part1(_) => "Part1",
                 RunnerType::Part2(_) => "Part2",
                 RunnerType::Both(_) => "Both",
@@ -165,7 +171,13 @@ macro_rules! register_runner_wrap_init {
         ///
         /// If a runner is already registered for the same day, even if not for the same part, the runner will not be registered.
         /// A log message will be printed in this case.
-        pub fn $register_fn<T: $part_trait + DayRunnerDate + 'static>() {
+        ///
+        /// Returns whether the runner was registered successfully.
+        ///
+        /// # Panics
+        ///
+        /// This function panics if trying to register a runner for a day after [`MAX_DAY`].
+        pub fn $register_fn<T: $part_trait + DayRunnerDate + 'static>() -> bool {
             assert!(
                 T::DAY <= MAX_DAY,
                 "trying to register runner for invalid day {}",
@@ -181,17 +193,19 @@ macro_rules! register_runner_wrap_init {
                     "Not registering day {} runner because one is already registerd.",
                     T::DAY
                 );
+                return false;
             }
+            true
         }
     };
 }
 
-/*register_runner_wrap_init!(
+register_runner_wrap_init!(
     DayRunner,
     RunnerType::None,
     register_none_runner,
     wrap_none_init
-);*/
+);
 register_runner_wrap_init!(
     Part1Runner,
     RunnerType::Part1,
@@ -230,19 +244,36 @@ pub(super) fn get_runner_for_day(ctx: &RunContext) -> Option<Result<RunnerType, 
         .map(|rd| rd.init(ctx))
 }
 
+/// Generates a trait and its impls for using [`Autoref Specialization`](https://github.com/dtolnay/case-studies/blob/master/autoref-specialization/README.md) to register a runner.
+///
+/// A runner will only be registered if it implements the trait specified for this trait.
 macro_rules! register_part_impl {
-    ($part_trait:path,$trait_name:ident,$register_fn:ident,$($ref:tt)?) => {
+    ($part_trait:path,$trait_name:ident,$register_fn:ident$(,)?) => {
         /// A helper trait for [`Autoref Specialization`](https://github.com/dtolnay/case-studies/blob/master/autoref-specialization/README.md)
+		///
+		/// This trait is only supposed to be used with the [`register_runner`](crate::register_runner) macro.
         #[allow(unused)]
         #[doc(hidden)]
         pub trait $trait_name {
-            /// Registers the given runner type to the global runner registry.
-            fn register(&self);
+            /// Registers the given runner type to the global runner registry, if it has a given trait.
+            ///
+            /// Does not register the runner if it does not have the trait.  
+            /// Returns true if the runner has the trait being checked for, even if it wasn't registered successfully.
+            fn $register_fn(&self) -> bool;
         }
 
-        impl<T: $part_trait + DayRunnerDate + 'static> $trait_name for $($ref)? PhantomData<T> {
-            fn register(&self) {
+        #[doc(hidden)]
+        impl<T: DayRunner + DayRunnerDate + 'static> $trait_name for &PhantomData<T> {
+            fn $register_fn(&self) -> bool {
+                false
+            }
+        }
+
+        #[doc(hidden)]
+        impl<T: $part_trait + DayRunnerDate + 'static> $trait_name for PhantomData<T> {
+            fn $register_fn(&self) -> bool {
                 $register_fn::<T>();
+                true
             }
         }
     };
@@ -253,19 +284,8 @@ register_part_impl!(
     DayRunnerBothPartsTrait,
     register_both_runner,
 );
-register_part_impl!(Part1Runner, DayRunnerPart1Trait, register_part_1_runner, &);
-register_part_impl!(Part2Runner, DayRunnerPart2Trait, register_part_2_runner, &);
-
-/*#[allow(unused)]
-trait DayRunnerNoPartTrait {
-    fn register(&self);
-}
-
-impl<T: DayRunner + DayRunnerDate + 'static> DayRunnerNoPartTrait for &&PhantomData<T> {
-    fn register(&self) {
-        register_none_runner::<T>();
-    }
-}*/
+register_part_impl!(Part1Runner, DayRunnerPart1Trait, register_part_1_runner);
+register_part_impl!(Part2Runner, DayRunnerPart2Trait, register_part_2_runner);
 
 #[cfg(test)]
 mod test {
@@ -475,6 +495,36 @@ mod test {
             part_2_result.as_ref().unwrap().as_ref().unwrap(),
             &format!("Day {} part 2", ctx.day),
             "Runner part 2 result mismatch"
+        );
+    }
+
+    base_test_runner!(TestRunnerNeitherPart, 12);
+
+    #[test]
+    fn run_neither_part() {
+        register_runner!(TestRunnerNeitherPart);
+        let ctx = RunContext::create_default_for_day(12);
+        let runner = get_runner_for_day(&ctx);
+        assert!(
+            runner.is_some(),
+            "There wasn't a runner for day {}.",
+            ctx.day
+        );
+        assert!(
+            runner.as_ref().unwrap().is_ok(),
+            "Initializing a runner for day {} failed with error {:?}",
+            ctx.day,
+            runner.as_ref().unwrap().as_ref().unwrap_err()
+        );
+        let part_1_result = runner.as_ref().unwrap().as_ref().unwrap().part1(&ctx);
+        assert!(
+            part_1_result.is_none(),
+            "Part 1 was detected to be implemented."
+        );
+        let part_2_result = runner.as_ref().unwrap().as_ref().unwrap().part2(&ctx);
+        assert!(
+            part_2_result.is_none(),
+            "Part 2 was detected to be implemented."
         );
     }
 }
