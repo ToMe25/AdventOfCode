@@ -114,6 +114,7 @@ impl TokenStream {
                     }
                 }
             } else if !string.is_empty() {
+				// FIXME: Handle commans after a space
                 let list_split: Vec<&str> = string.trim().split(",").collect();
                 if list_split.len() > 1 || last_list_ends_comma && !string.contains("-") {
                     let mut vals: Vec<u8> = Vec::with_capacity(list_split.len());

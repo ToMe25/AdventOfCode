@@ -28,11 +28,7 @@ use super::utils;
 
 mod traits;
 
-pub use traits::BothPartsRunner;
-pub use traits::DayRunner;
-pub use traits::DayRunnerDate;
-pub use traits::Part1Runner;
-pub use traits::Part2Runner;
+pub use traits::{BothPartsRunner, DayRunner, DayRunnerDate, Part1Runner, Part2Runner};
 
 pub mod registry;
 
